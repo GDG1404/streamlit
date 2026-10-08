@@ -7,6 +7,7 @@ Schrijft een CSV in EXACT hetzelfde formaat als sensortest_fft.ino
 van 2 minuten:
 
    0–25 s  geen GPS-fix (sketch logt dan placeholder-coördinaten)
+     35 s  tik op de tafel: korte schok (~7 g in acc_peak_g)
   40–55 s  CanSat met de hand geschud (trilling ~4–5 Hz, ~0,6 g)
      60 s  handklap (piek in audio_rms)
   70–90 s  trap op gelopen (~6 m hoger)
@@ -27,6 +28,7 @@ COLUMNS = [  # identiek aan CSV_HEADER in sensortest_fft.ino
     "gyro_x", "gyro_y", "gyro_z", "lacc_x", "lacc_y", "lacc_z",
     "grav_x", "grav_y", "grav_z", "heading", "roll", "pitch",
     "qw", "qx", "qy", "qz", "fft_peak_hz", "fft_peak_amp", "audio_rms",
+    "acc_peak_g",
 ]
 DURATION_S = 120
 
@@ -61,6 +63,13 @@ def make_row(t, t_ms):
     else:
         fhz, famp = random.uniform(1, 200), 0.002 + abs(random.gauss(0, 0.001))
     audio = 0.0031 + abs(random.gauss(0, 0.0004)) + (0.21 if t == 60 else 0)
+    # grootste versnelling in deze seconde (incl. zwaartekracht, rust ≈ 1 g)
+    if t == 35:
+        peak = 7.2 + random.gauss(0, 0.3)            # korte schok
+    elif shake:
+        peak = 2.6 + abs(random.gauss(0, 0.5))
+    else:
+        peak = 1.0 + abs(random.gauss(0, 0.01))
 
     def f(v, n):
         return f"{v:.{n}f}"
@@ -70,7 +79,7 @@ def make_row(t, t_ms):
         *(f(g, 3) for g in gyro), *(f(x, 3) for x in lacc),
         *(f(g, 3) for g in grav),
         f(heading, 2), f(roll, 2), f(pitch, 2), *(f(x, 4) for x in q),
-        f(fhz, 1), f(famp, 3), f(audio, 4),
+        f(fhz, 1), f(famp, 3), f(audio, 4), f(peak, 2),
     ])
 
 

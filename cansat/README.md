@@ -181,7 +181,8 @@ opent een venster met grafieken. Kijk wat er gebeurt:
 | Tijd | Wat gebeurde er (nep)? | Wat zie je? |
 |---|---|---|
 | 0–25 s | GPS zoekt nog satellieten | geen positie |
-| 40–55 s | CanSat wordt geschud | pieken in de grafieken ACCELERATION en GYROSCOPE |
+| 35 s | iemand tikt met de CanSat op de tafel | ACCELERATION: de witte stippellijn springt omhoog. Linksboven staat `largest shock`. |
+| 40–55 s | CanSat wordt geschud | pieken in ACCELERATION en GYROSCOPE. In STRONGEST VIBRATION verschijnen oranje bolletjes rond 4–5 Hz. |
 | 60 s | iemand klapt in de handen | piek in AUDIO RMS |
 | 70–90 s | iemand loopt een trap op | ALTITUDE stijgt ongeveer 6 m |
 
@@ -328,7 +329,8 @@ logboek telkens de **tijd** die rechtsboven in het dashboard staat.
 | # | Test | Wat doe je? | Waar kijk je? |
 |---|---|---|---|
 | 1 | **Rust** | 30 s niets: CanSat stil op tafel | Alle grafieken ongeveer vlak. Dit is je **nulmeting**. |
-| 2 | **Schudden** | 15 s stevig schudden met de hand | Scherm 1: ACCELERATION, GYROSCOPE, FFT. Scherm 2: het blik kleurt oranje/rood. |
+| 2 | **Schudden** | 15 s stevig schudden met de hand | Scherm 1: ACCELERATION, GYROSCOPE en STRONGEST VIBRATION. Scherm 2: het blikje kleurt oranje/rood. |
+| 2b | **Schok** | zet de CanSat met een stevige tik op de tafel | Scherm 1: ACCELERATION. De witte stippellijn springt omhoog. Linksboven staat `largest shock` met de grootte en het tijdstip. |
 | 3 | **Klap** | één keer hard in de handen klappen naast de CanSat | Scherm 1: AUDIO RMS |
 | 4 | **Draaien** | CanSat langzaam een kwartslag draaien rond de verticale as | Scherm 2: het blik rechts draait mee, *Heading* verandert |
 | 5 | **Kantelen** | CanSat schuin houden, naar voren en opzij | Scherm 2: *Roll* en *Pitch* |
@@ -486,9 +488,33 @@ springende balkjes van een equalizer in een muziekapp. De sketch verzamelt 512 m
 (ongeveer 1,2 s), doet er een FFT op en bewaart de **sterkste** frequentie
 (`fft_peak_hz`) en hoe sterk ze is (`fft_peak_amp`, in g).
 
-Waarom gaat het spectrum maar tot **208 Hz**? Om een trilling te herkennen, moet je ze
+Waarom gaat het maar tot **208 Hz**? Om een trilling te herkennen, moet je ze
 minstens 2 keer per periode meten. Met 416 metingen per seconde kan je dus trillingen
 tot 416 ÷ 2 = 208 Hz zien. Dat heet de **Nyquist-frequentie**.
+
+In het dashboard zie je dat in de grafiek **STRONGEST VIBRATION**. Elke seconde komt er
+één bolletje bij. Hoe hoger het bolletje, hoe sneller de trilling.
+- Een **klein grijs** puntje: de trilling is zwak. Dat is gewoon ruis.
+- Een **groot oranje** bolletje: een echte, sterke trilling.
+
+Het dashboard toont alleen wat de Teensy echt gemeten heeft.
+
+**Schokken → grootste versnelling.** Een schok duurt heel kort, bijvoorbeeld als de
+CanSat uit de raket wordt geworpen of als de parachute opengaat. Veel korter dan een
+seconde. De Teensy stuurt maar één regel per seconde. Een gewone meting valt dan
+bijna altijd **naast** de schok.
+
+Daarom houdt de Teensy elke seconde de **grootste** versnelling bij. Hij meet daarvoor
+416 keer per seconde met de LSM6DSO. Die grootste waarde komt in de kolom
+`acc_peak_g`. Zo mis je geen enkele schok.
+
+De zwaartekracht zit er ook in. Ligt de CanSat stil, dan is `acc_peak_g` dus ongeveer
+**1 g**. Een tik op de tafel geeft al snel 3 tot 8 g.
+
+**Het gekleurde blikje op scherm 2 is een schatting.** Het dashboard rekent met een
+eenvoudige formule uit hoe zwaar het blikje belast wordt. Dat gebeurt op basis van de
+versnelling. Er zit geen sensor die de belasting zelf meet. Groen betekent een kleine
+belasting, rood een grote. De kleur blijft staan op de hoogste waarde.
 
 ### C5. Een CSV-bestand
 
@@ -554,6 +580,7 @@ hapert of opnieuw opgestart wordt.
 | `No module named 'matplotlib'` (of `numpy`, `serial`, `PIL`) | Doe A6 opnieuw, in een opdrachtprompt in `C:\CanSat`. |
 | `can't open file ... No such file or directory` | De opdrachtprompt staat niet in `C:\CanSat`. Open hem opnieuw via de adresbalk (`cmd`). |
 | `serial_logger`: `could not open port` of `Access is denied` | De Serial Monitor van de Arduino IDE is nog open: sluit hem. Of je typte de verkeerde COM-poort: kijk opnieuw met `--list`. |
+| `serial_logger` meldt: *de Teensy stuurt 26 kolommen in plaats van 27* | Op de Teensy staat nog een oude versie van de sketch. Doe B1 opnieuw. |
 | `serial_logger`: het aantal rijen blijft 0 | Draait de sketch? Knippert het lampje? Druk op het witte knopje van de Teensy. |
 | Dashboard toont `SIMULATED TEST DATA` | Het bestand werd niet gevonden. Start eerst `serial_logger` (B3), controleer de bestandsnaam, en start dan het dashboard opnieuw. |
 | Scherm 2: de kaart (toets M) is donker, zonder straten | De kaart werd niet gedownload (geen internet). De kaart hangt af van de plaats: open scherm 2 één keer **met internet** op die plaats en druk op M. De kaart wordt dan bewaard in `C:\CanSat\dashboard\osm_cache` en werkt daarna ook zonder internet. |
@@ -581,7 +608,7 @@ Plus bij elke sensor: **3,3 V** en **GND**.
 
 ### E2. De CSV-kolommen
 
-Elke rij heeft 26 kolommen, altijd in deze volgorde.
+Elke rij heeft 27 kolommen, altijd in deze volgorde.
 
 | Kolom | Eenheid | Sensor | Betekenis |
 |---|---|---|---|
@@ -599,6 +626,7 @@ Elke rij heeft 26 kolommen, altijd in deze volgorde.
 | `fft_peak_hz` | Hz | LSM6DSO | sterkste trilling |
 | `fft_peak_amp` | g | LSM6DSO | hoe sterk die trilling is (1 g = 9,81 m/s²) |
 | `audio_rms` | — (0–1) | SPH0645 | geluidsniveau van de afgelopen seconde |
+| `acc_peak_g` | g | LSM6DSO | grootste versnelling van de afgelopen seconde, met de zwaartekracht erbij |
 
 ### E3. Normale waarden
 
@@ -612,11 +640,12 @@ Elke rij heeft 26 kolommen, altijd in deze volgorde.
 | `gyro_x/y/z` | ongeveer 0 (±1) | |
 | `fft_peak_hz` | willekeurig | In rust is er geen echte trilling, dus de "piek" is toeval. |
 | `fft_peak_amp` | kleiner dan 0,01 g | Hard schudden: 0,3–1 g. |
+| `acc_peak_g` | ongeveer 1,0 | Dat is de zwaartekracht. Een tik op de tafel: 3–8 g. Schudden: 2–4 g. |
 | `audio_rms` | 0,001–0,005 | Zelfde als in `SPH0645_test`. Een korte klap geeft hier een **lagere** waarde dan in die test: de sketch middelt over 1 s, de test over 0,1 s. Aanhoudend geluid geeft ongeveer hetzelfde. |
 
-> Het dashboard toont een FFT-piek pas als `fft_peak_amp` groter is dan 0,3 g. De
-> blauwe lijnen met de 5 vaakste frequenties verschijnen pas na 20 zulke metingen,
-> dus na ongeveer 20 s stevig schudden.
+> Een bolletje in STRONGEST VIBRATION wordt pas oranje als `fft_peak_amp` groter is
+> dan 0,3 g. De blauwe lijnen met de 5 vaakste trillingen verschijnen pas na 20 oranje
+> bolletjes. Dat is ongeveer 20 s stevig schudden.
 
 ### E4. Woordenlijst
 
@@ -666,6 +695,11 @@ py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per se
 ---
 
 ## Voor de leerkracht
+
+- **Nieuwe kolom `acc_peak_g`:** de testsketch schrijft een 27e kolom met de grootste
+  versnelling per logregel (LSM6DSO, ±16 g). De BNO055 meet standaard maar tot 4 g en
+  zou een schok afkappen. Wil je dit ook in de vluchtdata, voeg dan dezelfde kolom
+  achteraan toe in de vluchtcode. De dashboards lezen ook bestanden zonder die kolom.
 
 - **SD-kaart (optioneel):** zit er een microSD-kaart (FAT32) in de Teensy, dan schrijft
   de sketch dezelfde regels ook naar `test_000.csv`, `test_001.csv`, … op de kaart (elke

@@ -13,10 +13,14 @@ CSV/serial parser plugs in 1-to-1 later.
 Panels:
   - KPI bar with sub-values (apogee, max descent rate, mean Cd)
   - Altitude vs time with apogee marker
-  - Acceleration XYZ / gyroscope (sliding window)
-  - FFT vibration spectrum, axis limited to the Nyquist frequency
-    (208 Hz), with the TOP-5 most frequent peak frequencies of the
-    flight marked as numbered lines
+  - Gyroscope (sliding window)
+  - Acceleration XYZ plus the PEAK acceleration per log interval
+    (LSM6DSO, ±16 g), so short shocks (ejection, parachute) are not
+    missed between two log lines; the largest shock is marked
+  - FFT: the MEASURED strongest vibration frequency over time (dot size
+    and colour = strength), axis limited to the Nyquist frequency
+    (208 Hz), with the TOP-5 most frequent strong frequencies of the
+    flight marked as numbered lines. Only measured values are shown.
   - Audio RMS with a CHUTE marker at parachute opening
   - FLIGHT PHASE TIMELINE: horizontal bar showing the phases over time
   - Cd & descent rate on a twin axis
@@ -108,7 +112,14 @@ CSV_COLUMNS = [
     "qw", "qx", "qy", "qz",
     "fft_peak_hz", "fft_peak_amp",
     "audio_rms",
+    "acc_peak_g",
 ]
+# Files from before acc_peak_g existed (26 columns) still load: the
+# dashboards read columns by name and treat a missing one as "no data".
+
+FFT_STRONG_G = 0.3   # fft_peak_amp (g) above which a vibration counts as
+                     # "strong" — tune after the first real measurements
+ACC_PEAK_MAX_G = 16  # LSM6DSO range in the firmware (±16 g)
 
 # Without a GPS fix the firmware logs placeholder coordinates and this
 # time; such rows must not be used as the GPS reference point.
@@ -267,6 +278,10 @@ class TelemetrySimulator:
             audio += 0.35 * math.exp(-8 * (t - self.T_CHUTE))
         audio = max(0.0, audio)
 
+        # total acceleration incl. gravity, as the LSM6DSO measures it (g)
+        acc_g = math.sqrt(lacc_x ** 2 + lacc_y ** 2 +
+                          (lacc_z + self.G) ** 2) / self.G
+
         return {
             "millis": int(t * 1000),
             "temp_C": self._temperature(self.alt),
@@ -283,6 +298,7 @@ class TelemetrySimulator:
             "fft_peak_hz": max(0.0, fft_hz),
             "fft_peak_amp": max(0.0, fft_amp),
             "audio_rms": audio,
+            "acc_peak_g": acc_g,
         }
 
     def drag_coefficient(self, row):
@@ -296,9 +312,11 @@ class TelemetrySimulator:
     def fetch(self, dt):
         """Advance dt seconds; returns the new telemetry rows (list)."""
         n_sub = min(40, max(1, int(dt / 0.05)))
-        row = None
+        row, peak = None, 0.0
         for _ in range(n_sub):
             row = self.step(dt / n_sub)
+            peak = max(peak, row["acc_peak_g"])
+        row["acc_peak_g"] = peak          # like the firmware: max per interval
         return [row]
 
 
@@ -641,7 +659,7 @@ class PhaseDetector:
 #  DASHBOARD
 # ═════════════════════════════════════════════════════════════
 class Dashboard:
-    N_FFT_BARS = 26
+    N_FREQ_BINS = 52     # histogram bins for the top-5 frequencies
     N_TOP = 5            # number of marked dominant frequencies
 
     def __init__(self):
@@ -649,7 +667,8 @@ class Dashboard:
         self.detector = PhaseDetector()
         self.hist = {k: deque(maxlen=4000) for k in
                      ("t", "alt", "ax", "ay", "az", "gx", "gy", "gz",
-                      "audio", "cd", "v")}
+                      "audio", "cd", "v", "fhz", "famp", "apk")}
+        self.shock_g, self.t_shock = 0.0, 0.0   # largest peak this flight
         self.apogee = 0.0
         self.t_apogee = 0.0
         self.v_max = 0.0
@@ -748,8 +767,22 @@ class Dashboard:
         self.ln_ay, = self.ax_acc.plot([], [], color=C["green"], lw=1.2, label="Y")
         self.ln_az, = self.ax_acc.plot([], [], color=C["orange"], lw=1.2, label="Z")
         self.ax_acc.set_ylim(-30, 45)
-        self.ax_acc.legend(loc="upper right", fontsize=6, frameon=False,
-                           labelcolor=C["muted"])
+        # peak |a| per log interval (LSM6DSO, incl. gravity: rest = 1 g)
+        self.ax_pk = self.ax_acc.twinx()
+        self.ax_pk.set_ylim(0, ACC_PEAK_MAX_G)
+        self.ax_pk.tick_params(colors=C["text"], labelsize=7)
+        for sp in self.ax_pk.spines.values():
+            sp.set_color(C["border"])
+        self.ax_pk.set_ylabel("peak g", fontsize=7, color=C["text"])
+        self.ln_pk, = self.ax_pk.plot([], [], color=C["text"], lw=1.2,
+                                      ls="--", label="peak (g)")
+        self.txt_shock = self.ax_acc.text(0.02, 0.88, "", fontsize=7,
+                                          color=C["text"],
+                                          transform=self.ax_acc.transAxes)
+        lines = [self.ln_ax, self.ln_ay, self.ln_az, self.ln_pk]
+        self.ax_acc.legend(lines, [l.get_label() for l in lines],
+                           loc="upper right", fontsize=6, frameon=False,
+                           labelcolor=C["muted"], ncol=2)
 
         # Row 2: gyro + FFT + audio
         self.ax_gyro = self.fig.add_subplot(gs[1, :2])
@@ -763,25 +796,26 @@ class Dashboard:
 
         self.ax_fft = self.fig.add_subplot(gs[1, 2:4])
         self._style_axes(self.ax_fft,
-                         "● FFT VIBRATION SPECTRUM (0–208 Hz · Nyquist)",
+                         "● STRONGEST VIBRATION (measured · 0–208 Hz)",
                          C["amber"])
-        freqs = np.linspace(0, F_NYQUIST, self.N_FFT_BARS)
-        self.fft_bars = self.ax_fft.bar(freqs, np.zeros(self.N_FFT_BARS),
-                                        width=F_NYQUIST / self.N_FFT_BARS * 0.8,
-                                        color=C["amber"])
-        self.ax_fft.set_xlim(0, F_NYQUIST)
-        self.ax_fft.set_ylim(0, 2.2)
-        self.ax_fft.set_xlabel("Hz", fontsize=7)
-        self.txt_fftpeak = self.ax_fft.text(0.97, 0.9, "", fontsize=8,
+        # one dot per log line: y = frequency, size/colour = strength;
+        # weak (noise) peaks are drawn small and grey
+        self.sc_fft = self.ax_fft.scatter([], [], s=[], c=[],
+                                          edgecolors="none")
+        self.ax_fft.set_ylim(0, F_NYQUIST)
+        self.ax_fft.set_ylabel("Hz", fontsize=7)
+        self.ax_fft.set_xlabel("time (s)", fontsize=7)
+        self.txt_fftpeak = self.ax_fft.text(0.98, 0.88, "", fontsize=8,
                                             color=C["amber"], ha="right",
                                             transform=self.ax_fft.transAxes)
-        # top-5 most frequent peak frequencies of this flight
+        # top-5 most frequent strong frequencies of this flight
         self.top_lines, self.top_texts = [], []
+        ytrans = self.ax_fft.get_yaxis_transform()
         for i in range(self.N_TOP):
-            ln = self.ax_fft.axvline(np.nan, color=C["blue"], lw=1,
+            ln = self.ax_fft.axhline(np.nan, color=C["blue"], lw=1,
                                      ls=(0, (2, 2)), alpha=0.85)
-            tx = self.ax_fft.text(0, 2.05, "", fontsize=6, color=C["blue"],
-                                  ha="center")
+            tx = self.ax_fft.text(0.01, 0, "", fontsize=6, color=C["blue"],
+                                  va="bottom", transform=ytrans)
             self.top_lines.append(ln)
             self.top_texts.append(tx)
 
@@ -863,16 +897,16 @@ class Dashboard:
         n_show = 0
         if len(self.freq_hist) >= 20:
             counts, edges = np.histogram(
-                self.freq_hist, bins=self.N_FFT_BARS * 2,
+                self.freq_hist, bins=self.N_FREQ_BINS,
                 range=(0, F_NYQUIST))
             order = np.argsort(counts)[::-1]
             for rank, idx in enumerate(order[:self.N_TOP]):
                 if counts[idx] < 3:
                     break
                 fc = 0.5 * (edges[idx] + edges[idx + 1])
-                self.top_lines[rank].set_xdata([fc, fc])
+                self.top_lines[rank].set_ydata([fc, fc])
                 self.top_lines[rank].set_visible(True)
-                self.top_texts[rank].set_position((fc, 2.05))
+                self.top_texts[rank].set_position((0.01, fc))
                 self.top_texts[rank].set_text(f"{rank + 1}·{fc:.0f}Hz")
                 n_show += 1
         for i in range(n_show, self.N_TOP):
@@ -891,6 +925,7 @@ class Dashboard:
             self.apogee = self.v_max = 0.0
             self.cd_sum, self.cd_n = 0.0, 0
             self.freq_hist.clear()
+            self.shock_g, self.t_shock = 0.0, 0.0
             self.segments.clear()
             self.t_chute = None
             self.pkt_rx = 0
@@ -921,7 +956,13 @@ class Dashboard:
         if not math.isnan(cd):
             self.cd_sum += cd
             self.cd_n += 1
-        if row["fft_peak_amp"] > 0.3:
+        h["fhz"].append(min(row["fft_peak_hz"], F_NYQUIST))
+        h["famp"].append(row["fft_peak_amp"])
+        apk = row.get("acc_peak_g", float("nan"))    # nan: older file
+        h["apk"].append(apk)
+        if apk > self.shock_g:
+            self.shock_g, self.t_shock = apk, t
+        if row["fft_peak_amp"] > FFT_STRONG_G:
             self.freq_hist.append(min(row["fft_peak_hz"], F_NYQUIST))
         self.pkt_rx += 1
         self._track_phase(t, det)
@@ -1016,6 +1057,11 @@ class Dashboard:
         self.ln_ax.set_data(ts, h["ax"])
         self.ln_ay.set_data(ts, h["ay"])
         self.ln_az.set_data(ts, h["az"])
+        self.ln_pk.set_data(ts, h["apk"])
+        if self.shock_g > 0:
+            self.txt_shock.set_text(
+                f"largest shock {self.shock_g:.1f} g at "
+                f"{int(self.t_shock // 60):02d}:{int(self.t_shock % 60):02d}")
         self.ln_gx.set_data(ts, h["gx"])
         self.ln_gy.set_data(ts, h["gy"])
         self.ln_gz.set_data(ts, h["gz"])
@@ -1026,14 +1072,20 @@ class Dashboard:
             self.txt_chute.set_position((self.t_chute + 0.4, 0.45))
             self.txt_chute.set_text("CHUTE")
 
-        # ── FFT spectrum (synthetic around the peak) ──
-        freqs = np.linspace(0, F_NYQUIST, self.N_FFT_BARS)
+        # ── strongest vibration: measured values only ──
+        famp = np.array(h["famp"])
+        strong = famp > FFT_STRONG_G
+        self.sc_fft.set_offsets(np.column_stack((ts, np.array(h["fhz"]))))
+        self.sc_fft.set_sizes(np.where(
+            strong, 12 + 60 * np.clip(famp / 1.5, 0, 1), 4))
+        self.sc_fft.set_color(np.where(strong[:, None],
+                                       matplotlib.colors.to_rgba(C["amber"]),
+                                       matplotlib.colors.to_rgba(C["dim"], 0.5)))
+        self.ax_fft.set_xlim(0, max(60, t + 5))
         peak_hz, peak_amp = row["fft_peak_hz"], row["fft_peak_amp"]
-        spectrum = peak_amp * np.exp(-((freqs - peak_hz) ** 2) / (2 * 18 ** 2))
-        spectrum += np.abs(np.random.normal(0, 0.03, self.N_FFT_BARS))
-        for bar, amp in zip(self.fft_bars, spectrum):
-            bar.set_height(amp)
-        self.txt_fftpeak.set_text(f"{peak_hz:.0f} Hz ▲" if peak_amp > 0.3 else "")
+        self.txt_fftpeak.set_text(f"{peak_hz:.0f} Hz · {peak_amp:.2f} g"
+                                  if peak_amp > FFT_STRONG_G
+                                  else "no strong vibration")
         self._update_top_freqs()
 
         # ── flight phase timeline ──

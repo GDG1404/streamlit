@@ -13,8 +13,9 @@ Panels:
     first GPS fix; Elsenborn in the simulator) — the recovery view. The
     map zooms out automatically when the can drifts off the map.
   - Altitude profile bar (below the map)
-  - Large 3D can (66×115 mm, closed with lid and bottom) with a computed
-    load heatmap. Peak hold: colours stay at the highest value reached,
+  - Large 3D can (66×115 mm, closed with lid and bottom) with an
+    ESTIMATED load heatmap (a simple model from the accelerations, not
+    a measurement). Peak hold: colours stay at the highest value reached,
     so at the end of the flight you can see where the load was largest.
     A thin dark raster keeps the shape readable when everything colours.
   - Radio link status (RSSI / packets / SNR)
@@ -453,7 +454,7 @@ class Dashboard2:
         except AttributeError:
             pass
         self.ax_ori.set_title(
-            "● 3D ORIENTATION + LOAD HEATMAP (computed · peak hold)",
+            "● 3D ORIENTATION + ESTIMATED LOAD (model, not measured)",
             loc="left", fontsize=8, color=C["purple"],
             fontfamily="monospace", pad=2)
         self.txt_quat = self.ax_ori.text2D(
@@ -467,7 +468,7 @@ class Dashboard2:
             0.0, 0.02, "", transform=self.ax_ori.transAxes,
             fontsize=8, color=C["red"], family="monospace", va="bottom")
         self.ax_ori.text2D(
-            1.0, 0.02, "green = low · red = high (peak hold)",
+            1.0, 0.02, "estimate · green = low · red = high (peak hold)",
             transform=self.ax_ori.transAxes, fontsize=7,
             color=C["dim"], family="monospace", va="bottom", ha="right")
 
@@ -557,7 +558,7 @@ class Dashboard2:
 
         # peak force at the attachment point (accumulated in _ingest)
         self.txt_load.set_text(
-            f"attachment {self._f_now:5.1f} N · "
+            f"est. attachment {self._f_now:5.1f} N · "
             f"peak {self.peak_load_n:.1f} N "
             f"({self.peak_load_n / (TelemetrySimulator.MASS * 9.81):.1f} g)")
 
@@ -676,6 +677,11 @@ class Dashboard2:
     def _accumulate_stress(self, row):
         X, Y, Z, TH = self.cyl
         a_ax = 9.81 + max(0.0, -row["lacc_z"])
+        # the per-interval peak (LSM6DSO) also catches shocks that fall
+        # between two log lines; older files without it: nan → ignored
+        apk = row.get("acc_peak_g", float("nan"))
+        if apk == apk:
+            a_ax = max(a_ax, apk * 9.81)
         a_lat = math.hypot(row["lacc_x"], row["lacc_y"])
         th_f = math.atan2(row["lacc_y"], row["lacc_x"])
         frac = (Z - Z.min()) / (Z.max() - Z.min())

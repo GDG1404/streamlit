@@ -1,16 +1,19 @@
 /*
  * CanSat 2027 - Teensy 4.1 - SENSORTEST + FFT + CSV
- * Zelfstandige testsketch — zelfde CSV-formaat als de vluchtcode.
+ * Zelfstandige testsketch — CSV-formaat van de vluchtcode, plus acc_peak_g.
  *
  * Sensoren: BMP390, BNO055, LSM6DSO, GPS PA1616D, SPH0645 (I2S)
  *
- * CSV-kolommen (identiek aan vluchtcode):
+ * CSV-kolommen (vluchtcode + acc_peak_g als 27e kolom; de dashboards
+ * lezen ook bestanden zonder acc_peak_g):
  *   millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,
  *   gyro_x,gyro_y,gyro_z,lacc_x,lacc_y,lacc_z,grav_x,grav_y,grav_z,
- *   heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms
+ *   heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms,
+ *   acc_peak_g
  *
  * fft_peak_amp = amplitude van de piek in g (DC verwijderd, venster-gecorrigeerd)
  * audio_rms    = RMS van alle audio sinds de vorige logregel (DC verwijderd)
+ * acc_peak_g   = grootste versnelling (LSM6DSO) sinds de vorige logregel, in g
  */
 
 #include <Wire.h>
@@ -60,7 +63,8 @@ const char CSV_HEADER[] =
     "heading,roll,pitch,"
     "qw,qx,qy,qz,"
     "fft_peak_hz,fft_peak_amp,"
-    "audio_rms";
+    "audio_rms,"
+    "acc_peak_g";
 
 File csvFile;
 int  sdBufferLines = 0;
@@ -81,6 +85,11 @@ float last_qw=1, last_qx=0, last_qy=0, last_qz=0;
 
 float fft_peak_hz = 0, fft_peak_amp = 0;
 float audio_rms = 0;
+
+// Grootste versnelling (LSM6DSO, 416 Hz, ±16 g) sinds de vorige logregel.
+// Een schok (uitwerpen, parachute) duurt korter dan 1 s en valt anders
+// tussen twee logregels in. Inclusief zwaartekracht: in rust ≈ 1 g.
+float acc_peak_g = 0;
 
 // Audio-accumulatie tussen twee logregels
 double   audio_sum = 0, audio_sum_sq = 0;
@@ -342,7 +351,12 @@ void readBNO055() {
 
 void readLSM6DSO() {
     // Eerst opslaan, dan pas controleren → geen sample verloren
-    lsm_buffer_z[lsm_buf_index++] = lsm.readFloatAccelZ();
+    float ax = lsm.readFloatAccelX();
+    float ay = lsm.readFloatAccelY();
+    float az = lsm.readFloatAccelZ();
+    float a  = sqrtf(ax * ax + ay * ay + az * az);   // grootte, in g
+    if (a > acc_peak_g) acc_peak_g = a;
+    lsm_buffer_z[lsm_buf_index++] = az;
 
     if (lsm_buf_index >= FFT_SAMPLES) {
         // Werkelijke samplefrequentie meten (loop kan blokkeren)
@@ -439,7 +453,8 @@ void writeCSV() {
         String(last_qw, 4) + "," + String(last_qx, 4) + "," +
         String(last_qy, 4) + "," + String(last_qz, 4) + "," +
         String(fft_peak_hz, 1)   + "," + String(fft_peak_amp, 3) + "," +
-        String(audio_rms, 4);
+        String(audio_rms, 4)     + "," + String(acc_peak_g, 2);
+    acc_peak_g = 0;   // nieuw interval: opnieuw de grootste zoeken
 
     if (csvFile) {
         csvFile.println(csv);

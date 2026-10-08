@@ -19,7 +19,9 @@ COLUMNS = [  # identiek aan CSV_COLUMNS in dashboard_scherm1.py
     "gyro_x", "gyro_y", "gyro_z", "lacc_x", "lacc_y", "lacc_z",
     "grav_x", "grav_y", "grav_z", "heading", "roll", "pitch",
     "qw", "qx", "qy", "qz", "fft_peak_hz", "fft_peak_amp", "audio_rms",
+    "acc_peak_g",
 ]
+OLD_COLUMNS = COLUMNS[:-1]   # bestanden van vóór acc_peak_g (26 kolommen)
 NO_FIX_TIME = "00:00:00"
 MAX_ERRORS_SHOWN = 10
 
@@ -38,7 +40,12 @@ def main():
 
     errors = []
     header = lines[0].split(",")
-    if header != COLUMNS:
+    cols = COLUMNS
+    if header == OLD_COLUMNS:
+        cols = OLD_COLUMNS
+        print("Let op  : oud formaat (26 kolommen, zonder acc_peak_g). "
+              "Het dashboard leest dit nog, maar zonder piekversnelling.\n")
+    elif header != COLUMNS:
         missing = [c for c in COLUMNS if c not in header]
         extra = [c for c in header if c not in COLUMNS]
         errors.append(f"header klopt niet (ontbreekt: {missing}, extra: {extra}, "
@@ -50,12 +57,12 @@ def main():
         if parts[0] == "millis":
             errors.append(f"regel {n}: herhaalde header (herstart van de Teensy?)")
             continue
-        if len(parts) != len(COLUMNS):
-            errors.append(f"regel {n}: {len(parts)} velden i.p.v. {len(COLUMNS)}")
+        if len(parts) != len(cols):
+            errors.append(f"regel {n}: {len(parts)} velden i.p.v. {len(cols)}")
             continue
         row = {}
         try:
-            for k, v in zip(COLUMNS, parts):
+            for k, v in zip(cols, parts):
                 row[k] = v if k == "time_utc" else float(v)
         except ValueError:
             errors.append(f"regel {n}: geen getal in kolom '{k}': {v!r}")
@@ -77,10 +84,13 @@ def main():
                  if fix else "  (geen fix: buiten testen, antenne vrij zicht)"))
         print("\nKolom          min        max      (controleer of dit logisch is)")
         for k in ("temp_C", "press_hPa", "alt_m", "lacc_z", "gyro_z",
-                  "grav_z", "fft_peak_hz", "fft_peak_amp", "audio_rms"):
+                  "grav_z", "fft_peak_hz", "fft_peak_amp", "audio_rms",
+                  "acc_peak_g"):
+            if k not in cols:
+                continue
             vals = [r[k] for r in rows]
             print(f"  {k:<12} {min(vals):>9.3f}  {max(vals):>9.3f}")
-        flat = [k for k in COLUMNS if k not in ("millis", "time_utc")
+        flat = [k for k in cols if k not in ("millis", "time_utc")
                 and len({r[k] for r in rows}) == 1]
         if flat:
             print(f"\nLET OP: deze kolommen veranderen nooit (sensor niet "

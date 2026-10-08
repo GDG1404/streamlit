@@ -3,7 +3,7 @@ CanSat 2027 — Serial logger voor de live-modus van het dashboard
 =================================================================
 
 Leest de USB-Serial van de Teensy en schrijft enkel de CSV-regels
-(26 velden) naar een bestand dat het dashboard met --live volgt.
+(27 velden) naar een bestand dat het dashboard met --live volgt.
 Opstarttekst ("BMP390 ... OK" enz.) wordt op het scherm getoond maar
 niet in het bestand gezet, zodat het bestand ook als replay bruikbaar is.
 
@@ -26,8 +26,9 @@ import sys
 
 HEADER = ("millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,"
           "gyro_x,gyro_y,gyro_z,lacc_x,lacc_y,lacc_z,grav_x,grav_y,grav_z,"
-          "heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms")
-N_FIELDS = len(HEADER.split(","))
+          "heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms,"
+          "acc_peak_g")
+N_FIELDS = len(HEADER.split(","))   # 27; de oude sketch stuurde er 26
 
 
 def main():
@@ -64,6 +65,7 @@ def main():
             fh.write(HEADER + "\r\n")
         print(f"Lezen van {args.port} → {args.out}  (Ctrl+C om te stoppen)")
         n = 0
+        warned_old = False
         try:
             while True:
                 line = ser.readline().decode("utf-8", errors="replace").strip()
@@ -75,7 +77,13 @@ def main():
                     fh.flush()
                     n += 1
                     print(f"\r{n} rijen gelogd", end="", flush=True)
-                elif parts[0] != "millis":
+                elif len(parts) == N_FIELDS - 1 and not warned_old:
+                    warned_old = True
+                    print("\nLET OP: de Teensy stuurt 26 kolommen in plaats van "
+                          f"{N_FIELDS}. Dat is een oude versie van de sketch.\n"
+                          "Upload sensortest_fft.ino opnieuw. Deze regels worden "
+                          "NIET opgeslagen.")
+                elif parts[0] != "millis" and len(parts) != N_FIELDS - 1:
                     print(f"\n[Teensy] {line}")
         except KeyboardInterrupt:
             print(f"\nGestopt: {n} rijen in {args.out}")
