@@ -50,6 +50,18 @@ ArduinoFFT<float> FFT;
 float fft_real[FFT_SAMPLES];
 float fft_imag[FFT_SAMPLES];
 
+// Moet identiek blijven aan CSV_COLUMNS in dashboard_scherm1.py
+const char CSV_HEADER[] =
+    "millis,temp_C,press_hPa,alt_m,"
+    "lat,lon,time_utc,"
+    "gyro_x,gyro_y,gyro_z,"
+    "lacc_x,lacc_y,lacc_z,"
+    "grav_x,grav_y,grav_z,"
+    "heading,roll,pitch,"
+    "qw,qx,qy,qz,"
+    "fft_peak_hz,fft_peak_amp,"
+    "audio_rms";
+
 File csvFile;
 int  sdBufferLines = 0;
 
@@ -112,6 +124,9 @@ void setup() {
     lastLsmUs = micros();
     lsmBufStartUs = lastLsmUs;
     Serial.println("--- logging gestart ---");
+    // Header ook op Serial: een live-capture (CsvLive in het dashboard)
+    // slaat alles over tot de regel die met "millis" begint
+    Serial.println(CSV_HEADER);
 }
 
 // ============================================================
@@ -254,17 +269,7 @@ bool initSD() {
     csvFile = SD.open(fname, FILE_WRITE);
     if (!csvFile) { Serial.println("FOUT bij openen"); return false; }
 
-    csvFile.println(
-        "millis,temp_C,press_hPa,alt_m,"
-        "lat,lon,time_utc,"
-        "gyro_x,gyro_y,gyro_z,"
-        "lacc_x,lacc_y,lacc_z,"
-        "grav_x,grav_y,grav_z,"
-        "heading,roll,pitch,"
-        "qw,qx,qy,qz,"
-        "fft_peak_hz,fft_peak_amp,"
-        "audio_rms"
-    );
+    csvFile.println(CSV_HEADER);
     csvFile.flush();
     Serial.print("OK → ");
     Serial.println(fname);
