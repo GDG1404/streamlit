@@ -3,7 +3,7 @@ CanSat 2027 — Serial logger voor de live-modus van het dashboard
 =================================================================
 
 Leest de USB-Serial van de Teensy en schrijft enkel de CSV-regels
-(29 velden) naar een bestand dat het dashboard met --live volgt.
+(34 velden) naar een bestand dat het dashboard met --live volgt.
 Opstarttekst ("BMP390 ... OK" enz.) wordt op het scherm getoond maar
 niet in het bestand gezet, zodat het bestand ook als replay bruikbaar is.
 
@@ -27,9 +27,10 @@ import sys
 HEADER = ("millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,"
           "gyro_x,gyro_y,gyro_z,lacc_x,lacc_y,lacc_z,grav_x,grav_y,grav_z,"
           "heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms,"
-          "acc_peak_g,gps_course_deg,gps_speed_ms")
-N_FIELDS = len(HEADER.split(","))   # 29
-OLD_FIELDS = (26, 27)               # oudere versies van de sketch
+          "acc_peak_g,gps_course_deg,gps_speed_ms,"
+          "vib_0_10_g,vib_10_30_g,vib_30_60_g,vib_60_120_g,vib_120_208_g")
+N_FIELDS = len(HEADER.split(","))   # 34
+OLD_FIELDS = (26, 27, 29)           # oudere versies van de sketch
 
 
 def main():

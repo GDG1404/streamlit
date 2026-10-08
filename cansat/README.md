@@ -182,7 +182,7 @@ opent een venster met grafieken. Kijk wat er gebeurt:
 |---|---|---|
 | 0–25 s | GPS zoekt nog satellieten | geen positie |
 | 35 s | iemand tikt met de CanSat op de tafel | ACCELERATION: de witte stippellijn springt omhoog. Linksboven staat `largest shock`. |
-| 40–55 s | CanSat wordt geschud | pieken in ACCELERATION en GYROSCOPE. In STRONGEST VIBRATION verschijnen oranje bolletjes rond 4–5 Hz. |
+| 40–55 s | CanSat wordt geschud | pieken in ACCELERATION en GYROSCOPE. In VIBRATION PER BAND wordt alleen het balkje **0–10** groot. |
 | 60 s | iemand klapt in de handen | piek in AUDIO RMS |
 | 70–90 s | iemand loopt een trap op | ALTITUDE stijgt ongeveer 6 m |
 
@@ -329,7 +329,7 @@ logboek telkens de **tijd** die rechtsboven in het dashboard staat.
 | # | Test | Wat doe je? | Waar kijk je? |
 |---|---|---|---|
 | 1 | **Rust** | 30 s niets: CanSat stil op tafel | Alle grafieken ongeveer vlak. Dit is je **nulmeting**. |
-| 2 | **Schudden** | 15 s stevig schudden met de hand | Scherm 1: ACCELERATION, GYROSCOPE en STRONGEST VIBRATION. Scherm 2: het blikje kleurt oranje/rood. |
+| 2 | **Schudden** | 15 s stevig schudden met de hand | Scherm 1: ACCELERATION, GYROSCOPE en VIBRATION PER BAND. Scherm 2: het blikje kleurt oranje/rood. |
 | 2b | **Schok** | zet de CanSat met een stevige tik op de tafel | Scherm 1: ACCELERATION. De witte stippellijn springt omhoog. Linksboven staat `largest shock` met de grootte en het tijdstip. |
 | 3 | **Klap** | één keer hard in de handen klappen naast de CanSat | Scherm 1: AUDIO RMS |
 | 4 | **Draaien** | CanSat langzaam een kwartslag draaien rond de verticale as | Scherm 2: het blik rechts draait mee, *Heading* verandert |
@@ -505,10 +505,71 @@ Waarom gaat het maar tot **208 Hz**? Om een trilling te herkennen, moet je ze
 minstens 2 keer per periode meten. Met 416 metingen per seconde kan je dus trillingen
 tot 416 ÷ 2 = 208 Hz zien. Dat heet de **Nyquist-frequentie**.
 
-In het dashboard zie je dat in de grafiek **STRONGEST VIBRATION**. Elke seconde komt er
-één bolletje bij. Hoe hoger het bolletje, hoe sneller de trilling.
-- Een **klein grijs** puntje: de trilling is zwak. Dat is gewoon ruis.
-- Een **groot oranje** bolletje: een echte, sterke trilling.
+**Trillingen per frequentieband.** In het dashboard zie je de grafiek **VIBRATION PER
+BAND**. Ze heeft 5 balkjes. Elk balkje is een **frequentieband**: een groep van
+frequenties. Het balkje toont hoe sterk de CanSat trilt in die band, in **g**.
+
+| Band | Voorbeelden van wat je daar kan zien |
+|---|---|
+| 0–10 Hz | bewegen, schudden met de hand, slingeren aan de parachute |
+| 10–30 Hz | trillingen van het blikje en van de constructie |
+| 30–60 Hz | snellere trillingen van de constructie |
+| 60–120 Hz | snelle trillingen, bv. van een motor |
+| 120–208 Hz | zeer snelle trillingen, bv. door luchtstroming |
+
+De voorbeelden zijn geen vaste regels. Wat waar zit, ontdekken jullie met de metingen.
+
+Het grijze streepje boven een balkje is de **hoogste** waarde van die band tijdens de
+hele test. Rechtsboven staat de sterkste frequentie (bv. `strongest 5 Hz · 0.81 g`).
+
+*Wat gebeurt er op de Teensy?*
+
+1. De Teensy verzamelt 512 metingen van de LSM6DSO (ongeveer 1,2 s).
+2. Hij trekt de zwaartekracht (het gemiddelde) eraf. Die is geen trilling.
+3. Hij vermenigvuldigt de metingen met een **venster**: een vorm die aan het begin en het
+   einde naar nul gaat. Zonder venster "lekt" een trilling naar andere frequenties.
+4. De FFT zet de 512 metingen om naar 256 frequenties, telkens 0,8 Hz uit elkaar.
+5. De Teensy telt de frequenties per band op en rekent dat om naar één getal per band:
+   de **RMS-versnelling in g**.
+
+*Waarom deze keuze?*
+
+- **Het volledige spectrum** zou 256 getallen zijn, elke 1,2 seconde. Dat is te veel om
+  later via de radio te sturen. Voor een mens is het ook niet te lezen.
+- **Alleen de sterkste frequentie** is maar één getal. Dan mis je alles wat daarnaast
+  trilt, bv. als je schudt terwijl er ook een motor draait.
+- **5 banden** zijn 5 getallen. Dat is klein genoeg om later via de radio te sturen, en
+  je ziet nog altijd **waar** de trillingen zitten. Dat is het evenwicht dat we kozen.
+- De banden worden **breder naarmate de frequentie stijgt** (10, 20, 30, 60, 88 Hz).
+  Bij lage frequenties zijn kleine verschillen belangrijker.
+- De waarde is in **g**, een echte natuurkundige eenheid. Zo kan je ze vergelijken met
+  `acc_peak_g` en met andere metingen.
+
+*Hoe weten we dat het klopt?*
+
+- De berekening gebruikt de **stelling van Parseval**: de energie van een signaal is
+  even groot of je ze nu in de tijd telt of over alle frequenties.
+- Het venster maakt het signaal zwakker. Daarvoor wordt gecorrigeerd: de Teensy deelt
+  door het gemiddelde van het kwadraat van het venster (0,397).
+- We hebben de berekening getest met een gekend signaal: een trilling van 0,5 g bij
+  25 Hz. Een sinus van 0,5 g heeft een RMS van 0,5 ÷ √2 = **0,354 g**. De Teensy-code
+  gaf **0,3535 g** in de band 10–30 Hz, en bijna niets in de andere banden. Ook als de
+  Teensy maar 380 keer per seconde meet in plaats van 416, klopt het.
+
+*Grenzen: waar moet je op letten?*
+
+- **Banden zijn gemaakt voor aanhoudende trillingen.** Bij een korte schok hangt de
+  waarde af van **wanneer** in de 1,2 s de schok valt: soms te hoog, soms te laag. Gebruik
+  voor schokken `acc_peak_g`.
+- **Een brede band verzamelt meer ruis.** Vergelijk een band daarom met **zichzelf**
+  (in rust en tijdens het schudden), niet de banden met elkaar.
+- **Trager dan ongeveer 1 Hz** kan je niet goed meten: de frequenties liggen 0,8 Hz uit
+  elkaar.
+- **Sneller dan 208 Hz** zie je niet (Nyquist). Zo'n snelle trilling kan zelfs als
+  "spook" in een lagere band verschijnen (**aliasing**). De sensor heeft zelf een filter
+  dat dit grotendeels tegenhoudt.
+- Elke 1,2 s is er een nieuw resultaat. Bij één regel per seconde staat dezelfde waarde
+  dus soms twee keer in de CSV.
 
 Het dashboard toont alleen wat de Teensy echt gemeten heeft.
 
@@ -574,6 +635,9 @@ hapert of opnieuw opgestart wordt.
 5. De raket stoot de CanSat uit op ongeveer 1000 m hoogte. Is de luchtdruk daar dan
    ongeveer 125 hPa lager (1 hPa per 8 m)? Zoek op waarom de echte waarde wat kleiner is.
 6. Waarom heeft de GPS binnen geen fix, en de luchtdruksensor geen enkel probleem?
+7. Bij schudden wordt alleen het balkje 0–10 Hz groot. Bij een tik op de tafel worden
+   alle balkjes tegelijk groter. Hoe komt dat? (Tip: hoe ziet een korte tik eruit, en
+   welke frequenties heb je nodig om zo'n scherpe piek te maken?)
 
 ---
 
@@ -593,7 +657,7 @@ hapert of opnieuw opgestart wordt.
 | `No module named 'matplotlib'` (of `numpy`, `serial`, `PIL`) | Doe A6 opnieuw, in een opdrachtprompt in `C:\CanSat`. |
 | `can't open file ... No such file or directory` | De opdrachtprompt staat niet in `C:\CanSat`. Open hem opnieuw via de adresbalk (`cmd`). |
 | `serial_logger`: `could not open port` of `Access is denied` | De Serial Monitor van de Arduino IDE is nog open: sluit hem. Of je typte de verkeerde COM-poort: kijk opnieuw met `--list`. |
-| `serial_logger` meldt: *de Teensy stuurt 26 (of 27) kolommen in plaats van 29* | Op de Teensy staat nog een oude versie van de sketch. Doe B1 opnieuw. |
+| `serial_logger` meldt: *de Teensy stuurt 26 (of 27, 29) kolommen in plaats van 34* | Op de Teensy staat nog een oude versie van de sketch. Doe B1 opnieuw. |
 | `serial_logger`: het aantal rijen blijft 0 | Draait de sketch? Knippert het lampje? Druk op het witte knopje van de Teensy. |
 | Dashboard toont `SIMULATED TEST DATA` | Het bestand werd niet gevonden. Start eerst `serial_logger` (B3), controleer de bestandsnaam, en start dan het dashboard opnieuw. |
 | Scherm 2: de kaart (toets M) is donker, zonder straten | De kaart werd niet gedownload (geen internet). De kaart hangt af van de plaats: open scherm 2 één keer **met internet** op die plaats en druk op M. De kaart wordt dan bewaard in `C:\CanSat\dashboard\osm_cache` en werkt daarna ook zonder internet. |
@@ -621,7 +685,7 @@ Plus bij elke sensor: **3,3 V** en **GND**.
 
 ### E2. De CSV-kolommen
 
-Elke rij heeft 29 kolommen, altijd in deze volgorde.
+Elke rij heeft 34 kolommen, altijd in deze volgorde.
 
 | Kolom | Eenheid | Sensor | Betekenis |
 |---|---|---|---|
@@ -642,6 +706,7 @@ Elke rij heeft 29 kolommen, altijd in deze volgorde.
 | `acc_peak_g` | g | LSM6DSO | grootste versnelling van de afgelopen seconde, met de zwaartekracht erbij |
 | `gps_course_deg` | ° | GPS | richting waarin de CanSat over de grond beweegt: 0 = noord, 90 = oost, 180 = zuid, 270 = west |
 | `gps_speed_ms` | m/s | GPS | snelheid over de grond |
+| `vib_0_10_g` … `vib_120_208_g` | g | LSM6DSO | trilling (RMS) in elk van de 5 frequentiebanden: 0–10, 10–30, 30–60, 60–120, 120–208 Hz |
 
 ### E3. Normale waarden
 
@@ -656,12 +721,14 @@ Elke rij heeft 29 kolommen, altijd in deze volgorde.
 | `fft_peak_hz` | willekeurig | In rust is er geen echte trilling, dus de "piek" is toeval. |
 | `fft_peak_amp` | kleiner dan 0,01 g | Hard schudden: 0,3–1 g. |
 | `acc_peak_g` | ongeveer 1,0 | Dat is de zwaartekracht. Een tik op de tafel: 3–8 g. Schudden: 2–4 g. |
+| `vib_..._g` | 0,0002–0,002 per band | Dat is de ruis van de sensor. Brede banden geven iets meer ruis. Schudden: de band 0–10 Hz stijgt naar 0,2–0,6 g. |
 | `gps_speed_ms` | 0 (zonder fix) of bijna 0 | Wandelen: 1–1,5 m/s. Stilstaand springt `gps_course_deg` willekeurig rond: dat is normaal. |
 | `audio_rms` | 0,001–0,005 | Zelfde als in `SPH0645_test`. Een korte klap geeft hier een **lagere** waarde dan in die test: de sketch middelt over 1 s, de test over 0,1 s. Aanhoudend geluid geeft ongeveer hetzelfde. |
 
-> Een bolletje in STRONGEST VIBRATION wordt pas oranje als `fft_peak_amp` groter is
-> dan 0,3 g. De blauwe lijnen met de 5 vaakste trillingen verschijnen pas na 20 oranje
-> bolletjes. Dat is ongeveer 20 s stevig schudden.
+> In VIBRATION PER BAND verschijnt de sterkste frequentie pas als `fft_peak_amp` groter
+> is dan 0,3 g. Anders staat er `no strong vibration`. De lijst `most frequent` met de 5
+> vaakste trillingen verschijnt pas na 20 zulke metingen. Dat is ongeveer 20 s stevig
+> schudden.
 
 ### E4. Woordenlijst
 
@@ -715,8 +782,18 @@ py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per se
 - **Nieuwe kolommen:** `acc_peak_g` is de grootste versnelling per logregel (LSM6DSO,
   ±16 g). De BNO055 meet standaard maar tot 4 g en zou een schok afkappen.
   `gps_course_deg` en `gps_speed_ms` zijn de afdrijfrichting en -snelheid volgens de GPS.
-  De vluchtcode (`Cansat2027_teensy.ino`) schrijft dezelfde 29 kolommen naar de
-  SD-kaart. De dashboards lezen ook oude bestanden met 26 of 27 kolommen.
+  De vluchtcode (`Cansat2027_teensy.ino`) schrijft dezelfde 34 kolommen naar de
+  SD-kaart (niet via LoRa). De dashboards lezen ook oude bestanden met 26, 27 of 29
+  kolommen.
+- **Trillingsbanden, technisch:** per band
+  RMS = √( 2 · Σ|X_k|² / (N² · ⟨w²⟩) ), met N = 512, X_k de FFT-bins in de band (DC-bin
+  uitgesloten), en ⟨w²⟩ = 0,39664 voor het symmetrische 512-punts Hamming-venster van
+  arduinoFFT. De binfrequenties gebruiken de **gemeten** samplefrequentie. De berekening
+  is vergeleken met een referentie in Python én met de C++-code van de sketch zelf, met
+  dezelfde uitkomst (0,3535 g voor een sinus van 0,5 g bij 25 Hz). De Teensy leest de
+  sensor met een eigen timer van 416 Hz, los van de klok van de sensor. Door het kleine
+  verschil wordt af en toe een sample dubbel gelezen of overgeslagen. Dat geeft een
+  kleine vervorming; een FIFO-uitlezing zou dat oplossen.
 
 - **SD-kaart (optioneel):** zit er een microSD-kaart (FAT32) in de Teensy, dan schrijft
   de sketch dezelfde regels ook naar `test_000.csv`, `test_001.csv`, … op de kaart (elke

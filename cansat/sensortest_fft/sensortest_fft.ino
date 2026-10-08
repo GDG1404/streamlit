@@ -4,18 +4,20 @@
  *
  * Sensoren: BMP390, BNO055, LSM6DSO, GPS PA1616D, SPH0645 (I2S)
  *
- * CSV-kolommen (29, gelijk aan de vluchtcode; de dashboards lezen ook
- * oudere bestanden met 26 of 27 kolommen):
+ * CSV-kolommen (34, gelijk aan de vluchtcode; de dashboards lezen ook
+ * oudere bestanden met 26, 27 of 29 kolommen):
  *   millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,
  *   gyro_x,gyro_y,gyro_z,lacc_x,lacc_y,lacc_z,grav_x,grav_y,grav_z,
  *   heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms,
- *   acc_peak_g,gps_course_deg,gps_speed_ms
+ *   acc_peak_g,gps_course_deg,gps_speed_ms,
+ *   vib_0_10_g,vib_10_30_g,vib_30_60_g,vib_60_120_g,vib_120_208_g
  *
  * fft_peak_amp = amplitude van de piek in g (DC verwijderd, venster-gecorrigeerd)
  * audio_rms    = RMS van alle audio sinds de vorige logregel (DC verwijderd)
  * acc_peak_g   = grootste versnelling (LSM6DSO) sinds de vorige logregel, in g
  * gps_course_deg / gps_speed_ms = bewegingsrichting (0 = noord, 90 = oost)
  *                en snelheid over de grond volgens de GPS (afdrijven)
+ * vib_*_g      = RMS-trilling per frequentieband in g (uit dezelfde FFT)
  */
 
 #include <Wire.h>
@@ -37,7 +39,7 @@
 #define FFT_SAMPLES         512
 #define LSM_SAMPLE_RATE_HZ  416
 #define LSM_INTERVAL_US     2404     // 1e6 / 416
-#define HAMMING_GAIN        0.54f    // coherente versterking Hamming-venster
+#define HAMMING_GAIN        0.5391f  // coherente versterking (gemiddelde w), 512-punts Hamming
 
 // ---------------- OBJECTEN ----------------
 Adafruit_BMP3XX bmp;
@@ -67,7 +69,8 @@ const char CSV_HEADER[] =
     "fft_peak_hz,fft_peak_amp,"
     "audio_rms,"
     "acc_peak_g,"
-    "gps_course_deg,gps_speed_ms";
+    "gps_course_deg,gps_speed_ms,"
+    "vib_0_10_g,vib_10_30_g,vib_30_60_g,vib_60_120_g,vib_120_208_g";
 
 File csvFile;
 int  sdBufferLines = 0;
@@ -88,6 +91,16 @@ float last_heading=0, last_roll=0, last_pitch=0;
 float last_qw=1, last_qx=0, last_qy=0, last_qz=0;
 
 float fft_peak_hz = 0, fft_peak_amp = 0;
+// ---- Trillingsbanden (uit dezelfde FFT) ----
+// Band i loopt van BAND_EDGE_HZ[i] tot BAND_EDGE_HZ[i+1] Hz; de laatste band
+// loopt tot de Nyquist-frequentie (helft van de samplefrequentie, ~208 Hz).
+// Per band: RMS-versnelling in g (stelling van Parseval, venster-gecorrigeerd).
+// Gecontroleerd met een testsignaal: 0,5 g sinus bij 25 Hz → 0,354 g in 10–30.
+#define N_BANDS        5
+const float BAND_EDGE_HZ[N_BANDS] = {0, 10, 30, 60, 120};
+#define HAMMING_POWER  0.39664f  // gemiddelde van w² (512-punts Hamming-venster)
+float vib_band_g[N_BANDS] = {0, 0, 0, 0, 0};
+
 float audio_rms = 0;
 
 // Grootste versnelling (LSM6DSO, 416 Hz, ±16 g) sinds de vorige logregel.
@@ -411,6 +424,28 @@ void computeFFT() {
     fft_peak_hz  = (peakIdx + delta) * lsm_measured_fs / FFT_SAMPLES;
     // Omrekenen naar amplitude in g: /(N/2) en corrigeren voor venster
     fft_peak_amp = peakMag / (FFT_SAMPLES / 2.0f) / HAMMING_GAIN;
+
+    computeBands(lsm_measured_fs);
+}
+
+// RMS-versnelling per frequentieband, uit de FFT-grootheden in fft_real[].
+// Parseval: de energie van het signaal = de som van |X_k|² over alle bins.
+// Factor 2: elke frequentie komt twee keer voor (positief en negatief).
+// Delen door N² · gemiddelde(w²): het venster maakt het signaal zwakker.
+void computeBands(float fs) {
+    float pow_[N_BANDS] = {0, 0, 0, 0, 0};
+    for (int k = 1; k < FFT_SAMPLES / 2; k++) {     // k = 0 is DC: overslaan
+        float f = k * fs / FFT_SAMPLES;
+        int b = N_BANDS - 1;
+        for (int j = 0; j < N_BANDS - 1; j++) {
+            if (f < BAND_EDGE_HZ[j + 1]) { b = j; break; }
+        }
+        pow_[b] += fft_real[k] * fft_real[k];
+    }
+    const float norm = (float)FFT_SAMPLES * FFT_SAMPLES * HAMMING_POWER;
+    for (int b = 0; b < N_BANDS; b++) {
+        vib_band_g[b] = sqrtf(2.0f * pow_[b] / norm);
+    }
 }
 
 void processAudio() {
@@ -460,7 +495,10 @@ void writeCSV() {
         String(last_qy, 4) + "," + String(last_qz, 4) + "," +
         String(fft_peak_hz, 1)   + "," + String(fft_peak_amp, 3) + "," +
         String(audio_rms, 4)     + "," + String(acc_peak_g, 2) + "," +
-        String(last_gps_course, 1) + "," + String(last_gps_speed, 2);
+        String(last_gps_course, 1) + "," + String(last_gps_speed, 2) + "," +
+        String(vib_band_g[0], 4) + "," + String(vib_band_g[1], 4) + "," +
+        String(vib_band_g[2], 4) + "," + String(vib_band_g[3], 4) + "," +
+        String(vib_band_g[4], 4);
     acc_peak_g = 0;   // nieuw interval: opnieuw de grootste zoeken
 
     if (csvFile) {

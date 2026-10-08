@@ -20,8 +20,9 @@ COLUMNS = [  # identiek aan CSV_COLUMNS in dashboard_scherm1.py
     "grav_x", "grav_y", "grav_z", "heading", "roll", "pitch",
     "qw", "qx", "qy", "qz", "fft_peak_hz", "fft_peak_amp", "audio_rms",
     "acc_peak_g", "gps_course_deg", "gps_speed_ms",
+    "vib_0_10_g", "vib_10_30_g", "vib_30_60_g", "vib_60_120_g", "vib_120_208_g",
 ]
-OLD_FORMATS = (COLUMNS[:26], COLUMNS[:27])   # oudere versies van de sketch
+OLD_FORMATS = (COLUMNS[:26], COLUMNS[:27], COLUMNS[:29])  # oudere sketches
 NO_FIX_TIME = "00:00:00"
 MAX_ERRORS_SHOWN = 10
 
@@ -86,7 +87,7 @@ def main():
         print("\nKolom          min        max      (controleer of dit logisch is)")
         for k in ("temp_C", "press_hPa", "alt_m", "lacc_z", "gyro_z",
                   "grav_z", "fft_peak_hz", "fft_peak_amp", "audio_rms",
-                  "acc_peak_g", "gps_speed_ms"):
+                  "acc_peak_g", "gps_speed_ms", *COLUMNS[29:]):
             if k not in cols:
                 continue
             vals = [r[k] for r in rows]

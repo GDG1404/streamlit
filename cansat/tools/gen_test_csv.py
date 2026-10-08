@@ -29,7 +29,9 @@ COLUMNS = [  # identiek aan CSV_HEADER in sensortest_fft.ino
     "grav_x", "grav_y", "grav_z", "heading", "roll", "pitch",
     "qw", "qx", "qy", "qz", "fft_peak_hz", "fft_peak_amp", "audio_rms",
     "acc_peak_g", "gps_course_deg", "gps_speed_ms",
+    "vib_0_10_g", "vib_10_30_g", "vib_30_60_g", "vib_60_120_g", "vib_120_208_g",
 ]
+BAND_EDGES_HZ = (0, 10, 30, 60, 120, 208)
 DURATION_S = 120
 
 
@@ -79,6 +81,15 @@ def make_row(t, t_ms):
     else:
         course, speed = 0.0, 0.0
 
+    # trilling per frequentieband (g RMS): ruis van de sensor (~1 mg over
+    # 208 Hz, verdeeld volgens de breedte van de band) + wat er gebeurt
+    bands = [0.001 * math.sqrt((hi - lo) / 208) * (1 + random.gauss(0, 0.1))
+             for lo, hi in zip(BAND_EDGES_HZ, BAND_EDGES_HZ[1:])]
+    if shake:      # schudden: één lage trilling (~4,5 Hz) → alleen band 0–10
+        bands[0] = math.hypot(bands[0], famp / math.sqrt(2))
+    if t == 35:    # schok: breedband → alle banden tegelijk
+        bands = [b + 0.12 + abs(random.gauss(0, 0.03)) for b in bands]
+
     def f(v, n):
         return f"{v:.{n}f}"
 
@@ -89,6 +100,7 @@ def make_row(t, t_ms):
         f(heading, 2), f(roll, 2), f(pitch, 2), *(f(x, 4) for x in q),
         f(fhz, 1), f(famp, 3), f(audio, 4), f(peak, 2),
         f(course % 360, 1), f(max(0.0, speed), 2),
+        *(f(abs(b), 4) for b in bands),
     ])
 
 
