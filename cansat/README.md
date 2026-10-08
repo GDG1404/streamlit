@@ -1,120 +1,235 @@
-# CanSat 2027 — Sensortest & Dashboard
+# CanSat 2027 — Handleiding sensortest
 
-Handleiding voor de sensortest van de CanSat. De Teensy leest alle sensoren uit
-en stuurt elke seconde een CSV-regel via USB naar de laptop. Daar schrijft
-`serial_logger.py` die regels naar een CSV-bestand op de C-schijf, en het
-dashboard leest dat bestand **live** mee.
+Met deze handleiding test je alle sensoren van de CanSat tegelijk. Je ziet de
+metingen **live** in een dashboard op de laptop. Je hebt nog nooit met Arduino
+gewerkt? Geen probleem: elke stap staat erin, ook waar je klikt en wat je typt.
 
-```
-Teensy ──USB──► serial_logger.py ──► C:\CanSat\cansat27_live.csv ──► dashboard --live
-```
+> **Zo werkt het in het kort**
+>
+> ```
+> sensoren ──► Teensy ──USB-kabel──► laptop: serial_logger ──► C:\CanSat\metingen\test_01.csv ──► dashboard
+> ```
+>
+> De Teensy (een kleine computer in de CanSat) leest elke seconde alle sensoren
+> uit en stuurt de metingen als één regel tekst via de USB-kabel naar de laptop.
+> Een klein programma op de laptop (`serial_logger`) schrijft die regels in een
+> bestand. Het dashboard leest dat bestand terwijl het groeit en tekent grafieken.
 
-> **Kort samengevat:** sketch uploaden → Seriële Monitor controleren en sluiten →
-> `serial_logger.py` starten → dashboard starten met `--live` → testen.
+**Inhoud**
+
+- [Deel A — Eenmalig klaarzetten](#deel-a--eenmalig-klaarzetten) (± 45 minuten, één keer per laptop)
+- [Deel B — Een test uitvoeren](#deel-b--een-test-uitvoeren) (elke keer)
+- [Deel C — Hoe werkt het?](#deel-c--hoe-werkt-het) (uitleg en vragen)
+- [Deel D — Het lukt niet](#deel-d--het-lukt-niet)
+- [Deel E — Naslag](#deel-e--naslag): aansluitingen, CSV-kolommen, normale waarden, woordenlijst, alle commando's
+
+Deze handleiding gaat uit van een **Windows**-laptop.
 
 ---
 
-## 1. Inhoud van deze map
+## Deel A — Eenmalig klaarzetten
 
-| Bestand | Wat doet het? |
-|---|---|
-| `sensortest_fft/sensortest_fft.ino` | Arduino-sketch voor de Teensy 4.1: leest alle sensoren, berekent de FFT en stuurt 1× per seconde een CSV-regel via USB naar de laptop (en naar de SD-kaart als die erin zit). |
-| `dashboard/dashboard_scherm1.py` | Dashboard (scherm 1): hoogte, versnelling, gyroscoop, FFT, audio, vluchtfase en Cd. |
-| `dashboard/dashboard_scherm2.py` | Dashboard (scherm 2): 3D-vluchtbaan, kaart, oriëntatie van het blik met belasting, radioverbinding. Heeft `dashboard_scherm1.py` in dezelfde map nodig. |
-| `dashboard/requirements.txt` | Python-pakketten die je nodig hebt. |
-| `tools/check_csv.py` | Controleert of een CSV correct is en toont een samenvatting van de metingen. |
-| `tools/gen_test_csv.py` | Maakt een test-CSV **zonder hardware**, handig om het dashboard te leren kennen. |
-| `tools/serial_logger.py` | Schrijft de CSV-regels die de Teensy via USB stuurt naar een bestand op de laptop (bv. op de C-schijf). Het dashboard leest dat bestand live. |
+Deze stappen doe je **één keer per laptop**. Vink ze af:
 
----
+- [ ] A1. De map `C:\CanSat` maken met alle bestanden
+- [ ] A2. Arduino IDE installeren
+- [ ] A3. Teensy toevoegen aan de Arduino IDE
+- [ ] A4. De bibliotheken installeren
+- [ ] A5. Python installeren
+- [ ] A6. De Python-pakketten installeren
+- [ ] A7. Proefdraaien zonder Teensy
 
-## 2. Wat heb je nodig?
+### A1. De map `C:\CanSat` maken
 
-### Hardware
+Alles voor dit project komt in één map: **`C:\CanSat`**. Zo hoef je maar één plek te
+onthouden.
 
-| Onderdeel | Functie | Aansluiting op de Teensy 4.1 |
-|---|---|---|
-| BMP390 | luchtdruk, temperatuur, hoogte | I²C: SDA → pin 18, SCL → pin 19 (adres 0x77) |
-| BNO055 | oriëntatie, lineaire versnelling, gyroscoop, zwaartekracht | I²C: SDA → pin 18, SCL → pin 19 (adres 0x28) |
-| LSM6DSO | snelle versnellingsmeter (416 Hz) voor de FFT | I²C: SDA → pin 18, SCL → pin 19 (adres 0x6B) |
-| GPS PA1616D | positie en UTC-tijd | Serial1: GPS-TX → pin 0 (RX1), GPS-RX → pin 1 (TX1) |
-| SPH0645 | microfoon (I²S) | BCLK → pin 21, LRCL → pin 20, DOUT → pin 8, SEL → GND |
-| microSD-kaart *(optioneel)* | extra kopie op de CanSat | ingebouwde SD-sleuf van de Teensy 4.1 (FAT32). Nu nog niet nodig. |
+1. Download `CanSat.zip` (je krijgt die van je leerkracht).
+2. Ga in de **Verkenner** naar je map *Downloads*.
+3. Klik met de **rechtermuisknop** op `CanSat.zip` → **Alles uitpakken…**
+4. In het venster staat een pad, bv. `C:\Users\jouwnaam\Downloads\CanSat`.
+   Wis dat pad en typ: **`C:\CanSat`**
+5. Klik op **Uitpakken**.
 
-Alle sensoren werken op **3,3 V**. Sluit ze nooit aan op 5 V.
+Kijk nu in `C:\CanSat`. Je moet dit zien:
 
-### Software op de computer
+```
+C:\CanSat\
+├── README.md                    ← deze handleiding
+├── sensortest_fft\
+│   └── sensortest_fft.ino       ← het programma voor de Teensy
+├── dashboard\
+│   ├── dashboard_scherm1.py     ← dashboard: grafieken
+│   ├── dashboard_scherm2.py     ← dashboard: 3D-baan, kaart en oriëntatie
+│   └── requirements.txt         ← lijst met Python-pakketten
+└── tools\
+    ├── serial_logger.py         ← schrijft de metingen van de Teensy naar een bestand
+    ├── check_csv.py             ← controleert een meetbestand
+    └── gen_test_csv.py          ← maakt nep-metingen om te oefenen
+```
 
-1. **Arduino IDE 2** met **Teensyduino**. Ga naar *Bestand → Voorkeuren → Additional
-   boards manager URLs*, voeg `https://www.pjrc.com/teensy/package_teensy_index.json`
-   toe en installeer daarna "Teensy" in de Boards Manager.
-2. **Arduino-bibliotheken** (*Tools → Manage Libraries*):
-   - Adafruit BMP3XX Library
-   - Adafruit BNO055
-   - Adafruit Unified Sensor
-   - Adafruit GPS Library
-   - SparkFun LSM6DSO: de versie **zonder X** (niet de LSM6DSOX), te installeren via de GitHub-zip zoals in de StartGids (*Sketch → Include Library → Add .ZIP Library*)
-   - arduinoFFT (van Enrique Condes, versie 2.x)
+De map `metingen` bestaat nog niet. Die wordt vanzelf gemaakt bij je eerste test.
 
-   `Audio`, `SD`, `Wire` en `SPI` worden al met Teensyduino geïnstalleerd.
-3. **Python 3.9 of nieuwer**, met de pakketten uit `requirements.txt`:
+> **Let op:** hernoem de map `sensortest_fft` niet. Arduino eist dat een `.ino`-bestand
+> in een map staat met **precies dezelfde naam** als het bestand. Anders weigert de
+> Arduino IDE het te openen.
+
+> **Mag je niets maken op `C:\`?** Op sommige schoolcomputers is dat geblokkeerd.
+> Gebruik dan `Documenten\CanSat` en lees overal in deze handleiding die map in plaats
+> van `C:\CanSat`.
+
+### A2. Arduino IDE installeren
+
+De **Arduino IDE** is het programma waarmee je code schrijft en naar de Teensy stuurt.
+
+1. Ga naar **https://www.arduino.cc/en/software**
+2. Download **Arduino IDE 2** voor Windows en installeer het (alles op standaard laten).
+3. Start de Arduino IDE.
+
+### A3. Teensy toevoegen aan de Arduino IDE
+
+De Arduino IDE kent de Teensy nog niet. Dat los je zo op:
+
+1. Menu **File → Preferences** (Nederlands: *Bestand → Voorkeuren*).
+2. Onderaan, bij **Additional boards manager URLs**, plak je:
    ```
-   cd dashboard
-   pip install -r requirements.txt
+   https://www.pjrc.com/teensy/package_teensy_index.json
    ```
-   Op Linux heb je ook Tkinter nodig: `sudo apt install python3-tk`.
+3. Klik **OK**.
+4. Klik links op het icoon van de **Boards Manager** (het tweede icoon, een printplaatje).
+5. Typ `teensy` in het zoekveld en klik bij **Teensy (for Arduino IDE 2.0.4 or later)**
+   op **Install**. Dit duurt een paar minuten.
 
----
+### A4. De bibliotheken installeren
 
-## 3. Eerst zonder hardware: het dashboard leren kennen
+Een **bibliotheek** is code die iemand anders al geschreven heeft, bv. om een sensor
+uit te lezen. Zo hoef jij niet zelf uit te zoeken hoe elke chip werkt.
 
-Je kan het dashboard al uitproberen zonder Teensy:
+1. Klik links op het icoon van de **Library Manager** (het derde icoon, boekjes).
+2. Zoek en installeer deze bibliotheken één voor één. Vraagt de IDE of hij ook
+   "dependencies" mag installeren, klik dan op **Install All**.
 
-```
-cd tools
-python gen_test_csv.py test_000.csv
-python ../dashboard/dashboard_scherm1.py --replay test_000.csv
-```
-
-De test-CSV beschrijft een bureautest van 2 minuten. Dit zou je moeten zien:
-
-| Tijd | Wat gebeurt er? | Wat zie je in het dashboard? |
+| Zoek op | Installeer | Voor |
 |---|---|---|
-| 0–25 s | GPS heeft nog geen fix | `time_utc` = `00:00:00` |
-| 40–55 s | CanSat wordt geschud | pieken in de versnellings- en gyroscoopgrafiek, FFT-piek rond 4–5 Hz |
-| 60 s | handklap | piek in de AUDIO RMS-grafiek |
-| 70–90 s | trap op gelopen | hoogte stijgt ongeveer 6 m. De fase blijft **PRELAUNCH**: een trap is geen lancering. |
+| `BMP3XX` | **Adafruit BMP3XX Library** | luchtdruksensor |
+| `BNO055` | **Adafruit BNO055** | oriëntatiesensor |
+| `Adafruit Unified Sensor` | **Adafruit Unified Sensor** | nodig voor de twee vorige |
+| `Adafruit GPS` | **Adafruit GPS Library** | GPS |
+| `arduinoFFT` | **arduinoFFT** van Enrique Condes, **versie 2.x** | trillingen analyseren |
 
-Scherm 2 open je op dezelfde manier, eventueel tegelijk in een tweede venster:
+3. De **LSM6DSO**-bibliotheek installeer je anders, via een zip (zoals in de StartGids):
+   1. Ga naar **https://github.com/sparkfun/SparkFun_Qwiic_6DoF_LSM6DSO_Arduino_Library**
+   2. Klik op de groene knop **Code → Download ZIP**.
+   3. In de Arduino IDE: **Sketch → Include Library → Add .ZIP Library…** en kies het
+      gedownloade zip-bestand.
+
+   > **Let op:** neem de versie **zonder X**. De LSM6DSO**X** is een andere chip.
+
+De bibliotheken voor de microfoon (`Audio`), de SD-kaart (`SD`) en de
+verbindingen (`Wire`, `SPI`) zitten al in Teensy. Die hoef je niet te installeren.
+
+### A5. Python installeren
+
+De dashboards zijn geschreven in **Python**, een andere programmeertaal. Python draait
+op de laptop, niet op de Teensy.
+
+1. Ga naar **https://www.python.org/downloads/** en klik op de gele knop **Download Python 3.x**.
+2. Start het installatiebestand.
+3. **Belangrijk:** vink onderaan **"Add python.exe to PATH"** aan.
+4. Klik **Install Now**.
+
+### A6. De Python-pakketten installeren
+
+Ook Python gebruikt bibliotheken; daar heten ze **pakketten**. Je installeert ze met een
+commando in de **opdrachtprompt**.
+
+**Een opdrachtprompt openen in de juiste map** (dit heb je nog vaak nodig):
+
+1. Open in de Verkenner de map `C:\CanSat`.
+2. Klik bovenaan in de **adresbalk** (waar `C:\CanSat` staat).
+3. Typ `cmd` en druk op **Enter**.
+
+Er opent een zwart venster dat begint met `C:\CanSat>`. Dat betekent: dit venster
+"staat" in de map `C:\CanSat`.
+
+Typ nu dit commando en druk op Enter:
 
 ```
-python ../dashboard/dashboard_scherm2.py --replay test_000.csv
+py -m pip install -r dashboard\requirements.txt
 ```
 
-Andere opties (gelden voor beide schermen):
+Er rollen veel regels voorbij. Wacht tot je weer `C:\CanSat>` ziet. Staat er
+onderaan `Successfully installed ...`, dan is het gelukt.
+
+> **Waarom `py` en niet `python`?** Op veel Windows-computers opent `python` de
+> Microsoft Store. `py` start altijd de Python die je net installeerde.
+
+### A7. Proefdraaien zonder Teensy
+
+Test of de dashboards werken, nog zonder hardware. Typ in de opdrachtprompt
+(in `C:\CanSat`):
 
 ```
-python dashboard_scherm1.py --sim                 # ingebouwde vluchtsimulator
-python dashboard_scherm1.py --replay x.csv --speed 4   # 4× sneller afspelen
-python dashboard_scherm1.py --help
+py tools\gen_test_csv.py metingen\oefen.csv
+py dashboard\dashboard_scherm1.py --replay metingen\oefen.csv
 ```
+
+Het eerste commando maakt een bestand met **nep-metingen** van een bureautest van
+2 minuten. Het tweede speelt dat bestand af in het dashboard. Na een paar seconden
+opent een venster met grafieken. Kijk wat er gebeurt:
+
+| Tijd | Wat gebeurde er (nep)? | Wat zie je? |
+|---|---|---|
+| 0–25 s | GPS zoekt nog satellieten | geen positie |
+| 40–55 s | CanSat wordt geschud | pieken in de grafieken ACCELERATION en GYROSCOPE |
+| 60 s | iemand klapt in de handen | piek in AUDIO RMS |
+| 70–90 s | iemand loopt een trap op | ALTITUDE stijgt ongeveer 6 m |
+
+Sluit het venster en probeer ook scherm 2:
+
+```
+py dashboard\dashboard_scherm2.py --replay metingen\oefen.csv
+```
+
+**Deel A is klaar.** ✔
 
 ---
 
-## 4. De sensortest met de Teensy
+## Deel B — Een test uitvoeren
 
-### Stap 1 — Sketch uploaden
+Dit doe je **bij elke test**.
 
-1. Open `sensortest_fft/sensortest_fft.ino` in de Arduino IDE.
-2. Kies *Tools → Board → Teensy 4.1* en de juiste poort.
-3. Klik op **Upload**.
+### Wat heb je nodig?
 
-Een SD-kaart is niet nodig. Zonder kaart meldt de sketch `SD kaart ... FOUT` en
-gaat gewoon verder via USB.
+- de CanSat met de Teensy en alle sensoren (bedrading: zie de StartGids en [E1](#e1-aansluitingen))
+- een **USB-kabel die data doorgeeft** (sommige goedkope kabels kunnen alleen opladen)
+- de laptop met deel A klaar
 
-### Stap 2 — Seriële Monitor controleren
+Een SD-kaart is **niet** nodig.
 
-Open de Seriële Monitor (115200 baud). Na een paar seconden zie je:
+### B1. Het programma op de Teensy zetten
+
+Dit hoef je alleen opnieuw te doen als de code veranderd is.
+
+1. Sluit de Teensy met de USB-kabel aan op de laptop.
+2. Open de Arduino IDE → **File → Open…** → `C:\CanSat\sensortest_fft\sensortest_fft.ino`
+3. Kies het board: **Tools → Board → Teensy → Teensy 4.1**.
+4. Kies de poort: **Tools → Port**, onder *teensy ports*.
+5. Klik op het **vinkje** ✓ (linksboven, *Verify*). De IDE **compileert** de code: hij
+   vertaalt ze naar instructies die de Teensy begrijpt. Onderaan verschijnt na een
+   tijdje *Done compiling*. Krijg je rode foutmeldingen, kijk dan in [deel D](#deel-d--het-lukt-niet).
+6. Klik op de **pijl** → (*Upload*). Er opent een klein venster, de **Teensy Loader**.
+   Onderaan in de IDE staat na een paar seconden dat de upload gelukt is.
+
+> **Tip:** start de upload niet, druk dan één keer op het **witte knopje** op de Teensy.
+
+### B2. Controleren of alle sensoren werken
+
+1. Klik in de Arduino IDE rechtsboven op het **vergrootglas** (*Serial Monitor*).
+2. Kies onderaan rechts **115200 baud**.
+3. Druk één keer op het witte knopje van de Teensy om opnieuw te starten.
+
+Je ziet dit:
 
 ```
 === CanSat 2027 — Sensortest + FFT + CSV ===
@@ -125,189 +240,443 @@ GPS PA1616D ... OK
 SD kaart ... FOUT
 
 --- Sensorstatus ---
+BMP390 : OK
 ...
 --- logging gestart ---
-millis,temp_C,press_hPa,alt_m,...
-5212,21.43,942.10,612.31,...
+millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,...
+5212,21.43,942.10,612.31,50.457303,6.221376,00:00:00,...
+6212,21.44,942.11,612.29,50.457303,6.221376,00:00:00,...
 ```
 
-- Elke seconde verschijnt er een nieuwe regel.
-- De LED op de Teensy knippert elke seconde: dan draait het programma.
-- `SD kaart ... FOUT` is normaal zonder SD-kaart.
+- Bij elke sensor moet **OK** staan. `SD kaart ... FOUT` is normaal: er zit geen kaart in.
+- Staat er bij GPS `nog geen data (wordt verder gevolgd)`? Geen paniek, de GPS start
+  soms trager op. De sketch blijft hem volgen.
+- Elke seconde komt er een nieuwe regel met getallen bij.
+- Het **oranje lampje** op de Teensy knippert: het programma draait.
 
-**Sluit daarna de Seriële Monitor.** Maar één programma tegelijk kan de USB-poort
-gebruiken, en in de volgende stap heeft `serial_logger.py` die nodig.
+**Sluit nu de Serial Monitor** (klik op het kruisje van het tabblad *Serial Monitor*).
 
-### Stap 3 — Live loggen naar de C-schijf en het dashboard starten
+> **Waarom sluiten?** De USB-poort kan maar door **één** programma tegelijk gebruikt
+> worden. In de volgende stap heeft `serial_logger` hem nodig.
 
-Open twee (of drie) terminalvensters in de map van dit pakket. Start ze **in deze
-volgorde**: het dashboard heeft het bestand nodig dat de logger aanmaakt.
+### B3. De metingen opslaan op de laptop
 
-```
-# venster 1: poort opzoeken, daarna loggen naar de C-schijf
-python tools/serial_logger.py --list
-python tools/serial_logger.py COM5 C:\CanSat\test_01.csv
+1. Open een opdrachtprompt in `C:\CanSat` (adresbalk → `cmd` → Enter).
+2. Zoek op welke **COM-poort** de Teensy zit:
+   ```
+   py tools\serial_logger.py --list
+   ```
+   Je krijgt een lijstje, bv.:
+   ```
+   COM3            Intel(R) Active Management Technology - SOL (COM3)
+   COM5            USB Serial Device (COM5)
+   ```
+   De Teensy is meestal de lijn met **USB**. Twijfel je? Trek de USB-kabel uit, typ het
+   commando opnieuw en kijk welke lijn verdwenen is.
+3. Start het loggen. Vervang `COM5` door jouw poort, en geef het bestand een naam:
+   ```
+   py tools\serial_logger.py COM5 metingen\test_01.csv
+   ```
+   Je ziet:
+   ```
+   Lezen van COM5 → metingen\test_01.csv  (Ctrl+C om te stoppen)
+   12 rijen gelogd
+   ```
+   Het getal loopt elke seconde op. **Laat dit venster open** tijdens de hele test.
 
-# venster 2: dashboard scherm 1, leest hetzelfde bestand live
-python dashboard/dashboard_scherm1.py --live C:\CanSat\test_01.csv
+> **Bestandsnamen:** gebruik voor **elke test een nieuwe naam**: `test_01.csv`,
+> `test_02.csv`, … of iets dat zegt wat je deed: `schudtest.csv`, `buiten_gps.csv`.
+> Gebruik geen spaties. Bestaat het bestand al, dan worden de nieuwe metingen er
+> **achteraan bijgeschreven**.
 
-# venster 3 (optioneel): scherm 2
-python dashboard/dashboard_scherm2.py --live C:\CanSat\test_01.csv
-```
+Je metingen komen in **`C:\CanSat\metingen\`**.
 
-- Vervang `COM5` door de poort die `--list` toont bij de Teensy.
-- De map `C:\CanSat` wordt vanzelf aangemaakt.
-- Gebruik **per test een nieuwe bestandsnaam** (`test_01.csv`, `test_02.csv`, …).
-  Bestaat het bestand al, dan schrijft de logger er achteraan bij.
-- Venster 1 telt de gelogde rijen. Meldingen van de Teensy die geen CSV zijn,
-  verschijnen daar met `[Teensy]` ervoor en komen niet in het bestand.
-- Sluit je het dashboard af en start je het opnieuw, dan haalt het alle rijen die
-  al in het bestand stonden meteen in. Zolang venster 1 draait, gaat er niets verloren.
-- Stoppen: **Ctrl+C** in venster 1, en sluit de dashboardvensters.
+### B4. Het dashboard starten
 
-> Start je het dashboard vóór de logger, dan vindt het het bestand niet en toont
-> het de simulator ("SIMULATED TEST DATA"). Sluit het dan en start het opnieuw.
-
-### Stap 4 — Testen uitvoeren
-
-Voer deze testen uit en kijk meteen in het dashboard wat er gebeurt:
-
-1. **In rust** (30 s): CanSat stil op tafel.
-2. **Schudden** (15 s): schud de CanSat stevig met de hand.
-3. **Klap** naast de microfoon.
-4. **Draaien**: draai de CanSat langzaam rond de verticale as. Op scherm 2 moet
-   het blik rechts in dezelfde richting meedraaien.
-5. **Hoogte**: loop een trap op en weer af (laptop mee, of een lange USB-kabel).
-6. **GPS**: ga naar buiten met vrij zicht op de lucht en wacht tot `time_utc`
-   niet meer `00:00:00` is. De eerste fix kan enkele minuten duren.
-
-Op scherm 2:
-- Na het schudden kleurt het blik oranje tot rood. De kleur blijft staan ("peak hold"):
-  zo zie je achteraf waar de belasting het grootst was.
-- Druk op **M** om te wisselen tussen de 3D-baan en de 2D-kaart. De kaart toont de
-  plaats waar je staat: ze wordt gecentreerd op de **eerste GPS-fix** en de titel
-  toont die coördinaten. Zonder fix staat er `WAITING FOR GPS FIX`. Drijft de
-  CanSat verder af dan de kaart reikt (±1 km), dan zoomt de kaart vanzelf uit,
-  tot ongeveer ±15 km. Alleen de simulator (`--sim`) toont Elsenborn.
-
-### Stap 5 — CSV controleren
-
-Na de test (of tussendoor, terwijl de logger draait):
+Open een **tweede** opdrachtprompt in `C:\CanSat` (adresbalk → `cmd` → Enter) en typ,
+met **dezelfde bestandsnaam** als in B3:
 
 ```
-python tools/check_csv.py C:\CanSat\test_01.csv
+py dashboard\dashboard_scherm1.py --live metingen\test_01.csv
+```
+
+Wil je ook scherm 2? Open een **derde** opdrachtprompt:
+
+```
+py dashboard\dashboard_scherm2.py --live metingen\test_01.csv
+```
+
+Bovenaan in het dashboard moet **LIVE: tailing CSV** staan.
+
+> **Staat er `SIMULATED TEST DATA`?** Dan vond het dashboard je bestand niet en toont
+> het een simulatie. Meestal komt dat doordat B3 niet draait, of door een tikfout in de
+> bestandsnaam. Sluit het dashboard, controleer B3 en start opnieuw.
+
+Je hebt nu dit op je scherm:
+
+| Venster | Wat doet het? | Mag je het sluiten? |
+|---|---|---|
+| opdrachtprompt 1 | `serial_logger`: schrijft de metingen weg | **Nee**, pas na de test |
+| opdrachtprompt 2 (en 3) | start het dashboard | Ja, het dashboard haalt bij een herstart alles weer in |
+| dashboardvenster(s) | grafieken | Ja |
+
+### B5. De testen
+
+Doe deze testen en kijk telkens in het dashboard wat er gebeurt. Noteer in je
+logboek telkens de **tijd** die rechtsboven in het dashboard staat.
+
+| # | Test | Wat doe je? | Waar kijk je? |
+|---|---|---|---|
+| 1 | **Rust** | 30 s niets: CanSat stil op tafel | Alle grafieken ongeveer vlak. Dit is je **nulmeting**. |
+| 2 | **Schudden** | 15 s stevig schudden met de hand | Scherm 1: ACCELERATION, GYROSCOPE, FFT. Scherm 2: het blik kleurt oranje/rood. |
+| 3 | **Klap** | één keer hard in de handen klappen naast de CanSat | Scherm 1: AUDIO RMS |
+| 4 | **Draaien** | CanSat langzaam een kwartslag draaien rond de verticale as | Scherm 2: het blik rechts draait mee, *Heading* verandert |
+| 5 | **Kantelen** | CanSat schuin houden, naar voren en opzij | Scherm 2: *Roll* en *Pitch* |
+| 6 | **Hoogte** | trap op en weer af, laptop mee | Scherm 1: ALTITUDE |
+| 7 | **GPS** | naar buiten, vrij zicht op de lucht, enkele minuten wachten | Scherm 2: LATITUDE/LONGITUDE, toets **M** voor de kaart |
+
+> **Op scherm 2:** druk op **M** om te wisselen tussen de 3D-vluchtbaan en een kaart. De
+> kaart toont de plek waar je staat (zodra de GPS een positie heeft) en zoomt vanzelf uit
+> als de CanSat ver afdrijft. De kaart wordt van internet gehaald en daarna bewaard; zie
+> [deel D](#deel-d--het-lukt-niet) als ze donker blijft.
+
+### B6. Stoppen
+
+1. Klik in opdrachtprompt 1 en druk op **Ctrl+C**. Je ziet `Gestopt: 312 rijen in metingen\test_01.csv`.
+2. Sluit de dashboardvensters.
+
+### B7. Je meting controleren
+
+Typ in een opdrachtprompt in `C:\CanSat`:
+
+```
+py tools\check_csv.py metingen\test_01.csv
 ```
 
 Je krijgt een samenvatting:
 
 ```
+Bestand : metingen\test_01.csv
 Rijen   : 312 geldig van 312
 Duur    : 311 s  →  1.00 rijen/s
 GPS-fix : 0/312 rijen  (geen fix: buiten testen, antenne vrij zicht)
 
 Kolom          min        max      (controleer of dit logisch is)
   temp_C          21.360     21.440
+  press_hPa     1012.100   1012.900
   ...
+
 OK: het dashboard kan dit bestand lezen.
 ```
 
-Controleer of de waarden logisch zijn (zie §6). Staat er **LET OP: deze kolommen
-veranderen nooit**? Dan werd die sensor waarschijnlijk niet gevonden. Kijk dan in
-venster 1 of de Seriële Monitor of hij `FOUT` meldt.
+- **min** en **max** zijn de kleinste en grootste waarde tijdens je test. Vergelijk ze met
+  de tabel [normale waarden](#e3-normale-waarden).
+- Staat er **LET OP: deze kolommen veranderen nooit**? Dan werkte die sensor
+  waarschijnlijk niet: de waarde bleef de hele tijd gelijk.
 
-### Stap 6 — Achteraf opnieuw bekijken (replay)
+### B8. Achteraf opnieuw bekijken
 
-Een opgeslagen test speel je opnieuw af met `--replay`:
+Een opgeslagen test kan je opnieuw afspelen, zo vaak je wil:
 
 ```
-python dashboard/dashboard_scherm1.py --replay C:\CanSat\test_01.csv
-python dashboard/dashboard_scherm2.py --replay C:\CanSat\test_01.csv --speed 4
+py dashboard\dashboard_scherm1.py --replay metingen\test_01.csv
+py dashboard\dashboard_scherm2.py --replay metingen\test_01.csv --speed 4
 ```
 
-Zonder Teensy kan je de live-modus ook testen. In venster 1 schrijft dit 1 regel
-per seconde, net zoals de logger:
-```
-python tools/gen_test_csv.py C:\CanSat\oefen.csv --live
-```
-
-### Optioneel — SD-kaart
-
-Steek je een microSD-kaart (FAT32) in de Teensy, dan schrijft de sketch dezelfde
-regels ook naar `test_000.csv`, `test_001.csv`, … op de kaart (elke opstart een
-nieuw bestand). Dat is een reservekopie. Voor de live-test is ze niet nodig.
+`--speed 4` speelt 4 keer sneller af.
 
 ---
 
-## 5. De CSV-kolommen
+## Deel C — Hoe werkt het?
 
-Er zijn 26 kolommen, altijd in deze volgorde. Wijzig je de sketch, verander dan
-de kolommen **niet**: het dashboard verwacht ze precies zo.
+### C1. De Teensy: een kleine computer
+
+De **Teensy 4.1** is een **microcontroller**: een volledige computer op een plaatje zo
+groot als een kauwgomstrip. Hij heeft geen scherm en geen toetsenbord, maar wel pinnen
+waarop je sensoren aansluit.
+
+Een Arduino-programma (een **sketch**) heeft altijd twee delen:
+
+```cpp
+void setup() {   // wordt ÉÉN keer uitgevoerd, bij het opstarten
+    ...          // hier zetten we de sensoren klaar
+}
+
+void loop() {    // wordt daarna EINDELOOS herhaald, duizenden keren per seconde
+    ...          // hier lezen we de sensoren uit
+}
+```
+
+In `sensortest_fft.ino` kijkt `loop()` telkens op de klok (`millis()`, het aantal
+milliseconden sinds het opstarten) of het tijd is voor de volgende meting. Zo meet elke
+sensor in zijn eigen ritme:
+
+| Sensor | Hoe vaak? |
+|---|---|
+| LSM6DSO (versnelling) | 416 keer per seconde |
+| BNO055 (oriëntatie) | 100 keer per seconde |
+| BMP390 (luchtdruk) | 1 keer per seconde |
+| GPS | 1 keer per seconde |
+| Een regel naar de laptop sturen | 1 keer per seconde |
+
+### C2. I²C: drie sensoren op twee draadjes
+
+De BMP390, BNO055 en LSM6DSO hangen alle drie aan **dezelfde twee draadjes**: SDA (data)
+en SCL (klok). Dat heet een **I²C-bus**. Hoe weet de Teensy welke sensor antwoordt?
+Elke sensor heeft een eigen **adres**, zoals een huisnummer in een straat:
+
+| Sensor | Adres |
+|---|---|
+| BMP390 | `0x77` |
+| BNO055 | `0x28` |
+| LSM6DSO | `0x6B` |
+
+`0x` betekent dat het getal **hexadecimaal** geschreven is: een talstelsel met 16 cijfers
+(0–9 en A–F). `0x28` is 40 in ons gewone talstelsel.
+
+### C3. De sensoren
+
+**BMP390 — luchtdruk → hoogte.** Boven je hoofd hangt een kolom lucht die op je drukt.
+Hoe hoger je komt, hoe minder lucht er boven je is, en hoe lager de druk. Vlak bij de
+grond daalt de druk ongeveer **1 hPa per 8 meter**. Uit de druk rekent de sketch zo de
+hoogte uit. Omdat de luchtdruk ook verandert met het weer, kijkt het dashboard naar het
+**verschil** met de hoogte bij de start.
+
+**BNO055 — oriëntatie.** Deze chip bevat een versnellingsmeter en een gyroscoop
+(draaisnelheid), en een eigen processor die die metingen combineert. Dat heet
+**sensorfusie**. Hij geeft:
+- *Heading, Roll, Pitch*: hoe de CanSat gedraaid staat (in graden);
+- de **zwaartekracht** apart (wijst altijd naar beneden, ongeveer 9,8 m/s²);
+- de **lineaire versnelling**: de versnelling **zonder** zwaartekracht, dus alleen
+  door bewegen.
+
+We gebruiken de modus **IMU+**, zonder kompas. Heading is daarom **relatief**:
+0° is de richting waarin de CanSat stond bij het opstarten.
+
+**LSM6DSO — snelle versnellingsmeter.** Meet de versnelling 416 keer per seconde. Dat is
+snel genoeg om **trillingen** te zien, zoals van een raketmotor.
+
+**GPS PA1616D — positie en tijd.** De GPS ontvangt signalen van satellieten op ongeveer
+20 000 km hoogte. Uit het tijdsverschil tussen de signalen van minstens 4 satellieten
+berekent hij waar hij is. Daarvoor moet hij de lucht kunnen "zien": binnen lukt het
+meestal niet. Tot er een positie is (een **fix**), schrijft de sketch `00:00:00` als tijd.
+
+**SPH0645 — digitale microfoon.** De microfoon zet geluid meteen om naar getallen en
+stuurt die via **I²S** (een verbinding speciaal voor audio) naar de Teensy: ongeveer
+44 000 getallen per seconde.
+
+### C4. Van duizenden getallen naar één getal
+
+De laptop krijgt maar **één regel per seconde**. Hoe vat je 44 000 geluidsmetingen of
+416 trillingsmetingen samen in één getal?
+
+**Geluid → RMS.** Geluid is lucht die heen en weer trilt. Het gemiddelde van de
+metingen is dus ongeveer 0: plus en min heffen elkaar op. Daarom gebruiken we het
+**RMS** (*root mean square*):
+
+1. kwadrateer elke meting (dan is alles positief),
+2. neem het gemiddelde,
+3. trek er de vierkantswortel uit.
+
+Hoe luider het geluid, hoe groter de RMS.
+
+**Trillingen → FFT.** Een **FFT** (*Fast Fourier Transform*) zoekt uit welke
+**frequenties** (trillingen per seconde, in Hz) in een signaal zitten. Je kent het van de
+springende balkjes van een equalizer in een muziekapp. De sketch verzamelt 512 metingen
+(ongeveer 1,2 s), doet er een FFT op en bewaart de **sterkste** frequentie
+(`fft_peak_hz`) en hoe sterk ze is (`fft_peak_amp`, in g).
+
+Waarom gaat het spectrum maar tot **208 Hz**? Om een trilling te herkennen, moet je ze
+minstens 2 keer per periode meten. Met 416 metingen per seconde kan je dus trillingen
+tot 416 ÷ 2 = 208 Hz zien. Dat heet de **Nyquist-frequentie**.
+
+### C5. Een CSV-bestand
+
+Elke regel die de Teensy stuurt, is één rij van een tabel. De getallen staan gescheiden
+door **komma's**: **CSV** = *comma-separated values*. De eerste rij, de **header**,
+geeft de namen van de kolommen:
+
+```
+millis,temp_C,press_hPa,alt_m,...
+5212,21.43,942.10,612.31,...
+```
+
+Je kan een CSV-bestand ook openen in Excel of Google Sheets en er zelf grafieken van maken.
+
+> **Excel met Belgische instellingen** verwacht `;` tussen de waarden en een komma als
+> decimaalteken. Dubbelklik je op het bestand, dan staat alles in één kolom. Gebruik
+> daarom **Gegevens → Van tekst/CSV**, kies als scheidingsteken **Komma**, en controleer
+> of de getallen met een punt (`21.43`) goed overkomen.
+
+### C6. Van de Teensy naar het dashboard
+
+1. De Teensy stuurt elke regel over de USB-kabel. Dat heet **seriële communicatie**:
+   de tekens gaan één voor één, achter elkaar. Windows geeft de verbinding een naam,
+   bv. **COM5**.
+2. `serial_logger.py` luistert naar COM5 en schrijft elke regel achteraan in je
+   CSV-bestand. Meldingen die geen meting zijn ("BMP390 ... OK") laat hij weg.
+3. Het dashboard kijkt 10 keer per seconde of het bestand gegroeid is, leest de nieuwe
+   regels en tekent ze. Dat heet **live** (`--live`). Afspelen achteraf heet
+   **replay** (`--replay`).
+
+Omdat alles eerst in een bestand komt, gaat er niets verloren als het dashboard even
+hapert of opnieuw opgestart wordt.
+
+### C7. Vragen om over na te denken
+
+1. Je meet de druk op het gelijkvloers en op de eerste verdieping. Hoeveel hPa verschil
+   verwacht je bij 4 m hoogteverschil? Klopt dat met je meting?
+2. Waarom is `lacc_z` (lineaire versnelling) ongeveer 0 als de CanSat stil ligt, terwijl
+   `grav_z` ongeveer 9,8 is?
+3. Bij het schudden vindt de FFT een frequentie van een paar Hz. Hoe vaak per seconde
+   schudde je dus heen en weer? Kan je sneller?
+4. Een klap duurt maar een fractie van een seconde. Waarom is de RMS van een klap in het
+   dashboard kleiner dan wanneer je 2 seconden lang roept?
+5. De raket stoot de CanSat uit op ongeveer 1000 m hoogte. Is de luchtdruk daar dan
+   ongeveer 125 hPa lager (1 hPa per 8 m)? Zoek op waarom de echte waarde wat kleiner is.
+6. Waarom heeft de GPS binnen geen fix, en de luchtdruksensor geen enkel probleem?
+
+---
+
+## Deel D — Het lukt niet
+
+| Probleem | Wat doe je? |
+|---|---|
+| Compileren geeft `arduinoFFT.h: No such file or directory` (of een andere `.h`) | De bibliotheek ontbreekt. Doe A4 opnieuw voor die bibliotheek. |
+| Compileren geeft een fout bij `ArduinoFFT<float> FFT;` | Je hebt arduinoFFT versie 1.x. Installeer versie **2.x** in de Library Manager. |
+| Compileren geeft een fout over `LSM6DSO` | Je hebt de LSM6DSO**X**-bibliotheek. Installeer de versie zonder X (A4, stap 3). |
+| Geen poort onder *teensy ports* | Probeer een andere USB-kabel (een die data doorgeeft). Druk op het witte knopje van de Teensy. |
+| Upload start niet | Druk één keer op het witte knopje van de Teensy. |
+| `BMP390 ... FOUT` (of een andere sensor) | Controleer 3,3 V, GND, SDA (pin 18) en SCL (pin 19). Draai `Drie_sensoren_test` uit de StartGids: die toont welke adressen antwoorden. |
+| `GPS PA1616D ... nog geen data` en `time_utc` blijft `00:00:00`, ook buiten | TX en RX omgewisseld? GPS-TX moet naar pin 0. Werkt `GPS_test.ino` wel? |
+| `audio_rms` blijft 0 | Controleer pin 8, 20 en 21, en of SEL aan GND hangt. Werkt `SPH0645_test.ino` wel? |
+| `'py' is not recognized as an internal or external command` | Python is niet (goed) geïnstalleerd. Doe A5 opnieuw. |
+| `No module named 'matplotlib'` (of `numpy`, `serial`, `PIL`) | Doe A6 opnieuw, in een opdrachtprompt in `C:\CanSat`. |
+| `can't open file ... No such file or directory` | De opdrachtprompt staat niet in `C:\CanSat`. Open hem opnieuw via de adresbalk (`cmd`). |
+| `serial_logger`: `could not open port` of `Access is denied` | De Serial Monitor van de Arduino IDE is nog open: sluit hem. Of je typte de verkeerde COM-poort: kijk opnieuw met `--list`. |
+| `serial_logger`: het aantal rijen blijft 0 | Draait de sketch? Knippert het lampje? Druk op het witte knopje van de Teensy. |
+| Dashboard toont `SIMULATED TEST DATA` | Het bestand werd niet gevonden. Start eerst `serial_logger` (B3), controleer de bestandsnaam, en start dan het dashboard opnieuw. |
+| Scherm 2: de kaart (toets M) is donker, zonder straten | De kaart werd niet gedownload (geen internet). De kaart hangt af van de plaats: open scherm 2 één keer **met internet** op die plaats en druk op M. De kaart wordt dan bewaard in `C:\CanSat\dashboard\osm_cache` en werkt daarna ook zonder internet. |
+| Scherm 2: de vluchtbaan staat stil op het startpunt | Normaal zolang de GPS geen fix heeft. |
+| Scherm 2: GPS FIX toont "—" | Normaal: het aantal satellieten zit niet in de metingen. Of er een fix is, zie je onder LATITUDE. |
+| `check_csv.py`: "millis loopt niet op" of "herhaalde header" | De Teensy is herstart tijdens de test, of je gebruikte twee keer dezelfde bestandsnaam. Gebruik per test een nieuwe naam. |
+
+---
+
+## Deel E — Naslag
+
+### E1. Aansluitingen
+
+Alle sensoren werken op **3,3 V**. Sluit ze **nooit** aan op 5 V.
+
+| Sensor | Pin op de sensor → pin op de Teensy 4.1 |
+|---|---|
+| BMP390 | SDA → 18, SCL → 19 |
+| BNO055 | SDA → 18, SCL → 19 |
+| LSM6DSO | SDA → 18, SCL → 19 |
+| GPS PA1616D | TX → 0 (RX1), RX → 1 (TX1) |
+| SPH0645 | BCLK → 21, LRCL → 20, DOUT → 8, SEL → GND |
+
+Plus bij elke sensor: **3,3 V** en **GND**.
+
+### E2. De CSV-kolommen
+
+Elke rij heeft 26 kolommen, altijd in deze volgorde.
 
 | Kolom | Eenheid | Sensor | Betekenis |
 |---|---|---|---|
-| `millis` | ms | Teensy | tijd sinds het opstarten |
+| `millis` | ms | Teensy | tijd sinds het opstarten van de Teensy |
 | `temp_C` | °C | BMP390 | temperatuur |
 | `press_hPa` | hPa | BMP390 | luchtdruk |
-| `alt_m` | m | BMP390 | hoogte boven zeeniveau, berekend uit de druk (referentie 1014 hPa) |
-| `lat`, `lon` | ° | GPS | positie. Zonder fix staan hier vaste plaatshouder-waarden. |
-| `time_utc` | hh:mm:ss | GPS | UTC-tijd; `00:00:00` = nog geen fix |
-| `gyro_x/y/z` | °/s | BNO055 | draaisnelheid |
-| `lacc_x/y/z` | m/s² | BNO055 | lineaire versnelling, zonder zwaartekracht |
-| `grav_x/y/z` | m/s² | BNO055 | richting van de zwaartekracht (samen ongeveer 9,8) |
-| `heading`, `roll`, `pitch` | ° | BNO055 | oriëntatie (Euler-hoeken) |
-| `qw`, `qx`, `qy`, `qz` | — | BNO055 | oriëntatie als quaternion |
-| `fft_peak_hz` | Hz | LSM6DSO | sterkste trillingsfrequentie (0–208 Hz) |
-| `fft_peak_amp` | g | LSM6DSO | amplitude van die trilling |
+| `alt_m` | m | BMP390 | hoogte, uitgerekend uit de luchtdruk |
+| `lat`, `lon` | ° | GPS | breedtegraad en lengtegraad. Zonder fix: een vaste nep-waarde. |
+| `time_utc` | uu:mm:ss | GPS | wereldtijd (UTC). `00:00:00` = nog geen fix |
+| `gyro_x/y/z` | °/s | BNO055 | draaisnelheid rond elke as |
+| `lacc_x/y/z` | m/s² | BNO055 | versnelling door bewegen (zonder zwaartekracht) |
+| `grav_x/y/z` | m/s² | BNO055 | zwaartekracht, verdeeld over de drie assen |
+| `heading`, `roll`, `pitch` | ° | BNO055 | hoe de CanSat gedraaid staat |
+| `qw`, `qx`, `qy`, `qz` | — | BNO055 | dezelfde draaiing als *quaternion*: een wiskundige notatie zonder de problemen van hoeken |
+| `fft_peak_hz` | Hz | LSM6DSO | sterkste trilling |
+| `fft_peak_amp` | g | LSM6DSO | hoe sterk die trilling is (1 g = 9,81 m/s²) |
 | `audio_rms` | — (0–1) | SPH0645 | geluidsniveau van de afgelopen seconde |
 
----
+### E3. Normale waarden
 
-## 6. Welke waarden zijn normaal?
-
-| Kolom | In rust op tafel | Opmerking |
+| Kolom | CanSat stil op tafel | Opmerking |
 |---|---|---|
-| `temp_C` | kamertemperatuur | Stijgt een paar graden als de printplaat opwarmt. |
-| `press_hPa` | 950–1030 | Hangt af van het weer en de hoogte. |
-| `alt_m` | ongeveer de hoogte van je school | Varieert met het weer: de referentie 1014 hPa is vast. Het dashboard gebruikt de hoogte t.o.v. de start. |
+| `temp_C` | kamertemperatuur | Stijgt een paar graden als de elektronica opwarmt. |
+| `press_hPa` | 950–1030 | Hangt af van het weer en de hoogte van je school. |
+| `alt_m` | ongeveer de hoogte van je school boven zeeniveau | Verandert ook met het weer. Het dashboard toont het verschil met de start. |
 | `lacc_x/y/z` | ongeveer 0 (±0,2) | |
 | `grav_z` | ongeveer 9,8 | als de CanSat rechtop staat |
 | `gyro_x/y/z` | ongeveer 0 (±1) | |
-| `fft_peak_hz` | willekeurig | In rust is er geen echte trilling; de "piek" is ruis. |
-| `fft_peak_amp` | < 0,01 g | Schudden met de hand: 0,3–1 g. |
-| `audio_rms` | 0,001–0,005 | Zelfde als in `SPH0645_test`. Een korte klap geeft hier een **lagere** waarde dan in die test: de sketch middelt over 1 s, de test over 0,1 s. Aanhoudend geluid (roepen, muziek) geeft wel ongeveer dezelfde waarde. |
+| `fft_peak_hz` | willekeurig | In rust is er geen echte trilling, dus de "piek" is toeval. |
+| `fft_peak_amp` | kleiner dan 0,01 g | Hard schudden: 0,3–1 g. |
+| `audio_rms` | 0,001–0,005 | Zelfde als in `SPH0645_test`. Een korte klap geeft hier een **lagere** waarde dan in die test: de sketch middelt over 1 s, de test over 0,1 s. Aanhoudend geluid geeft ongeveer hetzelfde. |
 
-> **Let op:** het dashboard toont een FFT-piek pas als `fft_peak_amp > 0,3`.
-> De lijnen met de top-5-frequenties verschijnen pas na 20 zulke regels, dus
-> ongeveer 20 s stevig schudden bij 1 meting per seconde.
+> Het dashboard toont een FFT-piek pas als `fft_peak_amp` groter is dan 0,3 g. De
+> blauwe lijnen met de 5 vaakste frequenties verschijnen pas na 20 zulke metingen,
+> dus na ongeveer 20 s stevig schudden.
 
----
+### E4. Woordenlijst
 
-## 7. Problemen oplossen
-
-| Probleem | Oplossing |
+| Woord | Betekenis |
 |---|---|
-| `BMP390 ... FOUT` (of een andere sensor) | Controleer 3,3 V, GND, SDA (18) en SCL (19). Maak een I²C-scan met het voorbeeld *Wire → Scanner*. |
-| `SD kaart ... FOUT` | Normaal zonder SD-kaart. Met kaart: goed ingestoken? Geformatteerd als FAT32? |
-| `GPS PA1616D ... nog geen data` en `time_utc` blijft `00:00:00`, ook buiten | De sketch blijft de GPS volgen, maar er komt niets binnen: TX/RX omgedraaid? GPS-TX moet naar pin 0. Werkt `GPS_test.ino` wel? |
-| GPS geeft nooit een fix | Ga naar buiten met vrij zicht op de lucht. De eerste fix duurt soms 1–5 min. |
-| `audio_rms` blijft 0 | Controleer pin 8, 20 en 21 en of SEL aan GND hangt. |
-| `serial_logger.py`: poort bezet | Sluit de Seriële Monitor van de Arduino IDE. |
-| Dashboard toont "SIMULATED TEST DATA" | Het CSV-bestand werd niet gevonden: controleer het pad achter `--replay` / `--live`. |
-| `check_csv.py`: "herhaalde header" | De Teensy is herstart terwijl hij naar hetzelfde bestand schreef. Verwijder die regel. |
-| Dashboard start niet: `No module named 'tkinter'` | Linux: `sudo apt install python3-tk`. |
-| Scherm 2: kaart (M) is donker, zonder straten | Er was geen internet om de kaarttegels te downloaden. De kaart hangt af van de plaats, dus de tegels moeten **per locatie** één keer gedownload worden. Open vooraf, met internet, scherm 2 met een replay van een korte test op die plaats en druk op M. De tegels worden bewaard in `dashboard/osm_cache` en werken daarna offline. |
-| Scherm 2: vluchtbaan staat stil op het startpunt | Normaal zolang er geen GPS-fix is: de positie blijft dan op de laatst bekende plaats staan. |
-| Scherm 2: GPS FIX toont "—" | De sketch stuurt het aantal satellieten niet mee. Of er een fix is, zie je onder LATITUDE. |
+| **Arduino IDE** | programma om code te schrijven en naar de microcontroller te sturen |
+| **baud** | snelheid van een seriële verbinding in bits per seconde. 115 200 baud is ongeveer 11 500 tekens per seconde. |
+| **bibliotheek / pakket** | code die iemand anders geschreven heeft en die jij kan gebruiken |
+| **COM-poort** | de naam die Windows geeft aan een seriële verbinding, bv. COM5 |
+| **compileren** | code vertalen naar instructies die de microcontroller begrijpt |
+| **CSV** | tekstbestand met een tabel; de waarden staan gescheiden door komma's |
+| **FFT** | rekenmethode die uitzoekt welke frequenties in een signaal zitten |
+| **fix** | de GPS heeft genoeg satellieten gevonden om zijn positie te berekenen |
+| **g** | versnelling uitgedrukt in de zwaartekracht: 1 g = 9,81 m/s² |
+| **hPa** | hectopascal, eenheid van luchtdruk (ongeveer 1013 hPa op zeeniveau) |
+| **Hz** | hertz: aantal keer per seconde |
+| **I²C** | verbinding met 2 draden waarop meerdere sensoren kunnen hangen, elk met een eigen adres |
+| **I²S** | verbinding speciaal voor digitale audio |
+| **microcontroller** | kleine computer op één chip, gemaakt om dingen te meten en aan te sturen |
+| **opdrachtprompt** | venster waarin je commando's typt (`cmd`) |
+| **RMS** | soort gemiddelde dat aangeeft hoe groot een trilling of geluid is |
+| **sensorfusie** | metingen van meerdere sensoren combineren tot één betere meting |
+| **sketch** | een Arduino-programma (bestand `.ino`) |
+| **upload** | het gecompileerde programma naar de microcontroller sturen |
+
+### E5. Alle commando's op een rij
+
+Altijd in een opdrachtprompt in `C:\CanSat`:
+
+```
+py -m pip install -r dashboard\requirements.txt           (eenmalig)
+
+py tools\serial_logger.py --list                          COM-poort zoeken
+py tools\serial_logger.py COM5 metingen\test_01.csv       metingen opslaan (stoppen: Ctrl+C)
+
+py dashboard\dashboard_scherm1.py --live metingen\test_01.csv
+py dashboard\dashboard_scherm2.py --live metingen\test_01.csv
+py dashboard\dashboard_scherm1.py --replay metingen\test_01.csv
+py dashboard\dashboard_scherm1.py --replay metingen\test_01.csv --speed 4
+py dashboard\dashboard_scherm1.py --sim                   vluchtsimulator
+
+py tools\check_csv.py metingen\test_01.csv                meting controleren
+py tools\gen_test_csv.py metingen\oefen.csv               nep-metingen maken
+py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per seconde
+```
 
 ---
 
-## 8. Tips
+## Voor de leerkracht
 
-- **Bewaar elke CSV** met een duidelijke naam, bv. `2027-03-14_schudtest.csv`.
-- **Loggen naar 10 Hz:** zet `LOG_INTERVAL_MS` in de sketch op `100`. Het dashboard
-  werkt daar ook mee.
-- Scherm 2 rekent de positie uit ten opzichte van de **eerste GPS-fix**. Rijen
-  zonder fix tellen niet mee.
-- De FFT gebruikt 512 metingen aan 416 Hz, dus elke 1,23 s is er een nieuw resultaat.
-  Bij loggen aan 1 Hz staat dezelfde FFT-waarde daardoor soms twee keer in de CSV.
-  Dat is normaal.
+- **SD-kaart (optioneel):** zit er een microSD-kaart (FAT32) in de Teensy, dan schrijft
+  de sketch dezelfde regels ook naar `test_000.csv`, `test_001.csv`, … op de kaart (elke
+  opstart een nieuw bestand). Voor de live-test is dat niet nodig.
+- **Sneller loggen:** zet `LOG_INTERVAL_MS` bovenaan in de sketch op `100` voor 10 regels
+  per seconde. De dashboards werken daar ook mee.
+- **FFT:** de sketch meet de werkelijke samplefrequentie per blok van 512 metingen. Als de
+  loop even stilstaat (BMP390-meting, schrijven naar de SD-kaart), klopt de frequentie
+  zo toch. Een nieuw FFT-resultaat is er elke 1,2 s; bij 1 regel per seconde staat
+  dezelfde waarde dus soms twee keer in de CSV.
+- **Kaart in scherm 2:** gecentreerd op de eerste GPS-fix. Open scherm 2 vooraf met
+  internet op de lanceerplaats (bv. een replay van een korte test daar), zodat de
+  kaarttegels bewaard worden voor gebruik zonder internet.
+- **Python-versie:** 3.9 of nieuwer.

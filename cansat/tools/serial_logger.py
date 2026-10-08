@@ -42,14 +42,15 @@ def main():
         import serial
         from serial.tools import list_ports
     except ImportError:
-        print("pyserial ontbreekt: pip install pyserial")
+        print("pyserial ontbreekt: py -m pip install pyserial")
         return 1
 
     if args.list or not args.port:
         for port in list_ports.comports():
             print(f"{port.device:<15} {port.description}")
         if not args.port:
-            print("\nGeef een poort op, bv.: python serial_logger.py COM5")
+            print("\nGeef een poort en een bestand op, bv.:\n"
+                  "  py tools\\serial_logger.py COM5 metingen\\test_01.csv")
         return 0
 
     # De header zelf schrijven: de Teensy print hem maar één keer bij het
