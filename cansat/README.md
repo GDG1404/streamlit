@@ -1,12 +1,16 @@
 # CanSat 2027 — Sensortest & Dashboard
 
-Handleiding voor de sensortest van de CanSat. Je laat de Teensy alle sensoren
-uitlezen en de metingen in een CSV-bestand wegschrijven. Daarna bekijk je dat
-bestand in het dashboard op de laptop, eerst na de test (replay) en daarna
-terwijl de test loopt (live).
+Handleiding voor de sensortest van de CanSat. De Teensy leest alle sensoren uit
+en stuurt elke seconde een CSV-regel via USB naar de laptop. Daar schrijft
+`serial_logger.py` die regels naar een CSV-bestand op de C-schijf, en het
+dashboard leest dat bestand **live** mee.
 
-> **Kort samengevat:** sketch uploaden → Seriële Monitor controleren → CSV van de
-> SD-kaart halen → `check_csv.py` → `dashboard_scherm1.py --replay`.
+```
+Teensy ──USB──► serial_logger.py ──► C:\CanSat\cansat27_live.csv ──► dashboard --live
+```
+
+> **Kort samengevat:** sketch uploaden → Seriële Monitor controleren en sluiten →
+> `serial_logger.py` starten → dashboard starten met `--live` → testen.
 
 ---
 
@@ -14,13 +18,13 @@ terwijl de test loopt (live).
 
 | Bestand | Wat doet het? |
 |---|---|
-| `sensortest_fft/sensortest_fft.ino` | Arduino-sketch voor de Teensy 4.1: leest alle sensoren, berekent de FFT en schrijft 1× per seconde een CSV-regel naar de SD-kaart én naar de Seriële Monitor. |
+| `sensortest_fft/sensortest_fft.ino` | Arduino-sketch voor de Teensy 4.1: leest alle sensoren, berekent de FFT en stuurt 1× per seconde een CSV-regel via USB naar de laptop (en naar de SD-kaart als die erin zit). |
 | `dashboard/dashboard_scherm1.py` | Dashboard (scherm 1): hoogte, versnelling, gyroscoop, FFT, audio, vluchtfase en Cd. |
 | `dashboard/dashboard_scherm2.py` | Dashboard (scherm 2): 3D-vluchtbaan, kaart, oriëntatie van het blik met belasting, radioverbinding. Heeft `dashboard_scherm1.py` in dezelfde map nodig. |
 | `dashboard/requirements.txt` | Python-pakketten die je nodig hebt. |
 | `tools/check_csv.py` | Controleert of een CSV correct is en toont een samenvatting van de metingen. |
 | `tools/gen_test_csv.py` | Maakt een test-CSV **zonder hardware**, handig om het dashboard te leren kennen. |
-| `tools/serial_logger.py` | Schrijft de USB-uitvoer van de Teensy naar een bestand, voor de live-modus. |
+| `tools/serial_logger.py` | Schrijft de CSV-regels die de Teensy via USB stuurt naar een bestand op de laptop (bv. op de C-schijf). Het dashboard leest dat bestand live. |
 
 ---
 
@@ -35,7 +39,7 @@ terwijl de test loopt (live).
 | LSM6DSO | snelle versnellingsmeter (416 Hz) voor de FFT | I²C: SDA → pin 18, SCL → pin 19 (adres 0x6B) |
 | GPS PA1616D | positie en UTC-tijd | Serial1: GPS-TX → pin 0 (RX1), GPS-RX → pin 1 (TX1) |
 | SPH0645 | microfoon (I²S) | BCLK → pin 21, LRCL → pin 20, DOUT → pin 8, SEL → GND |
-| microSD-kaart | opslag | ingebouwde SD-sleuf van de Teensy 4.1 (FAT32) |
+| microSD-kaart *(optioneel)* | extra kopie op de CanSat | ingebouwde SD-sleuf van de Teensy 4.1 (FAT32). Nu nog niet nodig. |
 
 Alle sensoren werken op **3,3 V**. Sluit ze nooit aan op 5 V.
 
@@ -101,10 +105,12 @@ python dashboard_scherm1.py --help
 
 ### Stap 1 — Sketch uploaden
 
-1. Steek een microSD-kaart (FAT32) in de Teensy.
-2. Open `sensortest_fft/sensortest_fft.ino` in de Arduino IDE.
-3. Kies *Tools → Board → Teensy 4.1* en de juiste poort.
-4. Klik op **Upload**.
+1. Open `sensortest_fft/sensortest_fft.ino` in de Arduino IDE.
+2. Kies *Tools → Board → Teensy 4.1* en de juiste poort.
+3. Klik op **Upload**.
+
+Een SD-kaart is niet nodig. Zonder kaart meldt de sketch `SD kaart ... FOUT` en
+gaat gewoon verder via USB.
 
 ### Stap 2 — Seriële Monitor controleren
 
@@ -116,7 +122,7 @@ BMP390 ... OK
 BNO055 ... OK
 LSM6DSO ... OK
 GPS PA1616D ... OK
-SD kaart ... OK → test_000.csv
+SD kaart ... FOUT
 
 --- Sensorstatus ---
 ...
@@ -127,27 +133,69 @@ millis,temp_C,press_hPa,alt_m,...
 
 - Elke seconde verschijnt er een nieuwe regel.
 - De LED op de Teensy knippert elke seconde: dan draait het programma.
-- Elke keer dat de Teensy opstart, maakt hij een nieuw bestand (`test_000.csv`,
-  `test_001.csv`, …). Er wordt nooit iets overschreven.
+- `SD kaart ... FOUT` is normaal zonder SD-kaart.
 
-### Stap 3 — Testen uitvoeren
+**Sluit daarna de Seriële Monitor.** Maar één programma tegelijk kan de USB-poort
+gebruiken, en in de volgende stap heeft `serial_logger.py` die nodig.
 
-Voer deze testen uit en noteer telkens het tijdstip (kijk naar `millis`):
+### Stap 3 — Live loggen naar de C-schijf en het dashboard starten
+
+Open twee (of drie) terminalvensters in de map van dit pakket. Start ze **in deze
+volgorde**: het dashboard heeft het bestand nodig dat de logger aanmaakt.
+
+```
+# venster 1: poort opzoeken, daarna loggen naar de C-schijf
+python tools/serial_logger.py --list
+python tools/serial_logger.py COM5 C:\CanSat\test_01.csv
+
+# venster 2: dashboard scherm 1, leest hetzelfde bestand live
+python dashboard/dashboard_scherm1.py --live C:\CanSat\test_01.csv
+
+# venster 3 (optioneel): scherm 2
+python dashboard/dashboard_scherm2.py --live C:\CanSat\test_01.csv
+```
+
+- Vervang `COM5` door de poort die `--list` toont bij de Teensy.
+- De map `C:\CanSat` wordt vanzelf aangemaakt.
+- Gebruik **per test een nieuwe bestandsnaam** (`test_01.csv`, `test_02.csv`, …).
+  Bestaat het bestand al, dan schrijft de logger er achteraan bij.
+- Venster 1 telt de gelogde rijen. Meldingen van de Teensy die geen CSV zijn,
+  verschijnen daar met `[Teensy]` ervoor en komen niet in het bestand.
+- Sluit je het dashboard af en start je het opnieuw, dan haalt het alle rijen die
+  al in het bestand stonden meteen in. Zolang venster 1 draait, gaat er niets verloren.
+- Stoppen: **Ctrl+C** in venster 1, en sluit de dashboardvensters.
+
+> Start je het dashboard vóór de logger, dan vindt het het bestand niet en toont
+> het de simulator ("SIMULATED TEST DATA"). Sluit het dan en start het opnieuw.
+
+### Stap 4 — Testen uitvoeren
+
+Voer deze testen uit en kijk meteen in het dashboard wat er gebeurt:
 
 1. **In rust** (30 s): CanSat stil op tafel.
 2. **Schudden** (15 s): schud de CanSat stevig met de hand.
 3. **Klap** naast de microfoon.
-4. **Draaien**: draai de CanSat langzaam rond de verticale as.
-5. **Hoogte**: loop een trap op en weer af.
+4. **Draaien**: draai de CanSat langzaam rond de verticale as. Op scherm 2 moet
+   het blik rechts in dezelfde richting meedraaien.
+5. **Hoogte**: loop een trap op en weer af (laptop mee, of een lange USB-kabel).
 6. **GPS**: ga naar buiten met vrij zicht op de lucht en wacht tot `time_utc`
    niet meer `00:00:00` is. De eerste fix kan enkele minuten duren.
 
-### Stap 4 — CSV controleren
+Op scherm 2:
+- Na het schudden kleurt het blik oranje tot rood. De kleur blijft staan ("peak hold"):
+  zo zie je achteraf waar de belasting het grootst was.
+- Druk op **M** om te wisselen tussen de 3D-baan en de 2D-kaart. De kaart toont de
+  plaats waar je staat: ze wordt gecentreerd op de **eerste GPS-fix** en de titel
+  toont die coördinaten. Zonder fix staat er `WAITING FOR GPS FIX`. Drijft de
+  CanSat verder af dan de kaart reikt (±1 km), dan zoomt de kaart vanzelf uit,
+  tot ongeveer ±15 km. Alleen de simulator (`--sim`) toont Elsenborn.
 
-Haal de SD-kaart uit de Teensy, kopieer het CSV-bestand naar de computer en voer uit:
+### Stap 5 — CSV controleren
+
+Na de test (of tussendoor, terwijl de logger draait):
 
 ```
-python tools/check_csv.py test_000.csv
+python tools/check_csv.py C:\CanSat\test_01.csv
 ```
 
 Je krijgt een samenvatting:
@@ -165,57 +213,28 @@ OK: het dashboard kan dit bestand lezen.
 
 Controleer of de waarden logisch zijn (zie §6). Staat er **LET OP: deze kolommen
 veranderen nooit**? Dan werd die sensor waarschijnlijk niet gevonden. Kijk dan in
-de Seriële Monitor of hij `FOUT` meldt.
+venster 1 of de Seriële Monitor of hij `FOUT` meldt.
 
-### Stap 5 — Replay in het dashboard
+### Stap 6 — Achteraf opnieuw bekijken (replay)
 
-```
-python dashboard/dashboard_scherm1.py --replay test_000.csv
-```
-
-Zoek in de grafieken je testen uit stap 3 terug. Open daarna ook scherm 2:
+Een opgeslagen test speel je opnieuw af met `--replay`:
 
 ```
-python dashboard/dashboard_scherm2.py --replay test_000.csv
+python dashboard/dashboard_scherm1.py --replay C:\CanSat\test_01.csv
+python dashboard/dashboard_scherm2.py --replay C:\CanSat\test_01.csv --speed 4
 ```
-
-- Draai je de CanSat (stap 3, test 4), dan draait het blik rechts mee. Controleer of
-  de richting overeenkomt met hoe je de CanSat echt gedraaid hebt.
-- Na het schudden kleurt het blik oranje tot rood. De kleur blijft staan ("peak hold"):
-  zo zie je achteraf waar de belasting het grootst was.
-- Druk op **M** om te wisselen tussen de 3D-baan en de 2D-kaart. De kaart toont de
-  plaats waar je staat: ze wordt gecentreerd op de **eerste GPS-fix** en de titel
-  toont die coördinaten. Zonder fix staat er `WAITING FOR GPS FIX`. Drijft de
-  CanSat verder af dan de kaart reikt (±1 km), dan zoomt de kaart vanzelf uit,
-  tot ongeveer ±15 km. Alleen de simulator (`--sim`) toont Elsenborn.
-
-### Stap 6 — Live meekijken (Teensy via USB)
-
-Hiervoor heb je twee terminalvensters nodig. Sluit eerst de Seriële Monitor van
-de Arduino IDE: maar één programma tegelijk kan de poort gebruiken.
-
-```
-# venster 1: poort opzoeken en loggen
-python tools/serial_logger.py --list
-python tools/serial_logger.py COM5 cansat27_live.csv        # Windows
-python tools/serial_logger.py /dev/ttyACM0 cansat27_live.csv  # Linux/macOS
-
-# venster 2: dashboard
-python dashboard/dashboard_scherm1.py --live cansat27_live.csv
-
-# venster 3 (optioneel): scherm 2
-python dashboard/dashboard_scherm2.py --live cansat27_live.csv
-```
-
-Het dashboard toont eerst alles wat al in het bestand stond en volgt daarna de
-nieuwe regels. Sluit je het dashboard af en start je het opnieuw, dan haalt het
-de vorige rijen meteen in.
 
 Zonder Teensy kan je de live-modus ook testen. In venster 1 schrijft dit 1 regel
-per seconde:
+per seconde, net zoals de logger:
 ```
-python tools/gen_test_csv.py cansat27_live.csv --live
+python tools/gen_test_csv.py C:\CanSat\oefen.csv --live
 ```
+
+### Optioneel — SD-kaart
+
+Steek je een microSD-kaart (FAT32) in de Teensy, dan schrijft de sketch dezelfde
+regels ook naar `test_000.csv`, `test_001.csv`, … op de kaart (elke opstart een
+nieuw bestand). Dat is een reservekopie. Voor de live-test is ze niet nodig.
 
 ---
 
@@ -268,7 +287,7 @@ de kolommen **niet**: het dashboard verwacht ze precies zo.
 | Probleem | Oplossing |
 |---|---|
 | `BMP390 ... FOUT` (of een andere sensor) | Controleer 3,3 V, GND, SDA (18) en SCL (19). Maak een I²C-scan met het voorbeeld *Wire → Scanner*. |
-| `SD kaart ... FOUT` | Kaart goed ingestoken? Geformatteerd als FAT32? |
+| `SD kaart ... FOUT` | Normaal zonder SD-kaart. Met kaart: goed ingestoken? Geformatteerd als FAT32? |
 | `GPS PA1616D ... nog geen data` en `time_utc` blijft `00:00:00`, ook buiten | De sketch blijft de GPS volgen, maar er komt niets binnen: TX/RX omgedraaid? GPS-TX moet naar pin 0. Werkt `GPS_test.ino` wel? |
 | GPS geeft nooit een fix | Ga naar buiten met vrij zicht op de lucht. De eerste fix duurt soms 1–5 min. |
 | `audio_rms` blijft 0 | Controleer pin 8, 20 en 21 en of SEL aan GND hangt. |

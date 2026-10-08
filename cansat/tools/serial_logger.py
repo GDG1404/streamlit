@@ -1,4 +1,4 @@
-"""
+r"""
 CanSat 2027 — Serial logger voor de live-modus van het dashboard
 =================================================================
 
@@ -10,11 +10,11 @@ niet in het bestand gezet, zodat het bestand ook als replay bruikbaar is.
 Gebruik:
   pip install pyserial
   python serial_logger.py --list                      # poorten tonen
-  python serial_logger.py COM5 cansat27_live.csv      # Windows
+  python serial_logger.py COM5 C:\CanSat\cansat27_live.csv   # Windows
   python serial_logger.py /dev/ttyACM0 cansat27_live.csv  # Linux/macOS
 
-Start daarna in een tweede venster:
-  python dashboard_scherm1.py --live cansat27_live.csv
+Start daarna in een tweede venster (zelfde bestand):
+  python dashboard_scherm1.py --live C:\CanSat\cansat27_live.csv
 
 Stoppen met Ctrl+C. Sluit de Seriële Monitor van de Arduino IDE eerst:
 maar één programma tegelijk kan de poort openen.
@@ -54,6 +54,8 @@ def main():
 
     # De header zelf schrijven: de Teensy print hem maar één keer bij het
     # opstarten, en die is vaak al voorbij als dit script start.
+    folder = os.path.dirname(os.path.abspath(args.out))
+    os.makedirs(folder, exist_ok=True)              # bv. C:\CanSat
     new_file = not os.path.exists(args.out) or os.path.getsize(args.out) == 0
     with serial.Serial(args.port, args.baud, timeout=1) as ser, \
             open(args.out, "a", newline="", encoding="utf-8") as fh:

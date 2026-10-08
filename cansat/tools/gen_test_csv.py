@@ -18,6 +18,7 @@ Gebruik:
 
 import argparse
 import math
+import os
 import random
 import time
 
@@ -82,6 +83,7 @@ def main():
     args = p.parse_args()
     random.seed(args.seed)
 
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w", newline="", encoding="utf-8") as fh:
         fh.write(",".join(COLUMNS) + "\r\n")   # Arduino println = CRLF
         t_ms = 5212                             # eerste regel na setup()
