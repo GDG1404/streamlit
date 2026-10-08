@@ -22,9 +22,13 @@ Panels:
   - Cd & descent rate on a twin axis
 
 Requirements:  pip install numpy matplotlib
-Run:           python dashboard_scherm1.py
+Run:           python dashboard_scherm1.py                      (settings below)
+               python dashboard_scherm1.py --replay test_000.csv
+               python dashboard_scherm1.py --live cansat27_live.csv
+               python dashboard_scherm1.py --sim
 """
 
+import argparse
 import csv
 import math
 import os
@@ -105,6 +109,14 @@ CSV_COLUMNS = [
     "fft_peak_hz", "fft_peak_amp",
     "audio_rms",
 ]
+
+# Without a GPS fix the firmware logs placeholder coordinates and this
+# time; such rows must not be used as the GPS reference point.
+NO_FIX_TIME = "00:00:00"
+
+
+def has_gps_fix(row):
+    return row.get("time_utc", NO_FIX_TIME) != NO_FIX_TIME
 
 
 # ═════════════════════════════════════════════════════════════
@@ -320,12 +332,15 @@ class CsvReplay:
         for r in self.rows:
             r["alt_m"] -= self.ground_asl
 
-        self.lat0 = self.rows[0]["lat"]
-        self.lon0 = self.rows[0]["lon"]
+        # GPS reference: first row with a fix (rows before it carry
+        # placeholder coordinates); no fix at all → firmware defaults
+        fixed = [r for r in self.rows if has_gps_fix(r)] or self.rows
+        self.lat0 = fixed[0]["lat"]
+        self.lon0 = fixed[0]["lon"]
         self.h_max = max(r["alt_m"] for r in self.rows)
         xs, ys = [], []
         coslat = math.cos(math.radians(self.lat0))
-        for r in self.rows:
+        for r in fixed:
             xs.append(abs((r["lon"] - self.lon0) * 111_320.0 * coslat))
             ys.append(abs((r["lat"] - self.lat0) * 111_320.0))
         self.xy_span = max(150.0, 1.15 * max(max(xs), max(ys)))
@@ -404,8 +419,12 @@ class CsvLive:
         self.label = "LIVE: tailing CSV"
         self.phase = None         # live data has no ground truth
         self.v = 0.0              # + = descending
-        n = len(self._read_new())  # catch-up of existing history
-        print(f"live: caught up {n} existing rows, now tailing {path}")
+        self._have_fix = False    # lat0/lon0 still the default
+        # catch-up of existing history; handed to the dashboard on the
+        # first fetch() so charts and phase detection start complete
+        self._pending = self._read_new()
+        print(f"live: caught up {len(self._pending)} existing rows, "
+              f"now tailing {path}")
 
     def _parse_line(self, line):
         parts = line.strip().split(",")
@@ -430,9 +449,10 @@ class CsvLive:
             self._gnd.append(row["alt_m"])
             self.ground_asl = float(np.median(self._gnd))
         row["alt_m"] -= self.ground_asl
-        if not self.rows:
+        if not self._have_fix and has_gps_fix(row):
             self.lat0, self.lon0 = row["lat"], row["lon"]
-        else:
+            self._have_fix = True
+        if self.rows:
             prev = self.rows[-1]
             dtr = (row["millis"] - prev["millis"]) / 1000.0
             if dtr > 0:
@@ -455,8 +475,10 @@ class CsvLive:
         return out
 
     def fetch(self, dt):
-        """All rows appended to the file since the previous call."""
-        return self._read_new()
+        """All rows appended to the file since the previous call
+        (the first call also returns the catch-up history)."""
+        out, self._pending = self._pending + self._read_new(), []
+        return out
 
     def drag_coefficient(self, row):
         if self.v < 2.0 or self.ground_asl is None:
@@ -1012,5 +1034,28 @@ class Dashboard:
         plt.show()
 
 
+def parse_args():
+    """Optional overrides of the data source settings above."""
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--replay", metavar="CSV",
+                   help="play back a finished csv (e.g. test_000.csv from SD)")
+    g.add_argument("--live", metavar="CSV",
+                   help="follow a growing csv (e.g. from serial_logger.py)")
+    g.add_argument("--sim", action="store_true",
+                   help="use the built-in flight simulator")
+    p.add_argument("--speed", type=float, default=SIM_SPEED,
+                   help="replay/simulator speed (default %(default)s)")
+    return p.parse_args()
+
+
 if __name__ == "__main__":
+    args = parse_args()
+    SIM_SPEED = args.speed
+    if args.replay:
+        DATA_MODE, REPLAY_CSV = "replay", args.replay
+    elif args.live:
+        DATA_MODE, LIVE_CSV, REPLAY_CSV = "live", args.live, None
+    elif args.sim:
+        DATA_MODE, LIVE_CSV, REPLAY_CSV = "sim", None, None
     Dashboard().run()
