@@ -119,6 +119,17 @@ def has_gps_fix(row):
     return row.get("time_utc", NO_FIX_TIME) != NO_FIX_TIME
 
 
+# Sources store the descent speed valid AT each row under this key, so a
+# batch of rows (live catch-up, fast replay) does not all get the speed
+# of the last row. Not a CSV column.
+V_KEY = "_v_desc"
+
+
+def row_speed(source, row):
+    """Descent speed (m/s, + = descending) belonging to this row."""
+    return row.get(V_KEY, source.v)
+
+
 # ═════════════════════════════════════════════════════════════
 #  FLIGHT SIMULATOR
 # ═════════════════════════════════════════════════════════════
@@ -364,12 +375,14 @@ class CsvReplay:
             if dtr > 0:
                 v_new = (prev["alt_m"] - cur["alt_m"]) / dtr
                 self.v += 0.3 * (v_new - self.v)        # light smoothing
+            cur[V_KEY] = self.v
             self.i += 1
             out.append(cur)
         # end of recording → loop (dashboards detect t jumping back)
         if (self.i >= len(self.rows) - 1 and
                 target_ms > self.rows[-1]["millis"] + 5000):
             self.t, self.i, self.v = 0.0, 0, 0.0
+            self.rows[0][V_KEY] = 0.0
             return [self.rows[0]]
         # first frame: show something immediately
         if not out and not self._started:
@@ -379,11 +392,12 @@ class CsvReplay:
 
     def drag_coefficient(self, row):
         """Cd from the real descent rate (descent only)."""
-        if self.v < 2.0:
+        v = row_speed(self, row)
+        if v < 2.0:
             return float("nan")
         rho = 1.225 * (1 - 2.25577e-5 *
                        (row["alt_m"] + self.ground_asl)) ** 4.25588
-        cd = 2 * self.MASS * self.G / (rho * self.A_PARA * self.v ** 2)
+        cd = 2 * self.MASS * self.G / (rho * self.A_PARA * v ** 2)
         return min(1.5, max(0.0, cd))
 
 
@@ -458,6 +472,7 @@ class CsvLive:
             if dtr > 0:
                 v_new = (prev["alt_m"] - row["alt_m"]) / dtr
                 self.v += 0.3 * (v_new - self.v)
+        row[V_KEY] = self.v
         self.h_max = max(self.h_max, row["alt_m"] * 1.1)
         self.rows.append(row)
         return row
@@ -481,11 +496,12 @@ class CsvLive:
         return out
 
     def drag_coefficient(self, row):
-        if self.v < 2.0 or self.ground_asl is None:
+        v = row_speed(self, row)
+        if v < 2.0 or self.ground_asl is None:
             return float("nan")
         rho = 1.225 * (1 - 2.25577e-5 *
                        (row["alt_m"] + self.ground_asl)) ** 4.25588
-        cd = 2 * self.MASS * self.G / (rho * self.A_PARA * self.v ** 2)
+        cd = 2 * self.MASS * self.G / (rho * self.A_PARA * v ** 2)
         return min(1.5, max(0.0, cd))
 
 
@@ -893,7 +909,7 @@ class Dashboard:
         h["gz"].append(row["gyro_z"])
         h["audio"].append(row["audio_rms"])
         h["cd"].append(cd)
-        v_now = self.sim.v if det == "DESCENT" else float("nan")
+        v_now = row_speed(self.sim, row) if det == "DESCENT" else float("nan")
         h["v"].append(v_now)
         if row["alt_m"] > self.apogee:
             self.apogee = row["alt_m"]
@@ -960,7 +976,7 @@ class Dashboard:
         # ── KPIs ──
         vals = (f"{row['alt_m']:.0f}", f"{row['temp_C']:.1f}",
                 f"{row['press_hPa']:.0f}",
-                f"{self.sim.v:.1f}" if det == "DESCENT" else "0.0",
+                f"{row_speed(self.sim, row):.1f}" if det == "DESCENT" else "0.0",
                 f"{cd:.2f}" if not math.isnan(cd) else "—")
         subs = (f"apogee: {self.apogee:.0f} m" if self.apogee > 10 else "",
                 "",
