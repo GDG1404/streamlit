@@ -1050,9 +1050,9 @@ class Dashboard:
         plt.show()
 
 
-def parse_args():
+def parse_args(description=__doc__.splitlines()[1]):
     """Optional overrides of the data source settings above."""
-    p = argparse.ArgumentParser(description=__doc__.splitlines()[1])
+    p = argparse.ArgumentParser(description=description)
     g = p.add_mutually_exclusive_group()
     g.add_argument("--replay", metavar="CSV",
                    help="play back a finished csv (e.g. test_000.csv from SD)")
@@ -1065,8 +1065,9 @@ def parse_args():
     return p.parse_args()
 
 
-if __name__ == "__main__":
-    args = parse_args()
+def apply_args(args):
+    """Set the module settings from parse_args() (also used by screen 2)."""
+    global SIM_SPEED, DATA_MODE, LIVE_CSV, REPLAY_CSV
     SIM_SPEED = args.speed
     if args.replay:
         DATA_MODE, REPLAY_CSV = "replay", args.replay
@@ -1074,4 +1075,8 @@ if __name__ == "__main__":
         DATA_MODE, LIVE_CSV, REPLAY_CSV = "live", args.live, None
     elif args.sim:
         DATA_MODE, LIVE_CSV, REPLAY_CSV = "sim", None, None
+
+
+if __name__ == "__main__":
+    apply_args(parse_args())
     Dashboard().run()

@@ -21,7 +21,10 @@ OSM tiles are downloaded once and cached in ./osm_cache (works offline
 afterwards — handy at the launch site).
 
 Requirements:  pip install numpy matplotlib pillow
-Run:           python dashboard_scherm2.py
+Run:           python dashboard_scherm2.py                  (settings in screen 1)
+               python dashboard_scherm2.py --replay test_000.csv
+               python dashboard_scherm2.py --live cansat27_live.csv
+               python dashboard_scherm2.py --sim
 """
 
 import math
@@ -35,9 +38,9 @@ import numpy as np
 
 # reuse simulator + theme from screen 1 (same folder)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from dashboard_scherm1 import (C, SIM_SPEED, UPDATE_MS,
-                               PhaseDetector, TelemetrySimulator,
-                               make_source)
+import dashboard_scherm1 as s1  # SIM_SPEED/UPDATE_MS read via s1 (CLI)
+from dashboard_scherm1 import (C, PhaseDetector, TelemetrySimulator,
+                               has_gps_fix, make_source)
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -116,17 +119,38 @@ def tile2deg(x, y, z):
     return lat, lon
 
 
+_osm_offline = False   # set after the first failed download
+
+
 def fetch_tile(z, x, y):
-    """OSM tile from local cache, downloading it once if needed."""
+    """OSM tile from local cache, downloading it once if needed.
+
+    After one failed download no further downloads are tried, so an
+    offline start (launch site, school network) does not wait for the
+    timeout of every tile. Downloads go through a temp file, so an
+    interrupted download never leaves a broken tile in the cache.
+    """
+    global _osm_offline
     os.makedirs(CACHE_DIR, exist_ok=True)
     path = os.path.join(CACHE_DIR, f"{z}_{x}_{y}.png")
     if not os.path.exists(path):
+        if _osm_offline:
+            raise OSError("offline: skipped tile download")
         url = f"https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         req = urllib.request.Request(
             url, headers={"User-Agent": "CanSat2027-groundstation/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as r, \
-                open(path, "wb") as f:
-            f.write(r.read())
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                data = r.read()
+        except Exception:
+            _osm_offline = True
+            print("OSM: no internet → map without background tiles "
+                  "(cached tiles are still used)")
+            raise
+        tmp = path + ".part"
+        with open(tmp, "wb") as f:
+            f.write(data)
+        os.replace(tmp, path)
     return np.asarray(Image.open(path).convert("RGB")) / 255.0
 
 
@@ -139,7 +163,8 @@ class Dashboard2:
         self.detector = PhaseDetector()      # phase from data, not sim
         self.track_x, self.track_y, self.track_z = [], [], []
         self.pkt_rx, self.pkt_lost = 0, 0
-        self._last_t = None      # voor gap-gebaseerde verliesdetectie
+        self._last_t = None      # previous row time (restart + loss detection)
+        self._dts = []           # recent row intervals → nominal log rate
         self.ori_artists = []
         self.cyl = cylinder_mesh()
         self.cap_top = cap_mesh(z=+0.115 / 2)
@@ -554,47 +579,65 @@ class Dashboard2:
         self.ax_gps.set_xlim(-span, span)
         self.ax_gps.set_ylim(-span * 0.70, span * 0.70)
 
+    def _clear_track(self):
+        """Forget the drawn flight track (restart or new GPS origin)."""
+        self.track_x.clear()
+        self.track_y.clear()
+        self.track_z.clear()
+        self.pt_apo3d.set_data_3d([], [], [])
+        self.trk3d.set_segments(np.empty((0, 2, 3)))
+        self.trk3d.set_array(np.array([]))
+        self.ln_shadow.set_data_3d([], [], [])
+        self.trk2d.set_segments(np.empty((0, 2, 2)))
+        self.trk2d.set_array(np.array([]))
+        self.ln_outline.set_data([], [])
+
     # ── ingest one telemetry row ──
     def _ingest(self, row):
         t = row["millis"] / 1000.0
 
-        # restart detection (demo loop / can reboot)
-        if self.track_x and t < 1.0:
-            self.track_x.clear()
-            self.track_y.clear()
-            self.track_z.clear()
+        # restart detection (demo/replay loop, can reboot): time jumps
+        # back. The firmware's first row is at several seconds, not ~0.
+        if self._last_t is not None and t < self._last_t:
+            self._clear_track()
             self.pkt_rx = self.pkt_lost = 0
             self._last_t = None
+            self._dts.clear()
             self.peak_load_n = 0.0
             self.stress_peak[:] = 0.0
-            self.pt_apo3d.set_data_3d([], [], [])
-            self.trk3d.set_segments(np.empty((0, 2, 3)))
-            self.trk3d.set_array(np.array([]))
-            self.ln_shadow.set_data_3d([], [], [])
-            self.trk2d.set_segments(np.empty((0, 2, 2)))
-            self.trk2d.set_array(np.array([]))
-            self.ln_outline.set_data([], [])
             self.detector = PhaseDetector()
 
-        # pakketstatistiek: simulator simuleert ~1% verlies; bij echte
-        # data (live/replay) schatten we verlies uit gaten in de 1 Hz-stroom
+        # packet statistics: the simulator simulates ~1% loss; for real
+        # data (live/replay) loss is estimated from gaps in the stream,
+        # relative to the normal row interval (1 Hz, 10 Hz, ...)
         if isinstance(self.sim, TelemetrySimulator):
             if random.random() < 0.01:
                 self.pkt_lost += 1
             else:
                 self.pkt_rx += 1
         else:
-            if self._last_t is not None and t - self._last_t > 1.8:
-                self.pkt_lost += max(0, int(round(t - self._last_t)) - 1)
+            if self._last_t is not None:
+                gap = t - self._last_t
+                if self._dts:
+                    nominal = float(np.median(self._dts))
+                    if nominal > 0 and gap > 1.5 * nominal:
+                        self.pkt_lost += max(0, round(gap / nominal) - 1)
+                self._dts = (self._dts + [gap])[-20:]
             self.pkt_rx += 1
         self._last_t = t
 
         # phase from the data (same detector as screen 1)
         det = self.detector.update(t, row)
 
-        # GPS → metres relative to the launch point
-        x, y = latlon_to_xy(row["lat"], row["lon"],
-                            self.sim.lat0, self.sim.lon0)
+        # GPS → metres relative to the launch point; without a fix the
+        # firmware logs placeholder coordinates → keep the last position
+        if has_gps_fix(row):
+            x, y = latlon_to_xy(row["lat"], row["lon"],
+                                self.sim.lat0, self.sim.lon0)
+        elif self.track_x:
+            x, y = self.track_x[-1], self.track_y[-1]
+        else:
+            x, y = 0.0, 0.0
         alt = max(0.0, row["alt_m"])
         self.track_x.append(x)
         self.track_y.append(y)
@@ -623,14 +666,14 @@ class Dashboard2:
         # replay stays real-time even when rendering takes >UPDATE_MS
         now = time.monotonic()
         if self._wall is None:
-            dt = UPDATE_MS / 1000.0 * SIM_SPEED
+            dt = s1.UPDATE_MS / 1000.0 * s1.SIM_SPEED
         else:
-            dt = min(2.0, now - self._wall) * SIM_SPEED
+            dt = min(2.0, now - self._wall) * s1.SIM_SPEED
         self._wall = now
 
         # camera rotation runs on wall time, also when no new data
         if self.view3d and ROTATE_DEG_S:
-            self._azim += ROTATE_DEG_S * dt / max(SIM_SPEED, 1e-9)
+            self._azim += ROTATE_DEG_S * dt / max(s1.SIM_SPEED, 1e-9)
             self.ax_flight.view_init(elev=28, azim=self._azim)
 
         rows = self.sim.fetch(dt)
@@ -650,10 +693,14 @@ class Dashboard2:
                 and getattr(self.sim, "label", "").startswith("LIVE")
                 and (self.sim.lat0 != self._init_lat0
                      or self.sim.lon0 != self._init_lon0)):
-            # Discard track points computed from the old (default) origin
-            self.track_x.clear()
-            self.track_y.clear()
-            self.track_z.clear()
+            # Discard track points computed from the old (default) origin;
+            # restart the track at the current point (new origin)
+            self._clear_track()
+            x, y = latlon_to_xy(row["lat"], row["lon"],
+                                self.sim.lat0, self.sim.lon0)
+            self.track_x.append(x)
+            self.track_y.append(y)
+            self.track_z.append(alt)
             self._draw_basemap_2d()
             self._map_fixed = True
 
@@ -693,7 +740,8 @@ class Dashboard2:
             self.txt_kpi_sub[2].set_text("barometrisch (AGL)")
         self.txt_kpi[1].set_text(f"{int(t // 60):02d}:{int(t % 60):02d}")
         self.txt_kpi[3].set_text(f"{row['lat']:.4f}°N")
-        self.txt_kpi_sub[3].set_text("Elsenborn")
+        self.txt_kpi_sub[3].set_text("GPS fix" if has_gps_fix(row)
+                                     else "no GPS fix (placeholder)")
         self.txt_kpi[4].set_text(f"{row['lon']:.4f}°E")
         self.txt_kpi_sub[4].set_text(f"distance from start: {dist:.0f} m")
 
@@ -736,9 +784,10 @@ class Dashboard2:
 
     def run(self):
         self.anim = FuncAnimation(self.fig, self.update,
-                                  interval=UPDATE_MS, cache_frame_data=False)
+                                  interval=s1.UPDATE_MS, cache_frame_data=False)
         plt.show()
 
 
 if __name__ == "__main__":
+    s1.apply_args(s1.parse_args(__doc__.splitlines()[1]))
     Dashboard2().run()
