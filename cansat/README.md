@@ -698,8 +698,8 @@ py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per se
 
 - **Nieuwe kolom `acc_peak_g`:** de testsketch schrijft een 27e kolom met de grootste
   versnelling per logregel (LSM6DSO, ±16 g). De BNO055 meet standaard maar tot 4 g en
-  zou een schok afkappen. Wil je dit ook in de vluchtdata, voeg dan dezelfde kolom
-  achteraan toe in de vluchtcode. De dashboards lezen ook bestanden zonder die kolom.
+  zou een schok afkappen. De vluchtcode (`Cansat2027_teensy.ino`) schrijft dezelfde
+  27 kolommen naar de SD-kaart. De dashboards lezen ook oude bestanden zonder die kolom.
 
 - **SD-kaart (optioneel):** zit er een microSD-kaart (FAT32) in de Teensy, dan schrijft
   de sketch dezelfde regels ook naar `test_000.csv`, `test_001.csv`, … op de kaart (elke

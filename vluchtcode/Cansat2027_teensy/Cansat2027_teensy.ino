@@ -31,6 +31,15 @@
  *   - SD (ingebouwd Teensy)
  *   - Audio (Teensy Audio library voor I2S - alleen RMS, geen FFT)
  *   - ArduinoFFT (alleen voor LSM6DSO trillingen)
+ *
+ * CSV op SD (27 kolommen, gelijk aan sensortest_fft.ino en de dashboards):
+ *   millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,
+ *   gyro_x,gyro_y,gyro_z,lacc_x,lacc_y,lacc_z,grav_x,grav_y,grav_z,
+ *   heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms,
+ *   acc_peak_g
+ *   fft_peak_amp = sterkte van de trilling in g
+ *   audio_rms    = RMS van alle audio sinds de vorige regel (DC verwijderd)
+ *   acc_peak_g   = grootste versnelling (LSM6DSO) sinds de vorige regel, in g
  */
 
 // ============================================================
@@ -159,9 +168,18 @@ float lsm_buffer_y[FFT_SAMPLES];
 float lsm_buffer_z[FFT_SAMPLES];
 int lsm_buf_index = 0;
 bool lsm_buf_ready = false;
+unsigned long lsmBufStartUs = 0;             // start van de huidige buffer
+float lsm_measured_fs = LSM_SAMPLE_RATE_HZ;  // werkelijke samplefrequentie
+
+// Grootste versnelling (LSM6DSO, ±16 g) sinds de vorige logregel.
+// Een schok (uitwerpen, parachute) duurt korter dan 1 s en valt anders
+// tussen twee logregels in. Inclusief zwaartekracht: in rust ≈ 1 g.
+float acc_peak_g = 0;
 
 // Audio RMS (geen FFT - alleen fasedetectie en snelheidsvalidatie)
 float audio_rms = 0;
+double audio_sum = 0, audio_sum_sq = 0;   // alle audio sinds vorige regel
+uint32_t audio_count = 0;
 
 // ============================================================
 // SETUP
@@ -180,9 +198,7 @@ void setup() {
     Wire.begin();
     Wire.setClock(400000);
 
-    // GPS UART
-    Serial1.begin(9600);
-    Serial1.addMemoryForRead(gpsRxBuf, sizeof(gpsRxBuf));
+    // GPS UART: Serial1 wordt gestart in initGPS() (GPS.begin)
 
     // Audio geheugen — ruim genoeg om de ~130 ms blokkerende
     // radio.transmit() te overbruggen (44.1 kHz / 128 samples
@@ -208,6 +224,9 @@ void setup() {
 
     // Audio queue starten
     audioQueue.begin();
+
+    lastLsmUs = micros();
+    lsmBufStartUs = lastLsmUs;
 }
 
 // ============================================================
@@ -248,7 +267,9 @@ void loop() {
     // µs-timer: op 2 ms (500 Hz) pollen van een 416 Hz-sensor gaf
     // ~17% dubbele samples en dus een scheve FFT-frequentie-as.
     if (micros() - lastLsmUs >= LSM_INTERVAL_US) {
-        lastLsmUs = micros();
+        lastLsmUs += LSM_INTERVAL_US;   // vaste tijdbasis, geen drift
+        // Na een lange blokkering (LoRa ~130 ms, BMP) niet inhalen
+        if (micros() - lastLsmUs >= LSM_INTERVAL_US) lastLsmUs = micros();
         readLSM6DSO();
     }
 
@@ -317,6 +338,10 @@ void initBMP390() {
             bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
             bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
             bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+            // Eerste meting na het instellen is onbetrouwbaar: weggooien
+            // (zelfde oplossing als in Drie_sensoren_test)
+            bmp.performReading();
+            delay(100);
             Serial.println("OK");
             return;
         }
@@ -347,7 +372,8 @@ void initBNO055() {
 
 void initGPS() {
     Serial.print("GPS PA1616D initialiseren... ");
-    GPS.begin(9600);
+    GPS.begin(9600);                                 // doet Serial1.begin()
+    Serial1.addMemoryForRead(gpsRxBuf, sizeof(gpsRxBuf));  // na begin()
     GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);   // RMC + GGA zinnen
     GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);       // 1 Hz update
     GPS.sendCommand(PGCMD_ANTENNA);                  // Antennestatus opvragen
@@ -358,7 +384,9 @@ void initGPS() {
 void initLSM6DSO() {
     Serial.print("LSM6DSO initialiseren... ");
     for (int i = 0; i < 5; i++) {
-        if (lsm.begin()) {
+        // initialize(): auto-increment + Block Data Update (geen mix van
+        // oude en nieuwe bytes bij uitlezen aan 416 Hz), daarna ±16 g
+        if (lsm.begin() && lsm.initialize(BASIC_SETTINGS)) {
             lsm.setAccelRange(16);          // ±16g voor hoge G-krachten
             lsm.setAccelDataRate(416);      // 416 Hz accelerometer
             lsm.setGyroDataRate(416);       // 416 Hz gyroscoop
@@ -403,7 +431,8 @@ void initSD() {
                 "heading,roll,pitch,"
                 "qw,qx,qy,qz,"
                 "fft_peak_hz,fft_peak_amp,"
-                "audio_rms"
+                "audio_rms,"
+                "acc_peak_g"
             );
             Serial.println("OK");
         } else {
@@ -424,7 +453,11 @@ void readBMP390() {
     if (bmp.performReading()) {
         last_temp     = bmp.temperature;
         last_pressure = bmp.pressure / 100.0F; // Pa naar hPa
-        last_altitude = bmp.readAltitude(SEA_LEVEL_PRESSURE);
+        // Hoogte uit DEZE meting. bmp.readAltitude() start intern een
+        // tweede meting (blokkeert de loop opnieuw ~25 ms en hoort bij een
+        // ander moment dan last_pressure). Zelfde formule als Adafruit.
+        last_altitude = 44330.0f *
+            (1.0f - powf(last_pressure / SEA_LEVEL_PRESSURE, 0.1903f));
     }
 }
 
@@ -483,23 +516,38 @@ void readLSM6DSO() {
     float ay = lsm.readFloatAccelY();
     float az = lsm.readFloatAccelZ();
 
-    // Buffer vullen voor FFT
-    if (lsm_buf_index < FFT_SAMPLES) {
-        // Magnitude van de drie assen
-        lsm_buffer_x[lsm_buf_index] = ax;
-        lsm_buffer_y[lsm_buf_index] = ay;
-        lsm_buffer_z[lsm_buf_index] = az;
-        lsm_buf_index++;
-    } else {
+    // Grootste versnelling sinds de vorige logregel (in g)
+    float a = sqrtf(ax * ax + ay * ay + az * az);
+    if (a > acc_peak_g) acc_peak_g = a;
+
+    // Buffer vullen voor FFT: eerst opslaan, dan pas controleren
+    // (vroeger ging per buffer één meting verloren)
+    lsm_buffer_x[lsm_buf_index] = ax;
+    lsm_buffer_y[lsm_buf_index] = ay;
+    lsm_buffer_z[lsm_buf_index] = az;
+    lsm_buf_index++;
+
+    if (lsm_buf_index >= FFT_SAMPLES) {
+        // Werkelijke samplefrequentie meten: de loop staat elke seconde
+        // even stil (LoRa ~130 ms, BMP), dan zijn het geen 416 Hz meer
+        unsigned long t = micros();
+        unsigned long dt = t - lsmBufStartUs;
+        if (dt > 0) lsm_measured_fs = FFT_SAMPLES * 1e6f / dt;
+        lsmBufStartUs = t;
         lsm_buf_ready = true;
         lsm_buf_index = 0;
     }
 }
 
 void computeFFT() {
-    // FFT op Z-as (verticale valrichting)
+    // FFT op Z-as (verticale valrichting).
+    // Eerst het gemiddelde (zwaartekracht ~1 g) aftrekken, anders lekt
+    // dat naar de laagste frequenties en wint "1 Hz" bijna altijd.
+    float mean = 0;
+    for (int i = 0; i < FFT_SAMPLES; i++) mean += lsm_buffer_z[i];
+    mean /= FFT_SAMPLES;
     for (int i = 0; i < FFT_SAMPLES; i++) {
-        fft_real[i] = lsm_buffer_z[i];
+        fft_real[i] = lsm_buffer_z[i] - mean;
         fft_imag[i] = 0;
     }
 
@@ -507,28 +555,51 @@ void computeFFT() {
     FFT.compute(fft_real, fft_imag, FFT_SAMPLES, FFT_FORWARD);
     FFT.complexToMagnitude(fft_real, fft_imag, FFT_SAMPLES);
 
-    // Dominante frequentie vinden
-    fft_peak_hz  = FFT.majorPeak(fft_real, FFT_SAMPLES, LSM_SAMPLE_RATE_HZ);
-    int peakIdx  = constrain((int)(fft_peak_hz * FFT_SAMPLES / LSM_SAMPLE_RATE_HZ), 0, FFT_SAMPLES / 2 - 1);
-    fft_peak_amp = fft_real[peakIdx];
+    // Zelf de piek zoeken (bin 0 = DC overslaan), zodat frequentie en
+    // sterkte gegarandeerd bij dezelfde bin horen
+    int   peakIdx = 1;
+    float peakMag = fft_real[1];
+    for (int i = 2; i < FFT_SAMPLES / 2; i++) {
+        if (fft_real[i] > peakMag) { peakMag = fft_real[i]; peakIdx = i; }
+    }
+    // Parabolische interpolatie voor een nauwkeurigere frequentie
+    float delta = 0;
+    if (peakIdx > 1 && peakIdx < FFT_SAMPLES / 2 - 1) {
+        float a = fft_real[peakIdx - 1], b = peakMag, c = fft_real[peakIdx + 1];
+        float denom = a - 2 * b + c;
+        if (denom != 0) delta = 0.5f * (a - c) / denom;
+    }
+    // Met de GEMETEN samplefrequentie, niet de nominale 416 Hz
+    fft_peak_hz  = (peakIdx + delta) * lsm_measured_fs / FFT_SAMPLES;
+    // Omrekenen naar g: /(N/2) en corrigeren voor het Hamming-venster (0,54)
+    fft_peak_amp = peakMag / (FFT_SAMPLES / 2.0f) / 0.54f;
 }
 
 void processAudio() {
-    if (audioQueue.available() < 2) return;
-
     // Alleen RMS berekenen - geen FFT
     // RMS is evenredig met v² → bruikbaar voor fasedetectie en snelheidsvalidatie
-    int16_t* buf = audioQueue.readBuffer();
-    float sum = 0;
-    int n = 128; // Teensy audio buffer grootte
-
-    for (int i = 0; i < n; i++) {
-        float s = buf[i] / 32768.0;
-        sum += s * s;
+    // ALLE beschikbare blokken (128 samples, ~2,9 ms) optellen. Vroeger was
+    // audio_rms de RMS van één willekeurig blok van 3 ms per seconde.
+    while (audioQueue.available() > 0) {
+        int16_t* buf = audioQueue.readBuffer();
+        for (int i = 0; i < AUDIO_BLOCK_SAMPLES; i++) {
+            float s = buf[i] / 32768.0f;
+            audio_sum    += s;
+            audio_sum_sq += s * s;
+        }
+        audio_count += AUDIO_BLOCK_SAMPLES;
+        audioQueue.freeBuffer();
     }
-    audioQueue.freeBuffer();
+}
 
-    audio_rms = sqrt(sum / n);
+void updateAudioRms() {
+    if (audio_count == 0) return;
+    // RMS over de hele seconde, zonder DC-offset (SPH0645 heeft een offset)
+    double mean = audio_sum / audio_count;
+    double var  = audio_sum_sq / audio_count - mean * mean;
+    audio_rms = var > 0 ? sqrt(var) : 0;
+    audio_sum = audio_sum_sq = 0;
+    audio_count = 0;
 }
 
 // ============================================================
@@ -537,6 +608,7 @@ void processAudio() {
 
 void sendAndLog() {
     unsigned long now = millis();
+    updateAudioRms();
 
     // CSV regel samenstellen
     String csv = String(now) + "," +
@@ -564,7 +636,9 @@ void sendAndLog() {
                  String(last_qz, 4) + "," +
                  String(fft_peak_hz, 1) + "," +
                  String(fft_peak_amp, 3) + "," +
-                 String(audio_rms, 4);
+                 String(audio_rms, 4) + "," +
+                 String(acc_peak_g, 2);
+    acc_peak_g = 0;   // nieuw interval: opnieuw de grootste zoeken
 
     // SD kaart schrijven
     if (csvFile) {
