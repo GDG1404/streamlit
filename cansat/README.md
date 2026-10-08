@@ -49,7 +49,7 @@ Alle sensoren werken op **3,3 V**. Sluit ze nooit aan op 5 V.
    - Adafruit BNO055
    - Adafruit Unified Sensor
    - Adafruit GPS Library
-   - SparkFun LSM6DSO (zoek op "LSM6DSO")
+   - SparkFun LSM6DSO: de versie **zonder X** (niet de LSM6DSOX), te installeren via de GitHub-zip zoals in de StartGids (*Sketch → Include Library → Add .ZIP Library*)
    - arduinoFFT (van Enrique Condes, versie 2.x)
 
    `Audio`, `SD`, `Wire` en `SPI` worden al met Teensyduino geïnstalleerd.
