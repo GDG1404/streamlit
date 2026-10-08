@@ -16,6 +16,7 @@ terwijl de test loopt (live).
 |---|---|
 | `sensortest_fft/sensortest_fft.ino` | Arduino-sketch voor de Teensy 4.1: leest alle sensoren, berekent de FFT en schrijft 1× per seconde een CSV-regel naar de SD-kaart én naar de Seriële Monitor. |
 | `dashboard/dashboard_scherm1.py` | Dashboard (scherm 1): hoogte, versnelling, gyroscoop, FFT, audio, vluchtfase en Cd. |
+| `dashboard/dashboard_scherm2.py` | Dashboard (scherm 2): 3D-vluchtbaan, kaart, oriëntatie van het blik met belasting, radioverbinding. Heeft `dashboard_scherm1.py` in dezelfde map nodig. |
 | `dashboard/requirements.txt` | Python-pakketten die je nodig hebt. |
 | `tools/check_csv.py` | Controleert of een CSV correct is en toont een samenvatting van de metingen. |
 | `tools/gen_test_csv.py` | Maakt een test-CSV **zonder hardware**, handig om het dashboard te leren kennen. |
@@ -80,7 +81,13 @@ De test-CSV beschrijft een bureautest van 2 minuten. Dit zou je moeten zien:
 | 60 s | handklap | piek in de AUDIO RMS-grafiek |
 | 70–90 s | trap op gelopen | hoogte stijgt ongeveer 6 m. De fase blijft **PRELAUNCH**: een trap is geen lancering. |
 
-Andere opties van het dashboard:
+Scherm 2 open je op dezelfde manier, eventueel tegelijk in een tweede venster:
+
+```
+python ../dashboard/dashboard_scherm2.py --replay test_000.csv
+```
+
+Andere opties (gelden voor beide schermen):
 
 ```
 python dashboard_scherm1.py --sim                 # ingebouwde vluchtsimulator
@@ -166,7 +173,17 @@ de Seriële Monitor of hij `FOUT` meldt.
 python dashboard/dashboard_scherm1.py --replay test_000.csv
 ```
 
-Zoek in de grafieken je testen uit stap 3 terug.
+Zoek in de grafieken je testen uit stap 3 terug. Open daarna ook scherm 2:
+
+```
+python dashboard/dashboard_scherm2.py --replay test_000.csv
+```
+
+- Draai je de CanSat (stap 3, test 4), dan draait het blik rechts mee. Controleer of
+  de richting overeenkomt met hoe je de CanSat echt gedraaid hebt.
+- Na het schudden kleurt het blik oranje tot rood. De kleur blijft staan ("peak hold"):
+  zo zie je achteraf waar de belasting het grootst was.
+- Druk op **M** om te wisselen tussen de 3D-baan en de 2D-kaart.
 
 ### Stap 6 — Live meekijken (Teensy via USB)
 
@@ -181,6 +198,9 @@ python tools/serial_logger.py /dev/ttyACM0 cansat27_live.csv  # Linux/macOS
 
 # venster 2: dashboard
 python dashboard/dashboard_scherm1.py --live cansat27_live.csv
+
+# venster 3 (optioneel): scherm 2
+python dashboard/dashboard_scherm2.py --live cansat27_live.csv
 ```
 
 Het dashboard toont eerst alles wat al in het bestand stond en volgt daarna de
@@ -252,6 +272,9 @@ de kolommen **niet**: het dashboard verwacht ze precies zo.
 | Dashboard toont "SIMULATED TEST DATA" | Het CSV-bestand werd niet gevonden: controleer het pad achter `--replay` / `--live`. |
 | `check_csv.py`: "herhaalde header" | De Teensy is herstart terwijl hij naar hetzelfde bestand schreef. Verwijder die regel. |
 | Dashboard start niet: `No module named 'tkinter'` | Linux: `sudo apt install python3-tk`. |
+| Scherm 2: kaart (M) is donker, zonder straten | Er was geen internet om de kaarttegels te downloaden. Open scherm 2 één keer met internet in de buurt van de lanceerplaats: de tegels worden bewaard in `dashboard/osm_cache` en werken daarna offline. |
+| Scherm 2: vluchtbaan staat stil op het startpunt | Normaal zolang er geen GPS-fix is: de positie blijft dan op de laatst bekende plaats staan. |
+| Scherm 2: GPS FIX toont "—" | De sketch stuurt het aantal satellieten niet mee. Of er een fix is, zie je onder LATITUDE. |
 
 ---
 
@@ -260,6 +283,8 @@ de kolommen **niet**: het dashboard verwacht ze precies zo.
 - **Bewaar elke CSV** met een duidelijke naam, bv. `2027-03-14_schudtest.csv`.
 - **Loggen naar 10 Hz:** zet `LOG_INTERVAL_MS` in de sketch op `100`. Het dashboard
   werkt daar ook mee.
+- Scherm 2 rekent de positie uit ten opzichte van de **eerste GPS-fix**. Rijen
+  zonder fix tellen niet mee.
 - De FFT gebruikt 512 metingen aan 416 Hz, dus elke 1,23 s is er een nieuw resultaat.
   Bij loggen aan 1 Hz staat dezelfde FFT-waarde daardoor soms twee keer in de CSV.
   Dat is normaal.
