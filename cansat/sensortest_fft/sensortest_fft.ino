@@ -207,6 +207,10 @@ bool initBMP390() {
         bmp.setPressureOversampling(BMP3_OVERSAMPLING_4X);
         bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
         bmp.setOutputDataRate(BMP3_ODR_50_HZ);
+        // Eerste meting na het instellen is onbetrouwbaar: weggooien
+        // (zelfde oplossing als in Drie_sensoren_test)
+        bmp.performReading();
+        delay(100);
         Serial.println("OK");
         return true;
     }
@@ -219,6 +223,10 @@ bool initBNO055() {
     if (bno.begin()) {
         delay(1000);
         bno.setExtCrystalUse(true);
+        // Zelfde modus als in de vlucht: IMU+ (zonder magnetometer).
+        // Heading is dus RELATIEF: 0° = de richting bij het opstarten.
+        bno.setMode(OPERATION_MODE_IMUPLUS);
+        delay(25);
         Serial.println("OK");
         return true;
     }
@@ -228,7 +236,9 @@ bool initBNO055() {
 
 bool initLSM6DSO() {
     Serial.print("LSM6DSO ... ");
-    if (lsm.begin()) {
+    // initialize(): auto-increment + Block Data Update (geen mix van
+    // oude en nieuwe bytes bij uitlezen aan 416 Hz), daarna ±16 g
+    if (lsm.begin() && lsm.initialize(BASIC_SETTINGS)) {
         lsm.setAccelRange(16);
         lsm.setAccelDataRate(416);
         lsm.setGyroDataRate(416);
@@ -294,7 +304,11 @@ void readBMP390() {
     if (bmp.performReading()) {
         last_temp     = bmp.temperature;
         last_pressure = bmp.pressure / 100.0F;
-        last_altitude = bmp.readAltitude(SEA_LEVEL_PRESSURE);
+        // Hoogte uit DEZE meting berekenen. bmp.readAltitude() start
+        // intern een tweede meting (blokkeert de loop opnieuw ~25 ms en
+        // hoort bij een ander moment dan last_pressure). Zelfde formule.
+        last_altitude = 44330.0f *
+            (1.0f - powf(last_pressure / SEA_LEVEL_PRESSURE, 0.1903f));
     }
 }
 
