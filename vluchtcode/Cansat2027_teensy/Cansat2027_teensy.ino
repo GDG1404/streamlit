@@ -32,14 +32,16 @@
  *   - Audio (Teensy Audio library voor I2S - alleen RMS, geen FFT)
  *   - ArduinoFFT (alleen voor LSM6DSO trillingen)
  *
- * CSV op SD (27 kolommen, gelijk aan sensortest_fft.ino en de dashboards):
+ * CSV op SD (29 kolommen, gelijk aan sensortest_fft.ino en de dashboards):
  *   millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,
  *   gyro_x,gyro_y,gyro_z,lacc_x,lacc_y,lacc_z,grav_x,grav_y,grav_z,
  *   heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms,
- *   acc_peak_g
+ *   acc_peak_g,gps_course_deg,gps_speed_ms
  *   fft_peak_amp = sterkte van de trilling in g
  *   audio_rms    = RMS van alle audio sinds de vorige regel (DC verwijderd)
  *   acc_peak_g   = grootste versnelling (LSM6DSO) sinds de vorige regel, in g
+ *   gps_course_deg / gps_speed_ms = bewegingsrichting (0 = noord, 90 = oost)
+ *                  en snelheid over de grond volgens de GPS (afdrijven)
  */
 
 // ============================================================
@@ -160,6 +162,7 @@ float last_altitude   = 600.0;
 float last_lat        = 50.457303;  // Elsenborn
 float last_lon        = 6.221376;
 String last_time_utc  = "00:00:00";
+float last_gps_course = 0, last_gps_speed = 0;   // afdrijfrichting en -snelheid
 
 float last_gyro_x = 0, last_gyro_y = 0, last_gyro_z = 0;
 float last_lacc_x = 0, last_lacc_y = 0, last_lacc_z = 0;
@@ -372,8 +375,13 @@ void initBNO055() {
         if (bno.begin()) {
             delay(1000);
             bno.setExtCrystalUse(true);
-            // Zet in IMU-modus voor hogere updaterate (geen magnetometer)
-            // bno.setMode(OPERATION_MODE_IMUPLUS);
+            // IMU+ : zonder kompas (magnetometer). Het kompas wordt in de
+            // raket gestoord door metaal, batterijen en de buzzer en moet
+            // gekalibreerd worden. De afdrijfrichting komt van de GPS.
+            // Heading is RELATIEF: 0° = de richting bij het opstarten.
+            // Zelfde modus als in Drie_sensoren_test.
+            bno.setMode(OPERATION_MODE_IMUPLUS);
+            delay(25);
             ok_bno = true;
             Serial.println("OK");
             return;
@@ -463,7 +471,8 @@ void initSD() {
                 "qw,qx,qy,qz,"
                 "fft_peak_hz,fft_peak_amp,"
                 "audio_rms,"
-                "acc_peak_g"
+                "acc_peak_g,"
+                "gps_course_deg,gps_speed_ms"
             );
             csvFile.flush();
             Serial.print("OK → ");
@@ -501,6 +510,8 @@ void readGPS() {
         char buf[12];
         sprintf(buf, "%02d:%02d:%02d", GPS.hour, GPS.minute, GPS.seconds);
         last_time_utc = String(buf);
+        last_gps_course = GPS.angle;               // graden, 0 = noord
+        last_gps_speed  = GPS.speed * 0.514444f;   // knopen → m/s
     }
 }
 
@@ -670,7 +681,9 @@ void sendAndLog() {
                  String(fft_peak_hz, 1) + "," +
                  String(fft_peak_amp, 3) + "," +
                  String(audio_rms, 4) + "," +
-                 String(acc_peak_g, 2);
+                 String(acc_peak_g, 2) + "," +
+                 String(last_gps_course, 1) + "," +
+                 String(last_gps_speed, 2);
     acc_peak_g = 0;   // nieuw interval: opnieuw de grootste zoeken
 
     // SD kaart schrijven

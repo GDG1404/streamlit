@@ -110,6 +110,12 @@ def latlon_to_xy(lat, lon, lat0, lon0):
     return dx, dy
 
 
+def compass_point(deg):
+    """Course in degrees (0 = north, 90 = east) → N, NE, E, ... NW."""
+    names = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
+    return names[int((deg % 360) / 45 + 0.5) % 8]
+
+
 def deg2tile(lat, lon, z):
     n = 2 ** z
     x = (lon + 180.0) / 360.0 * n
@@ -305,7 +311,7 @@ class Dashboard2:
                                        color=C["cyan"], ha="right")
 
         # ── KPI bar ──
-        kpis = [("GPS FIX", "sat", C["green"]),
+        kpis = [("DRIFT (GPS)", "m/s", C["green"]),
                 ("FLIGHT TIME", "", C["cyan"]),
                 ("ALTITUDE (GPS)", "m", C["amber"]),
                 ("LATITUDE", "", C["blue"]),
@@ -756,18 +762,25 @@ class Dashboard2:
 
         # ── KPIs ──
         dist = math.hypot(x, y)
+        # drift: speed and direction over the ground, measured by the GPS
+        spd = row.get("gps_speed_ms", float("nan"))
+        crs = row.get("gps_course_deg", float("nan"))
+        if spd != spd:                                  # nan: older file
+            self.txt_kpi[0].set_text("—")
+            self.txt_kpi_sub[0].set_text("not in this file")
+        elif not has_gps_fix(row):
+            self.txt_kpi[0].set_text("—")
+            self.txt_kpi_sub[0].set_text("no GPS fix")
+        else:
+            self.txt_kpi[0].set_text(f"{spd:.1f}")
+            self.txt_kpi_sub[0].set_text(
+                f"towards {compass_point(crs)} ({crs:.0f}°)" if spd >= 0.5
+                else "standing still")
         if sim_mode:
-            fix = det != "PRELAUNCH" or t > 2
-            sats = random.randint(6, 9) if fix else 0
-            self.txt_kpi[0].set_text(f"{sats}")
-            self.txt_kpi_sub[0].set_text("3D fix · HDOP 1.2 (sim)" if fix
-                                         else "searching…")
             self.txt_kpi[2].set_text(f"{alt + random.gauss(0, 4):.0f}")
             self.txt_kpi_sub[2].set_text(f"baro: {alt:.0f}m (GPS sim)")
         else:
-            # satellite count and GPS altitude are not in the telemetry
-            self.txt_kpi[0].set_text("—")
-            self.txt_kpi_sub[0].set_text("not in telemetry")
+            # GPS altitude is not in the telemetry
             self.txt_kpi[2].set_text(f"{alt:.0f}")
             self.txt_kpi_sub[2].set_text("barometric (AGL)")
         self.txt_kpi[1].set_text(f"{int(t // 60):02d}:{int(t % 60):02d}")

@@ -336,6 +336,7 @@ logboek telkens de **tijd** die rechtsboven in het dashboard staat.
 | 5 | **Kantelen** | CanSat schuin houden, naar voren en opzij | Scherm 2: *Roll* en *Pitch* |
 | 6 | **Hoogte** | trap op en weer af, laptop mee | Scherm 1: ALTITUDE |
 | 7 | **GPS** | naar buiten, vrij zicht op de lucht, enkele minuten wachten | Scherm 2: LATITUDE/LONGITUDE, toets **M** voor de kaart |
+| 8 | **Wandelen** | met GPS-fix een stukje rechtdoor wandelen, laptop mee | Scherm 2: DRIFT toont je snelheid (ongeveer 1–1,5 m/s) en je richting, bv. `towards NE` |
 
 > **Op scherm 2:** druk op **M** om te wisselen tussen de 3D-vluchtbaan en een kaart. De
 > kaart toont de plek waar je staat (zodra de GPS een positie heeft) en zoomt vanzelf uit
@@ -455,6 +456,10 @@ hoogte uit. Omdat de luchtdruk ook verandert met het weer, kijkt het dashboard n
 We gebruiken de modus **IMU+**, zonder kompas. Heading is daarom **relatief**:
 0° is de richting waarin de CanSat stond bij het opstarten.
 
+Waarom geen kompas? Een kompas meet het magnetisch veld van de aarde. Dat is zwak.
+Metaal, batterijen en de buzzer in de buurt verstoren het. In een raket gebeurt dat
+zeker. Zonder kompas is de oriëntatie stabieler.
+
 **LSM6DSO — snelle versnellingsmeter.** Meet de versnelling 416 keer per seconde. Dat is
 snel genoeg om **trillingen** te zien, zoals van een raketmotor.
 
@@ -462,6 +467,14 @@ snel genoeg om **trillingen** te zien, zoals van een raketmotor.
 20 000 km hoogte. Uit het tijdsverschil tussen de signalen van minstens 4 satellieten
 berekent hij waar hij is. Daarvoor moet hij de lucht kunnen "zien": binnen lukt het
 meestal niet. Tot er een positie is (een **fix**), schrijft de sketch `00:00:00` als tijd.
+
+De GPS meet ook hoe snel en in welke **richting** de CanSat over de grond beweegt.
+Hangt de CanSat aan de parachute, dan is dat de richting waarin de **wind** hem
+meeneemt. Scherm 2 toont dat bij **DRIFT**.
+
+Let op: dat is iets anders dan de kant waar de CanSat naar **wijst**. Onder een
+parachute draait een CanSat vaak rond zijn as. Hij wijst dan telkens een andere
+kant op, maar hij drijft wel in één richting af.
 
 **SPH0645 — digitale microfoon.** De microfoon zet geluid meteen om naar getallen en
 stuurt die via **I²S** (een verbinding speciaal voor audio) naar de Teensy: ongeveer
@@ -580,12 +593,12 @@ hapert of opnieuw opgestart wordt.
 | `No module named 'matplotlib'` (of `numpy`, `serial`, `PIL`) | Doe A6 opnieuw, in een opdrachtprompt in `C:\CanSat`. |
 | `can't open file ... No such file or directory` | De opdrachtprompt staat niet in `C:\CanSat`. Open hem opnieuw via de adresbalk (`cmd`). |
 | `serial_logger`: `could not open port` of `Access is denied` | De Serial Monitor van de Arduino IDE is nog open: sluit hem. Of je typte de verkeerde COM-poort: kijk opnieuw met `--list`. |
-| `serial_logger` meldt: *de Teensy stuurt 26 kolommen in plaats van 27* | Op de Teensy staat nog een oude versie van de sketch. Doe B1 opnieuw. |
+| `serial_logger` meldt: *de Teensy stuurt 26 (of 27) kolommen in plaats van 29* | Op de Teensy staat nog een oude versie van de sketch. Doe B1 opnieuw. |
 | `serial_logger`: het aantal rijen blijft 0 | Draait de sketch? Knippert het lampje? Druk op het witte knopje van de Teensy. |
 | Dashboard toont `SIMULATED TEST DATA` | Het bestand werd niet gevonden. Start eerst `serial_logger` (B3), controleer de bestandsnaam, en start dan het dashboard opnieuw. |
 | Scherm 2: de kaart (toets M) is donker, zonder straten | De kaart werd niet gedownload (geen internet). De kaart hangt af van de plaats: open scherm 2 één keer **met internet** op die plaats en druk op M. De kaart wordt dan bewaard in `C:\CanSat\dashboard\osm_cache` en werkt daarna ook zonder internet. |
 | Scherm 2: de vluchtbaan staat stil op het startpunt | Normaal zolang de GPS geen fix heeft. |
-| Scherm 2: GPS FIX toont "—" | Normaal: het aantal satellieten zit niet in de metingen. Of er een fix is, zie je onder LATITUDE. |
+| Scherm 2: DRIFT toont "—" | Normaal zolang de GPS geen fix heeft (`no GPS fix`). Bij een oud meetbestand staat er `not in this file`. |
 | `check_csv.py`: "millis loopt niet op" of "herhaalde header" | De Teensy is herstart tijdens de test, of je gebruikte twee keer dezelfde bestandsnaam. Gebruik per test een nieuwe naam. |
 
 ---
@@ -608,7 +621,7 @@ Plus bij elke sensor: **3,3 V** en **GND**.
 
 ### E2. De CSV-kolommen
 
-Elke rij heeft 27 kolommen, altijd in deze volgorde.
+Elke rij heeft 29 kolommen, altijd in deze volgorde.
 
 | Kolom | Eenheid | Sensor | Betekenis |
 |---|---|---|---|
@@ -627,6 +640,8 @@ Elke rij heeft 27 kolommen, altijd in deze volgorde.
 | `fft_peak_amp` | g | LSM6DSO | hoe sterk die trilling is (1 g = 9,81 m/s²) |
 | `audio_rms` | — (0–1) | SPH0645 | geluidsniveau van de afgelopen seconde |
 | `acc_peak_g` | g | LSM6DSO | grootste versnelling van de afgelopen seconde, met de zwaartekracht erbij |
+| `gps_course_deg` | ° | GPS | richting waarin de CanSat over de grond beweegt: 0 = noord, 90 = oost, 180 = zuid, 270 = west |
+| `gps_speed_ms` | m/s | GPS | snelheid over de grond |
 
 ### E3. Normale waarden
 
@@ -641,6 +656,7 @@ Elke rij heeft 27 kolommen, altijd in deze volgorde.
 | `fft_peak_hz` | willekeurig | In rust is er geen echte trilling, dus de "piek" is toeval. |
 | `fft_peak_amp` | kleiner dan 0,01 g | Hard schudden: 0,3–1 g. |
 | `acc_peak_g` | ongeveer 1,0 | Dat is de zwaartekracht. Een tik op de tafel: 3–8 g. Schudden: 2–4 g. |
+| `gps_speed_ms` | 0 (zonder fix) of bijna 0 | Wandelen: 1–1,5 m/s. Stilstaand springt `gps_course_deg` willekeurig rond: dat is normaal. |
 | `audio_rms` | 0,001–0,005 | Zelfde als in `SPH0645_test`. Een korte klap geeft hier een **lagere** waarde dan in die test: de sketch middelt over 1 s, de test over 0,1 s. Aanhoudend geluid geeft ongeveer hetzelfde. |
 
 > Een bolletje in STRONGEST VIBRATION wordt pas oranje als `fft_peak_amp` groter is
@@ -696,10 +712,11 @@ py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per se
 
 ## Voor de leerkracht
 
-- **Nieuwe kolom `acc_peak_g`:** de testsketch schrijft een 27e kolom met de grootste
-  versnelling per logregel (LSM6DSO, ±16 g). De BNO055 meet standaard maar tot 4 g en
-  zou een schok afkappen. De vluchtcode (`Cansat2027_teensy.ino`) schrijft dezelfde
-  27 kolommen naar de SD-kaart. De dashboards lezen ook oude bestanden zonder die kolom.
+- **Nieuwe kolommen:** `acc_peak_g` is de grootste versnelling per logregel (LSM6DSO,
+  ±16 g). De BNO055 meet standaard maar tot 4 g en zou een schok afkappen.
+  `gps_course_deg` en `gps_speed_ms` zijn de afdrijfrichting en -snelheid volgens de GPS.
+  De vluchtcode (`Cansat2027_teensy.ino`) schrijft dezelfde 29 kolommen naar de
+  SD-kaart. De dashboards lezen ook oude bestanden met 26 of 27 kolommen.
 
 - **SD-kaart (optioneel):** zit er een microSD-kaart (FAT32) in de Teensy, dan schrijft
   de sketch dezelfde regels ook naar `test_000.csv`, `test_001.csv`, … op de kaart (elke

@@ -10,7 +10,7 @@ van 2 minuten:
      35 s  tik op de tafel: korte schok (~7 g in acc_peak_g)
   40–55 s  CanSat met de hand geschud (trilling ~4–5 Hz, ~0,6 g)
      60 s  handklap (piek in audio_rms)
-  70–90 s  trap op gelopen (~6 m hoger)
+  70–90 s  trap op gelopen (~6 m hoger), GPS ziet 1,2 m/s richting oost
 
 Gebruik:
   python gen_test_csv.py test_000.csv            # in één keer (replay)
@@ -28,7 +28,7 @@ COLUMNS = [  # identiek aan CSV_HEADER in sensortest_fft.ino
     "gyro_x", "gyro_y", "gyro_z", "lacc_x", "lacc_y", "lacc_z",
     "grav_x", "grav_y", "grav_z", "heading", "roll", "pitch",
     "qw", "qx", "qy", "qz", "fft_peak_hz", "fft_peak_amp", "audio_rms",
-    "acc_peak_g",
+    "acc_peak_g", "gps_course_deg", "gps_speed_ms",
 ]
 DURATION_S = 120
 
@@ -71,6 +71,14 @@ def make_row(t, t_ms):
     else:
         peak = 1.0 + abs(random.gauss(0, 0.01))
 
+    # GPS: richting en snelheid over de grond (alleen met fix)
+    if t >= 25 and 70 <= t < 90:
+        course, speed = 90 + random.gauss(0, 8), 1.2 + random.gauss(0, 0.15)
+    elif t >= 25:
+        course, speed = random.uniform(0, 360), abs(random.gauss(0, 0.1))
+    else:
+        course, speed = 0.0, 0.0
+
     def f(v, n):
         return f"{v:.{n}f}"
 
@@ -80,6 +88,7 @@ def make_row(t, t_ms):
         *(f(g, 3) for g in grav),
         f(heading, 2), f(roll, 2), f(pitch, 2), *(f(x, 4) for x in q),
         f(fhz, 1), f(famp, 3), f(audio, 4), f(peak, 2),
+        f(course % 360, 1), f(max(0.0, speed), 2),
     ])
 
 

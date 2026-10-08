@@ -113,9 +113,11 @@ CSV_COLUMNS = [
     "fft_peak_hz", "fft_peak_amp",
     "audio_rms",
     "acc_peak_g",
+    "gps_course_deg", "gps_speed_ms",
 ]
-# Files from before acc_peak_g existed (26 columns) still load: the
-# dashboards read columns by name and treat a missing one as "no data".
+# Older files (26 or 27 columns, before acc_peak_g / the GPS drift
+# columns) still load: the dashboards read columns by name and treat a
+# missing one as "no data".
 
 FFT_STRONG_G = 0.3   # fft_peak_amp (g) above which a vibration counts as
                      # "strong" — tune after the first real measurements
@@ -225,11 +227,16 @@ class TelemetrySimulator:
         descending = self.phase == "DALEND"
 
         # ── horizontal wind drift → GPS track ──
+        gps_speed = 0.0
         if self.phase in ("STIJGEND", "APOGEE", "DALEND"):
             self.wind_dir += random.gauss(0, 0.02)
             wind = 3.0 + 1.0 * math.sin(0.05 * t)
             self.x += wind * math.cos(self.wind_dir) * dt
             self.y += wind * math.sin(self.wind_dir) * dt
+            gps_speed = wind
+        # GPS course over ground: 0° = north, 90° = east (x = east, y = north)
+        gps_course = math.degrees(math.atan2(math.cos(self.wind_dir),
+                                             math.sin(self.wind_dir))) % 360
         lat = self.LAT0 + self.y / 111_320.0
         lon = self.LON0 + self.x / (111_320.0 * math.cos(math.radians(self.LAT0)))
 
@@ -299,6 +306,8 @@ class TelemetrySimulator:
             "fft_peak_amp": max(0.0, fft_amp),
             "audio_rms": audio,
             "acc_peak_g": acc_g,
+            "gps_course_deg": gps_course,
+            "gps_speed_ms": max(0.0, gps_speed + random.gauss(0, 0.1)),
         }
 
     def drag_coefficient(self, row):

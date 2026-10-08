@@ -1,19 +1,21 @@
 /*
  * CanSat 2027 - Teensy 4.1 - SENSORTEST + FFT + CSV
- * Zelfstandige testsketch — CSV-formaat van de vluchtcode, plus acc_peak_g.
+ * Zelfstandige testsketch — zelfde CSV-formaat als de vluchtcode.
  *
  * Sensoren: BMP390, BNO055, LSM6DSO, GPS PA1616D, SPH0645 (I2S)
  *
- * CSV-kolommen (vluchtcode + acc_peak_g als 27e kolom; de dashboards
- * lezen ook bestanden zonder acc_peak_g):
+ * CSV-kolommen (29, gelijk aan de vluchtcode; de dashboards lezen ook
+ * oudere bestanden met 26 of 27 kolommen):
  *   millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,
  *   gyro_x,gyro_y,gyro_z,lacc_x,lacc_y,lacc_z,grav_x,grav_y,grav_z,
  *   heading,roll,pitch,qw,qx,qy,qz,fft_peak_hz,fft_peak_amp,audio_rms,
- *   acc_peak_g
+ *   acc_peak_g,gps_course_deg,gps_speed_ms
  *
  * fft_peak_amp = amplitude van de piek in g (DC verwijderd, venster-gecorrigeerd)
  * audio_rms    = RMS van alle audio sinds de vorige logregel (DC verwijderd)
  * acc_peak_g   = grootste versnelling (LSM6DSO) sinds de vorige logregel, in g
+ * gps_course_deg / gps_speed_ms = bewegingsrichting (0 = noord, 90 = oost)
+ *                en snelheid over de grond volgens de GPS (afdrijven)
  */
 
 #include <Wire.h>
@@ -64,7 +66,8 @@ const char CSV_HEADER[] =
     "qw,qx,qy,qz,"
     "fft_peak_hz,fft_peak_amp,"
     "audio_rms,"
-    "acc_peak_g";
+    "acc_peak_g,"
+    "gps_course_deg,gps_speed_ms";
 
 File csvFile;
 int  sdBufferLines = 0;
@@ -76,6 +79,7 @@ bool ok_bmp = false, ok_bno = false, ok_lsm = false, ok_gps = false, ok_sd = fal
 float last_temp = 10.0, last_pressure = 1000.0, last_altitude = 600.0;
 float last_lat = 50.457303, last_lon = 6.221376;
 String last_time_utc = "00:00:00";
+float last_gps_course = 0, last_gps_speed = 0;   // afdrijfrichting en -snelheid
 
 float last_gyro_x=0, last_gyro_y=0, last_gyro_z=0;
 float last_lacc_x=0, last_lacc_y=0, last_lacc_z=0;
@@ -329,6 +333,8 @@ void readGPS() {
         snprintf(buf, sizeof(buf), "%02d:%02d:%02d",
                  GPS.hour, GPS.minute, GPS.seconds);
         last_time_utc = String(buf);
+        last_gps_course = GPS.angle;               // graden, 0 = noord
+        last_gps_speed  = GPS.speed * 0.514444f;   // knopen → m/s
     }
 }
 
@@ -453,7 +459,8 @@ void writeCSV() {
         String(last_qw, 4) + "," + String(last_qx, 4) + "," +
         String(last_qy, 4) + "," + String(last_qz, 4) + "," +
         String(fft_peak_hz, 1)   + "," + String(fft_peak_amp, 3) + "," +
-        String(audio_rms, 4)     + "," + String(acc_peak_g, 2);
+        String(audio_rms, 4)     + "," + String(acc_peak_g, 2) + "," +
+        String(last_gps_course, 1) + "," + String(last_gps_speed, 2);
     acc_peak_g = 0;   // nieuw interval: opnieuw de grootste zoeken
 
     if (csvFile) {

@@ -19,9 +19,9 @@ COLUMNS = [  # identiek aan CSV_COLUMNS in dashboard_scherm1.py
     "gyro_x", "gyro_y", "gyro_z", "lacc_x", "lacc_y", "lacc_z",
     "grav_x", "grav_y", "grav_z", "heading", "roll", "pitch",
     "qw", "qx", "qy", "qz", "fft_peak_hz", "fft_peak_amp", "audio_rms",
-    "acc_peak_g",
+    "acc_peak_g", "gps_course_deg", "gps_speed_ms",
 ]
-OLD_COLUMNS = COLUMNS[:-1]   # bestanden van vóór acc_peak_g (26 kolommen)
+OLD_FORMATS = (COLUMNS[:26], COLUMNS[:27])   # oudere versies van de sketch
 NO_FIX_TIME = "00:00:00"
 MAX_ERRORS_SHOWN = 10
 
@@ -41,10 +41,11 @@ def main():
     errors = []
     header = lines[0].split(",")
     cols = COLUMNS
-    if header == OLD_COLUMNS:
-        cols = OLD_COLUMNS
-        print("Let op  : oud formaat (26 kolommen, zonder acc_peak_g). "
-              "Het dashboard leest dit nog, maar zonder piekversnelling.\n")
+    if header in OLD_FORMATS:
+        cols = header
+        print(f"Let op  : oud formaat ({len(header)} kolommen i.p.v. "
+              f"{len(COLUMNS)}). Het dashboard leest dit nog, maar zonder "
+              f"{', '.join(COLUMNS[len(header):])}.\n")
     elif header != COLUMNS:
         missing = [c for c in COLUMNS if c not in header]
         extra = [c for c in header if c not in COLUMNS]
@@ -85,7 +86,7 @@ def main():
         print("\nKolom          min        max      (controleer of dit logisch is)")
         for k in ("temp_C", "press_hPa", "alt_m", "lacc_z", "gyro_z",
                   "grav_z", "fft_peak_hz", "fft_peak_amp", "audio_rms",
-                  "acc_peak_g"):
+                  "acc_peak_g", "gps_speed_ms"):
             if k not in cols:
                 continue
             vals = [r[k] for r in rows]
