@@ -345,7 +345,9 @@ class CsvReplay:
 
         # GPS reference: first row with a fix (rows before it carry
         # placeholder coordinates); no fix at all → firmware defaults
-        fixed = [r for r in self.rows if has_gps_fix(r)] or self.rows
+        fixed = [r for r in self.rows if has_gps_fix(r)]
+        self._have_fix = bool(fixed)
+        fixed = fixed or self.rows
         self.lat0 = fixed[0]["lat"]
         self.lon0 = fixed[0]["lon"]
         self.h_max = max(r["alt_m"] for r in self.rows)
@@ -950,8 +952,8 @@ class Dashboard:
         ts = np.array(h["t"])
 
         # ── header ──
-        # echte RSSI als de logger die meeschrijft (kolom 27); alleen de
-        # simulator toont een gesimuleerde waarde, expliciet gelabeld
+        # real RSSI when the logger records it (column 27); only the
+        # simulator shows a simulated value, explicitly labelled
         rssi = row.get("rssi")
         if rssi is not None:
             self.txt_rssi.set_text(f"RSSI {rssi:.0f} dBm")

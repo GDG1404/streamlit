@@ -9,7 +9,9 @@ Panels:
   - 3D FLIGHT PATH: the trajectory in a slowly rotating xyz frame
     (east / north / altitude, metres), coloured by altitude, with a
     ground shadow and a drop line for depth perception.
-    Press 'M' to toggle to the 2D OSM map of Elsenborn (recovery view).
+    Press 'M' to toggle to the 2D OSM map around the launch point (the
+    first GPS fix; Elsenborn in the simulator) — the recovery view. The
+    map zooms out automatically when the can drifts off the map.
   - Altitude profile bar (below the map)
   - Large 3D can (66×115 mm, closed with lid and bottom) with a computed
     load heatmap. Peak hold: colours stay at the highest value reached,
@@ -17,8 +19,9 @@ Panels:
     A thin dark raster keeps the shape readable when everything colours.
   - Radio link status (RSSI / packets / SNR)
 
-OSM tiles are downloaded once and cached in ./osm_cache (works offline
-afterwards — handy at the launch site).
+OSM tiles are downloaded once per location and cached in ./osm_cache
+(works offline afterwards — open the dashboard once with internet near
+the launch site, e.g. on a replay of a short test there).
 
 Requirements:  pip install numpy matplotlib pillow
 Run:           python dashboard_scherm2.py                  (settings in screen 1)
@@ -54,8 +57,9 @@ from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from PIL import Image
 
 # OSM basemap settings (2D map view)
-OSM_ZOOM = 16
-OSM_RADIUS_2D = 2     # 2D map: (2·2+1)² = 25 tiles, ±~975 m
+OSM_ZOOM = 16         # start zoom: ±~975 m around the launch point
+OSM_MIN_ZOOM = 12     # zoom out at most to ±~15 km
+OSM_RADIUS_2D = 2     # 2D map: (2·2+1)² = 25 tiles
 CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          "osm_cache")
 MAP_DIM = 0.55        # darken factor so the dark theme keeps working
@@ -181,6 +185,8 @@ class Dashboard2:
         self._wall = None        # wall-clock pacing for real-time replay
         self._map_fixed = False          # True once basemap is redrawn for real GPS
         self._basemap_artists = []       # artists to remove on basemap redraw
+        self._zoom = OSM_ZOOM            # current map zoom (zooms out)
+        self._map_half = float("inf")    # map coverage (m), set on draw
         self._build_figure()
         # remember the origin used at build time so we can detect when
         # CsvLive updates it after the first real GPS fix arrives
@@ -202,20 +208,21 @@ class Dashboard2:
     def _tile_block(self, radius):
         """Stitch (2r+1)² tiles into one image + extent in local metres."""
         lat0, lon0 = self.sim.lat0, self.sim.lon0
-        xt, yt = deg2tile(lat0, lon0, OSM_ZOOM)
+        z = self._zoom
+        xt, yt = deg2tile(lat0, lon0, z)
         cx, cy = int(xt), int(yt)
         rows = []
         for ty in range(cy - radius, cy + radius + 1):
             row = []
             for tx in range(cx - radius, cx + radius + 1):
                 try:
-                    row.append(fetch_tile(OSM_ZOOM, tx, ty))
+                    row.append(fetch_tile(z, tx, ty))
                 except Exception:
                     row.append(np.full((256, 256, 3), 0.06))  # dark filler
             rows.append(np.hstack(row))
         img = np.vstack(rows)
-        lat_n, lon_w = tile2deg(cx - radius, cy - radius, OSM_ZOOM)
-        lat_s, lon_e = tile2deg(cx + radius + 1, cy + radius + 1, OSM_ZOOM)
+        lat_n, lon_w = tile2deg(cx - radius, cy - radius, z)
+        lat_s, lon_e = tile2deg(cx + radius + 1, cy + radius + 1, z)
         x_w, y_n = latlon_to_xy(lat_n, lon_w, lat0, lon0)
         x_e, y_s = latlon_to_xy(lat_s, lon_e, lat0, lon0)
         return img * MAP_DIM, (x_w, x_e, y_s, y_n)
@@ -228,11 +235,14 @@ class Dashboard2:
             except Exception:
                 pass
         self._basemap_artists = []
+        self._set_map_title()
         try:
             img, (x_w, x_e, y_s, y_n) = self._tile_block(OSM_RADIUS_2D)
         except Exception:
             self.ax_gps.grid(True, color="#111820", linewidth=0.7)
             return
+        # half-width the map covers around the launch point (metres)
+        self._map_half = min(-x_w, x_e, -y_s, y_n)
         bm = self.ax_gps.imshow(img, extent=(x_w, x_e, y_s, y_n),
                            origin="upper", zorder=0,
                            interpolation="bilinear")
@@ -240,6 +250,20 @@ class Dashboard2:
                          transform=self.ax_gps.transAxes, fontsize=6,
                          color=C["dim"], ha="right")
         self._basemap_artists = [bm, cp]
+
+    def _set_map_title(self):
+        """Map title: the real location of the launch point."""
+        if isinstance(self.sim, TelemetrySimulator):
+            where = "ELSENBORN, BELGIUM (sim)"
+        elif getattr(self.sim, "_have_fix", False):
+            lat, lon = self.sim.lat0, self.sim.lon0
+            where = (f"{abs(lat):.4f}°{'N' if lat >= 0 else 'S'} "
+                     f"{abs(lon):.4f}°{'E' if lon >= 0 else 'W'}")
+        else:
+            where = "WAITING FOR GPS FIX"
+        self.ax_gps.set_title(f"● GPS LIVE TRACK — {where}   [M] 3D view",
+                              loc="left", fontsize=8, color=C["green"],
+                              fontfamily="monospace", pad=4)
 
     # ── key handler: M toggles 3D flight ↔ 2D map ──
     def _on_key(self, event):
@@ -344,7 +368,7 @@ class Dashboard2:
         self.ax_flight.plot(50 * np.cos(ang), 50 * np.sin(ang),
                             np.zeros_like(ang), color=C["green"],
                             lw=1, ls="--", alpha=0.5)
-        # dummy segment: add_collection3d crasht op een lege collectie
+        # dummy segment: add_collection3d crashes on an empty collection
         self.trk3d = Line3DCollection(np.zeros((1, 2, 3)),
                                       cmap=self.alt_cmap,
                                       norm=self.alt_norm, linewidth=2.5)
@@ -359,8 +383,8 @@ class Dashboard2:
                                                color=C["orange"], ms=7)
         self.pt_apo3d, = self.ax_flight.plot([], [], [], "^",
                                              color=C["amber"], ms=7)
-        # limieten opnieuw vastzetten: autoscale van add_collection3d/plot
-        # mag de scène niet meer verschuiven
+        # set the limits again: autoscale from add_collection3d/plot
+        # must not shift the scene
         self.ax_flight.set_xlim(-self._span3d, self._span3d)
         self.ax_flight.set_ylim(-self._span3d, self._span3d)
         self.ax_flight.set_zlim(0, self.sim.h_max * 1.1)
@@ -372,9 +396,7 @@ class Dashboard2:
 
         # 2D map (same slot, hidden by default — toggle with M)
         self.ax_gps = self.fig.add_subplot(gs[0:2, :3])
-        self._style_axes(self.ax_gps,
-                         "● GPS LIVE TRACK — ELSENBORN, BELGIUM   [M] 3D view",
-                         C["green"], face="#0a0f16")
+        self._style_axes(self.ax_gps, face="#0a0f16")
         self.ax_gps.set_aspect("equal", adjustable="box")
         self.ax_gps.set_xlabel("east (m)", fontsize=7)
         self.ax_gps.set_ylabel("north (m)", fontsize=7)
@@ -576,6 +598,10 @@ class Dashboard2:
         self.txt_now.set_text(f"{alt:.0f}m")
         self.txt_now.set_visible(True)
         span = max(150, dist * 1.3)
+        # can drifted off the map → zoom out one level (tiles are cached)
+        if span > self._map_half and self._zoom > OSM_MIN_ZOOM:
+            self._zoom -= 1
+            self._draw_basemap_2d()
         self.ax_gps.set_xlim(-span, span)
         self.ax_gps.set_ylim(-span * 0.70, span * 0.70)
 
@@ -704,8 +730,8 @@ class Dashboard2:
             self._draw_basemap_2d()
             self._map_fixed = True
 
-        # ── header: echte RSSI/SNR als de logger die meeschrijft; alleen
-        # de simulator toont gesimuleerde waarden (gelabeld) ──
+        # ── header: real RSSI/SNR when the logger records them; only
+        # the simulator shows simulated values (labelled) ──
         sim_mode = isinstance(self.sim, TelemetrySimulator)
         rssi = row.get("rssi")
         snr = row.get("snr")
@@ -733,11 +759,11 @@ class Dashboard2:
             self.txt_kpi[2].set_text(f"{alt + random.gauss(0, 4):.0f}")
             self.txt_kpi_sub[2].set_text(f"baro: {alt:.0f}m (GPS sim)")
         else:
-            # satellieten en GPS-hoogte zitten niet in het telemetriepakket
+            # satellite count and GPS altitude are not in the telemetry
             self.txt_kpi[0].set_text("—")
-            self.txt_kpi_sub[0].set_text("niet in telemetrie")
+            self.txt_kpi_sub[0].set_text("not in telemetry")
             self.txt_kpi[2].set_text(f"{alt:.0f}")
-            self.txt_kpi_sub[2].set_text("barometrisch (AGL)")
+            self.txt_kpi_sub[2].set_text("barometric (AGL)")
         self.txt_kpi[1].set_text(f"{int(t // 60):02d}:{int(t % 60):02d}")
         self.txt_kpi[3].set_text(f"{row['lat']:.4f}°N")
         self.txt_kpi_sub[3].set_text("GPS fix" if has_gps_fix(row)

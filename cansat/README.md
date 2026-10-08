@@ -183,7 +183,11 @@ python dashboard/dashboard_scherm2.py --replay test_000.csv
   de richting overeenkomt met hoe je de CanSat echt gedraaid hebt.
 - Na het schudden kleurt het blik oranje tot rood. De kleur blijft staan ("peak hold"):
   zo zie je achteraf waar de belasting het grootst was.
-- Druk op **M** om te wisselen tussen de 3D-baan en de 2D-kaart.
+- Druk op **M** om te wisselen tussen de 3D-baan en de 2D-kaart. De kaart toont de
+  plaats waar je staat: ze wordt gecentreerd op de **eerste GPS-fix** en de titel
+  toont die coördinaten. Zonder fix staat er `WAITING FOR GPS FIX`. Drijft de
+  CanSat verder af dan de kaart reikt (±1 km), dan zoomt de kaart vanzelf uit,
+  tot ongeveer ±15 km. Alleen de simulator (`--sim`) toont Elsenborn.
 
 ### Stap 6 — Live meekijken (Teensy via USB)
 
@@ -272,7 +276,7 @@ de kolommen **niet**: het dashboard verwacht ze precies zo.
 | Dashboard toont "SIMULATED TEST DATA" | Het CSV-bestand werd niet gevonden: controleer het pad achter `--replay` / `--live`. |
 | `check_csv.py`: "herhaalde header" | De Teensy is herstart terwijl hij naar hetzelfde bestand schreef. Verwijder die regel. |
 | Dashboard start niet: `No module named 'tkinter'` | Linux: `sudo apt install python3-tk`. |
-| Scherm 2: kaart (M) is donker, zonder straten | Er was geen internet om de kaarttegels te downloaden. Open scherm 2 één keer met internet in de buurt van de lanceerplaats: de tegels worden bewaard in `dashboard/osm_cache` en werken daarna offline. |
+| Scherm 2: kaart (M) is donker, zonder straten | Er was geen internet om de kaarttegels te downloaden. De kaart hangt af van de plaats, dus de tegels moeten **per locatie** één keer gedownload worden. Open vooraf, met internet, scherm 2 met een replay van een korte test op die plaats en druk op M. De tegels worden bewaard in `dashboard/osm_cache` en werken daarna offline. |
 | Scherm 2: vluchtbaan staat stil op het startpunt | Normaal zolang er geen GPS-fix is: de positie blijft dan op de laatst bekende plaats staan. |
 | Scherm 2: GPS FIX toont "—" | De sketch stuurt het aantal satellieten niet mee. Of er een fix is, zie je onder LATITUDE. |
 
