@@ -255,7 +255,7 @@ de kolommen **niet**: het dashboard verwacht ze precies zo.
 | `gyro_x/y/z` | ongeveer 0 (±1) | |
 | `fft_peak_hz` | willekeurig | In rust is er geen echte trilling; de "piek" is ruis. |
 | `fft_peak_amp` | < 0,01 g | Schudden met de hand: 0,3–1 g. |
-| `audio_rms` | 0,001–0,01 | Klap of roepen: duidelijk hoger. |
+| `audio_rms` | 0,001–0,005 | Zelfde als in `SPH0645_test`. Een korte klap geeft hier een **lagere** waarde dan in die test: de sketch middelt over 1 s, de test over 0,1 s. Aanhoudend geluid (roepen, muziek) geeft wel ongeveer dezelfde waarde. |
 
 > **Let op:** het dashboard toont een FFT-piek pas als `fft_peak_amp > 0,3`.
 > De lijnen met de top-5-frequenties verschijnen pas na 20 zulke regels, dus
@@ -269,7 +269,7 @@ de kolommen **niet**: het dashboard verwacht ze precies zo.
 |---|---|
 | `BMP390 ... FOUT` (of een andere sensor) | Controleer 3,3 V, GND, SDA (18) en SCL (19). Maak een I²C-scan met het voorbeeld *Wire → Scanner*. |
 | `SD kaart ... FOUT` | Kaart goed ingestoken? Geformatteerd als FAT32? |
-| `GPS PA1616D ... GEEN DATA` | TX/RX omgedraaid? GPS-TX moet naar pin 0. |
+| `GPS PA1616D ... nog geen data` en `time_utc` blijft `00:00:00`, ook buiten | De sketch blijft de GPS volgen, maar er komt niets binnen: TX/RX omgedraaid? GPS-TX moet naar pin 0. Werkt `GPS_test.ino` wel? |
 | GPS geeft nooit een fix | Ga naar buiten met vrij zicht op de lucht. De eerste fix duurt soms 1–5 min. |
 | `audio_rms` blijft 0 | Controleer pin 8, 20 en 21 en of SEL aan GND hangt. |
 | `serial_logger.py`: poort bezet | Sluit de Seriële Monitor van de Arduino IDE. |

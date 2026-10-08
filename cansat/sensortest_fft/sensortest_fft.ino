@@ -156,7 +156,7 @@ void loop() {
     // GPS data ophalen @ 1 Hz
     if (now - lastGpsMs >= 1000) {
         lastGpsMs = now;
-        if (ok_gps) readGPS();
+        readGPS();   // altijd: zonder data blijft GPS.fix gewoon false
     }
 
     // BNO055 @ 100 Hz
@@ -254,12 +254,12 @@ bool initGPS() {
     GPS.begin(9600);                                     // doet Serial1.begin()
     Serial1.addMemoryForRead(gpsRxBuf, sizeof(gpsRxBuf)); // na begin()
     GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCGGA);
-    GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);
-    GPS.sendCommand(PGCMD_ANTENNA);
+    GPS.sendCommand(PMTK_SET_NMEA_UPDATE_1HZ);   // zelfde als GPS_test
     delay(1000);
-    // Controleren of de module echt iets stuurt
+    // Enkel ter info: de GPS wordt ALTIJD verder uitgelezen, ook als hij
+    // hier nog niets stuurde (bv. module die trager opstart)
     bool gotData = Serial1.available() > 0;
-    Serial.println(gotData ? "OK" : "GEEN DATA");
+    Serial.println(gotData ? "OK" : "nog geen data (wordt verder gevolgd)");
     return gotData;
 }
 
