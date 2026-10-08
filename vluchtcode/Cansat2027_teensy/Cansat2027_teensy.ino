@@ -134,6 +134,11 @@ int sdBufferLines = 0;
 // GLOBALE VARIABELEN
 // ============================================================
 
+// Welke onderdelen werken? Een onderdeel dat bij het opstarten niet
+// antwoordt, wordt overgeslagen: de rest blijft meten, loggen en zenden.
+// (Vroeger bleef de Teensy dan hangen en werd er NIETS opgeslagen.)
+bool ok_bmp = false, ok_bno = false, ok_lsm = false, ok_lora = false;
+
 // Vluchtstatusus
 bool isLaunched = false;
 unsigned long launchCheckTimer = 0;
@@ -213,6 +218,13 @@ void setup() {
     initLoRa();
     initSD();
 
+    Serial.println("\n--- Status ---");
+    Serial.print("BMP390 : "); Serial.println(ok_bmp  ? "OK" : "FOUT (geen hoogte, geen lanceerdetectie)");
+    Serial.print("BNO055 : "); Serial.println(ok_bno  ? "OK" : "FOUT (geen oriëntatie)");
+    Serial.print("LSM6DSO: "); Serial.println(ok_lsm  ? "OK" : "FOUT (geen trillingen, geen acc_peak_g)");
+    Serial.print("LoRa   : "); Serial.println(ok_lora ? "OK" : "FOUT (niets naar het grondstation)");
+    Serial.print("SD     : "); Serial.println(csvFile ? "OK" : "FOUT (niets op de SD-kaart)");
+
     // Startbuzzer
     beep(3);
 
@@ -248,7 +260,7 @@ void loop() {
     // --- BMP390 uitlezen: 1 Hz ---
     if (now - lastBmpMs >= BMP_INTERVAL_MS) {
         lastBmpMs = now;
-        readBMP390();
+        if (ok_bmp) readBMP390();
     }
 
     // --- GPS data ophalen: 1 Hz ---
@@ -260,13 +272,13 @@ void loop() {
     // --- BNO055 uitlezen: 100 Hz ---
     if (now - lastBnoMs >= BNO_INTERVAL_MS) {
         lastBnoMs = now;
-        readBNO055();
+        if (ok_bno) readBNO055();
     }
 
     // --- LSM6DSO uitlezen: exact 416 Hz + FFT buffer vullen ---
     // µs-timer: op 2 ms (500 Hz) pollen van een 416 Hz-sensor gaf
     // ~17% dubbele samples en dus een scheve FFT-frequentie-as.
-    if (micros() - lastLsmUs >= LSM_INTERVAL_US) {
+    if (ok_lsm && micros() - lastLsmUs >= LSM_INTERVAL_US) {
         lastLsmUs += LSM_INTERVAL_US;   // vaste tijdbasis, geen drift
         // Na een lange blokkering (LoRa ~130 ms, BMP) niet inhalen
         if (micros() - lastLsmUs >= LSM_INTERVAL_US) lastLsmUs = micros();
@@ -342,6 +354,7 @@ void initBMP390() {
             // (zelfde oplossing als in Drie_sensoren_test)
             bmp.performReading();
             delay(100);
+            ok_bmp = true;
             Serial.println("OK");
             return;
         }
@@ -349,7 +362,8 @@ void initBMP390() {
     }
     Serial.println("FOUT! BMP390 niet gevonden.");
     errorBeep();
-    while (true); // Stop bij kritieke sensorfout
+    // Niet meer stoppen: de rest blijft werken. Zonder BMP390 is er
+    // wel geen lanceerdetectie (en dus ook geen landingsbuzzer).
 }
 
 void initBNO055() {
@@ -360,6 +374,7 @@ void initBNO055() {
             bno.setExtCrystalUse(true);
             // Zet in IMU-modus voor hogere updaterate (geen magnetometer)
             // bno.setMode(OPERATION_MODE_IMUPLUS);
+            ok_bno = true;
             Serial.println("OK");
             return;
         }
@@ -367,7 +382,7 @@ void initBNO055() {
     }
     Serial.println("FOUT! BNO055 niet gevonden.");
     errorBeep();
-    while (true);
+    // Niet meer stoppen: doorgaan zonder oriëntatie
 }
 
 void initGPS() {
@@ -391,6 +406,7 @@ void initLSM6DSO() {
             lsm.setAccelDataRate(416);      // 416 Hz accelerometer
             lsm.setGyroDataRate(416);       // 416 Hz gyroscoop
             // setAccelFIFO niet beschikbaar in SparkFun LSM6DSO library — polling via timer
+            ok_lsm = true;
             Serial.println("OK");
             return;
         }
@@ -407,19 +423,34 @@ void initLoRa() {
                             LORA_SF, LORA_CR, LORA_SYNC_WORD);
     if (state == RADIOLIB_ERR_NONE) {
         radio.setOutputPower(20); // Maximaal zendvermogen
+        ok_lora = true;
         Serial.println("OK");
     } else {
         Serial.print("FOUT! Code: ");
         Serial.println(state);
         errorBeep();
-        while (true);
+        // Niet meer stoppen: blijven meten en op de SD-kaart schrijven
     }
 }
 
 void initSD() {
     Serial.print("SD kaart initialiseren... ");
     if (SD.begin(SD_CS)) {
-        csvFile = SD.open("cansat27.csv", FILE_WRITE);
+        // Elke start een NIEUW bestand: cansat27_000.csv, cansat27_001.csv, ...
+        // (vroeger kwam na een herstart alles in hetzelfde bestand terecht,
+        // met een tweede kopregel midden in de data)
+        char fname[24];
+        bool found = false;
+        for (int i = 0; i < 1000; i++) {
+            snprintf(fname, sizeof(fname), "cansat27_%03d.csv", i);
+            if (!SD.exists(fname)) { found = true; break; }
+        }
+        if (!found) {
+            Serial.println("FOUT! Geen vrije bestandsnaam (1000 bestanden).");
+            errorBeep();
+            return;
+        }
+        csvFile = SD.open(fname, FILE_WRITE);
         if (csvFile) {
             // CSV header schrijven
             csvFile.println(
@@ -434,7 +465,9 @@ void initSD() {
                 "audio_rms,"
                 "acc_peak_g"
             );
-            Serial.println("OK");
+            csvFile.flush();
+            Serial.print("OK → ");
+            Serial.println(fname);
         } else {
             Serial.println("FOUT! Kan bestand niet openen.");
         }
@@ -662,10 +695,12 @@ void sendAndLog() {
                         String(fft_peak_hz, 0) + "," +
                         String(audio_rms, 3);
 
-    int state = radio.transmit(loraPacket);
-    if (state != RADIOLIB_ERR_NONE) {
-        Serial.print("LoRa fout: ");
-        Serial.println(state);
+    if (ok_lora) {
+        int state = radio.transmit(loraPacket);
+        if (state != RADIOLIB_ERR_NONE) {
+            Serial.print("LoRa fout: ");
+            Serial.println(state);
+        }
     }
 
     // Debug output
