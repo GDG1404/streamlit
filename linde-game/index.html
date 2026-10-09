@@ -54,6 +54,8 @@
   .ltr { display:inline-block; background:var(--accent2); color:#fff; border-radius:6px; padding:2px 7px; margin:1px; font-weight:700; }
   .tile { border:2px solid var(--accent2); border-radius:14px; padding:10px; margin-bottom:10px; }
   .tile .big { font-size:26px; font-weight:800; letter-spacing:6px; color:var(--accent2); }
+  .story { font-style:italic; color:var(--muted); border-left:3px solid var(--accent2); padding-left:10px; margin:6px 0 10px; }
+  .formula { text-align:center; font-size:22px; font-weight:800; color:var(--accent2); margin:10px 0; }
   .sol { font-size:22px; font-weight:800; text-align:center; letter-spacing:3px; color:var(--ok); }
 </style>
 </head>
@@ -94,9 +96,20 @@
   </div>
 </div>
 
+<!-- verhaal -->
+<div class="overlay" id="story"><div class="modal">
+  <span class="tag">📜 Missie-briefing</span>
+  <h2 id="storyTitle"></h2>
+  <div id="storyBody"></div>
+  <div class="row" style="margin-top:10px">
+    <button class="flex" id="storySend">📣 Toon op alle gsm's</button>
+    <button class="sec" id="storyClose">Sluiten</button>
+  </div>
+</div></div>
+
 <!-- groot hart -->
 <div class="overlay" id="heartBig"><div class="modal" style="text-align:center">
-  <h2>💖 Liefde voor Linde</h2>
+  <h2>💖 Het Hart van Linde</h2>
   <div style="height:270px;display:flex;align-items:center;justify-content:center">
     <svg id="heartBigSvg" viewBox="0 0 32 30" style="width:90px;height:84px"><use href="#heartSym" width="32" height="30"/></svg>
   </div>
@@ -142,6 +155,7 @@
   <h2 id="cardTitle"></h2>
   <img id="cardImg" alt="">
   <a id="cardRef" target="_blank" rel="noopener" style="display:none;margin-bottom:10px;font-size:15px">🔎 Voorbeeldfoto zoeken</a>
+  <p class="story" id="cardStory" style="display:none"></p>
   <p id="cardText"></p>
   <div class="props" id="cardProps"></div>
   <div class="row" id="splitRow" style="margin-bottom:8px">
@@ -196,6 +210,7 @@
   <p id="finalHint" class="hint"></p>
   <button class="sec" id="showSol" style="width:100%">Toon oplossing</button>
   <div class="sol" id="sol" style="display:none;margin:12px 0"></div>
+  <div id="finalStory" style="display:none"></div>
   <p id="finalMsg"></p>
   <button id="finalClose" style="width:100%">Sluiten</button>
 </div></div>
@@ -205,6 +220,7 @@
   <h2>Menu</h2>
   <div class="row" style="flex-direction:column">
     <button class="sec" id="mNext">Volgend checkpoint nu starten (test)</button>
+    <button class="sec" id="mStory">📜 Verhaal herlezen</button>
     <button class="sec" id="mHeart">💖 Extra liefde (mooi moment!)</button>
     <button class="sec" id="mItems">🎒 Rugzaklijst</button>
     <button class="sec" id="mLetters">Letterkaartjes (afdruklijst)</button>
@@ -219,7 +235,7 @@
 const CONFIG = {
   // Zin die op het einde samengelegd wordt. Letters worden over de deelnemers verdeeld.
   sentence: "GELUKKIG VERJAARDAG LINDE",
-  finalMessage: "Gefeliciteerd, Linde! 25 jaar – en nog zoveel mooie wandelingen te gaan. ❤️",
+  finalMessage: "Op nog véél mooie wandelingen! ❤️ – je Genootschap",
   unlockRadiusM: 40,
   heartMax: 36,                      // zoveel 'liefde' vult het hartje; op de finale loopt het altijd vol. Lager = sneller vol.
   relay: "https://ntfy.sh",           // gratis berichtendienst om alle gsm's te koppelen
@@ -227,19 +243,39 @@ const CONFIG = {
   defaultPlayers: ["Linde","Speler 2","Speler 3","Speler 4","Speler 5","Speler 6","Speler 7","Speler 8"],
 };
 
+// ----- Het verhaal. Pas gerust namen en teksten aan. -----
+const NAMES = {linde:"Linde", partner:"Thibau", baby:"Arthur", dorp:"Doorslaar"};
+const STORY = {
+  title: "Het Geheim van Meester Linde",
+  intro: [
+    `Er was eens een rustig dorp, ${NAMES.dorp}, waar het leven vredig voorbijtikte… tot Meester ${NAMES.linde} er kwam wonen.`,
+    `${NAMES.linde} is geen gewone leerkracht. Ze heeft een Master in de Wiskunde en kan elk kind in drie minuten laten snappen waarom min maal min plus is. Samen met ${NAMES.partner} woonde ze er gelukkig, tot er onlangs het grootste wiskundige wonder aller tijden gebeurde: 1 + 1 werd 3. ${NAMES.baby} was geboren.`,
+    `Maar wiskunde kent ook mysteries. ${NAMES.linde} is 25 geworden, en volgens de oeroude regels van het Geheime Genootschap van de Gulden Snede krijgt elke Meester op haar 25e verjaardag een geheime Formule.`,
+    `Het Genootschap, dat zijn jullie: de familie en vrienden van ${NAMES.linde}. De Formule is in stukjes (letters) verstopt langs deze wandeling, verdeeld over acht hoofdstukken. Elk geslaagd hoofdstuk levert letters op. Op het einde leggen jullie ze samen tot de zin die de Formule ontsluit.`,
+    `Maar let op: de Formule werkt alleen als het Hart van ${NAMES.linde} vol is. En dat Hart groeit niet door te rekenen. Het groeit door samen te lachen, elkaar op te vangen en af en toe iets geks te doen (niemand moet, iedereen mag 'Pas' zeggen). Het is de enige som ter wereld waarbij delen vermenigvuldigen is.`,
+    `${NAMES.linde} is vandaag geen toeschouwer maar Agent L. Zonder haar wiskundig brein lukt het nooit, maar wat de Formule onthult, weet ze nog niet… ${NAMES.partner} en ${NAMES.baby} zijn de geheime opdrachtgevers van deze missie.`,
+    `Jullie opdracht: wandel, speel, werk samen en vul het Hart van ${NAMES.linde}. Succes, agenten!`,
+  ],
+  epilogue: [
+    `De Formule is gekraakt! 🎉 Ze luidt: “${CONFIG.sentence}”.`,
+    `Maar het Genootschap bewaarde nog één geheim: de échte formule achter alles. Een wiskundige berekende lang geleden dat ${NAMES.linde} + ${NAMES.partner} + ${NAMES.baby} gelijk is aan oneindig, omdat liefde de enige som is waarbij delen vermenigvuldigen is.`,
+    `Gefeliciteerd, Meester ${NAMES.linde}. 25 jaar, een master in de wiskunde, een lieve zoon en een Hart dat overvol is. We tellen niet meer: we zijn gewoon heel fier op je. ❤️`,
+  ],
+};
+
 // Groepsopdrachten = checkpoints in volgorde. img = beeldmateriaal in de map linde-game/img/ (zet je eigen foto's daar).
 // items = wat er extra in de rugzak moet (bewust minimaal). ref = zoekterm voor een voorbeeldfoto.
 const SCREAM_IMG = "https://commons.wikimedia.org/wiki/Special:FilePath/Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg?width=700";
 // ref = zoekterm voor een voorbeeldfoto (opent Google Afbeeldingen). items = wat er in de rugzak moet.
 const GROUP_TASKS = [
-  {kind:"Letters", title:"Vorm de letters L-I-N-D-E", text:"Vorm met jullie lichamen de letters L, I, N, D, E op de grond (of rechtop). Samenwerken en overleggen! Foto bij succes.", split:1},
-  {kind:"Schilderij", title:"Munch: De Schreeuw", text:"Bootst het schilderij 'De Schreeuw' na op het pad (dat is de brug). Eén persoon vooraan met de handen op de wangen en open mond, twee anderen wandelen rustig erachter. De rest is de golvende lucht: wiegende armen. Foto!", img:SCREAM_IMG, ref:"Munch De Schreeuw schilderij", split:1},
-  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", text:"Linde is Rafiki en houdt de rugzak van de spelleider omhoog alsof het Simba is. De rest is de dierenschare eromheen met gebogen hoofd en handen omhoog. Foto!", items:["De rugzak (Simba!)"], ref:"Lion King circle of life Rafiki holds up Simba", split:1},
-  {kind:"Musical", title:"The Sound of Music: The hills are alive", text:"Linde is Maria op de heuvel: armen wijd open en draaiend op de plaats. De rest zingt 'The hills are alive…' als koor. Maak er een video van 10 seconden van.", ref:"Sound of Music hills are alive Maria scene", split:1},
-  {kind:"Evenwicht", title:"Ogen dicht, op één been", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", timer:{sec:10, attempts:10, size:4}},
-  {kind:"Niet lachen", title:"Stil kijken", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", note:"Zet het volume van jouw gsm luid.", sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
-  {kind:"Groepsfoto", title:"De vertrouwensval", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde bepaalt zelf hoe ver ze gaat (vlakke, zachte ondergrond, eerst oefenen!). Foto bij succes.", split:1},
-  {kind:"Filmscène", title:"Titanic: ik vlieg!", text:"Beeld de scène aan de boeg uit. Linde is Rose met gespreide armen, de rest is de boeg, de golven of Jack achter haar. Slotfoto voor Linde, met kroontje!", items:["Kroontje voor Linde"], ref:"Titanic Rose Jack bow scene flying", split:1},
+  {kind:"Letters", title:"Vorm de letters L-I-N-D-E", story:"Hoofdstuk 1 – De Handtekening. Elke Formule begint met een handtekening. Bewijs aan het Genootschap dat jullie echte vrienden zijn door de naam van de Meester te schrijven met jullie lichamen.", text:"Vorm met jullie lichamen de letters L, I, N, D, E op de grond (of rechtop). Samenwerken en overleggen! Foto bij succes.", split:1},
+  {kind:"Schilderij", title:"Munch: De Schreeuw", story:"Hoofdstuk 2 – De Schreeuw. Elke leerkracht kent hem: de ochtend na het nakijken van honderd examens. Roep het er samen uit… en poseer.", text:"Bootst het schilderij 'De Schreeuw' na op het pad (dat is de brug). Eén persoon vooraan met de handen op de wangen en open mond, twee anderen wandelen rustig erachter. De rest is de golvende lucht: wiegende armen. Foto!", img:SCREAM_IMG, ref:"Munch De Schreeuw schilderij", split:1},
+  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", story:"Hoofdstuk 3 – De Cirkel des Levens. In Doorslaar werd een welpje geboren, klein maar al heel geliefd. De rugzak is vandaag Arthur. Tijd om hem plechtig aan het dorp te tonen.", text:"Linde is Rafiki en houdt de rugzak van de spelleider omhoog alsof het Simba is. De rest is de dierenschare eromheen met gebogen hoofd en handen omhoog. Foto!", items:["De rugzak (Simba!)"], ref:"Lion King circle of life Rafiki holds up Simba", split:1},
+  {kind:"Musical", title:"The Sound of Music: The hills are alive", story:"Hoofdstuk 4 – De Heuvel. Ook Maria uit The Sound of Music had een hart voor kinderen en zong ze in slaap. Linde mag even Maria zijn, op haar eigen heuvel.", text:"Linde is Maria op de heuvel: armen wijd open en draaiend op de plaats. De rest zingt 'The hills are alive…' als koor. Maak er een video van 10 seconden van.", ref:"Sound of Music hills are alive Maria scene", split:1},
+  {kind:"Evenwicht", title:"Ogen dicht, op één been", story:"Hoofdstuk 5 – Het Evenwicht. Lesgeven, een baby, een huishouden en nog tijd voor jezelf: nieuwe ouders zijn de beste acrobaten ter wereld. Toon dat jullie het ook kunnen.", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", timer:{sec:10, attempts:10, size:4}},
+  {kind:"Niet lachen", title:"Stil kijken", story:"Hoofdstuk 6 – De Lachtest. Niets is moeilijker dan ernstig blijven als iemand je recht in de ogen kijkt en het gelach in de lucht hangt. Het Genootschap test jullie zelfbeheersing.", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", note:"Zet het volume van jouw gsm luid.", sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
+  {kind:"Groepsfoto", title:"De vertrouwensval", story:"Hoofdstuk 7 – Het Vertrouwen. Er is een heel dorp nodig om een kind groot te brengen. Linde mag vallen, want het dorp vangt haar op.", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde bepaalt zelf hoe ver ze gaat (vlakke, zachte ondergrond, eerst oefenen!). Foto bij succes.", split:1},
+  {kind:"Filmscène", title:"Titanic: ik vlieg!", story:"Hoofdstuk 8 – Ik vlieg! De laatste proef: Linde, 25 jaar en op haar hoogtepunt, aan de boeg van haar leven. Tijd voor de slotfoto.", text:"Beeld de scène aan de boeg uit. Linde is Rose met gespreide armen, de rest is de boeg, de golven of Jack achter haar. Slotfoto voor Linde, met kroontje!", items:["Kroontje voor Linde"], ref:"Titanic Rose Jack bow scene flying", split:1},
 ];
 
 // Individuele opdrachten. Spelleider valideert (0-3 punten). Geen attributen nodig.
@@ -264,6 +300,15 @@ const IND_TASKS = [
   {title:"Dans", text:"Doe 10 seconden een danspasje naar keuze. Alleen of met een maatje."},
   {title:"Interview", text:"Interview iemand 1 minuut: 'Wat is je mooiste herinnering met Linde?' (Spelleider noteert.)"},
   {title:"Stilte", text:"Hou 2 minuten je mond, en luister goed. Vertel daarna wat je hoorde."},
+  {title:"Wiskundemop", text:"Vertel een mop over wiskunde of getallen aan iemand naar keuze. Een slechte mag, een heel slechte is beter."},
+  {title:"Priemgetal-pas", text:"Loop priemgetallen: 2 stappen, dan 3, dan 5, dan 7, dan 11. Tel hardop mee en eindig met een sprongetje."},
+  {title:"Pi-lied", text:"Zeg de cijfers van pi (3,14159…) op een melodie naar keuze. Hoe ver geraak je?"},
+  {title:"Gulden snede", text:"Zoek in de natuur iets met een spiraal of symmetrie (dennenappel, bloem, blad) en toon het aan Linde: 'Meester, wat zie je?'"},
+  {title:"Schatting", text:"Schat hoeveel stappen het is tot een boom of paal ver voor je. Tel dan hardop. Hoe dichter, hoe beter."},
+  {title:"1 + 1 = 3", text:"Bewijs aan de groep dat 1 + 1 = 3. Je mag het verzinnen en je mag het mooi maken (denk aan Linde, Thibau en Arthur)."},
+  {title:"Wiegelied", text:"Zing zachtjes 10 seconden een wiegelied, alsof je iemand in slaap sust."},
+  {title:"Superheldennaam", text:"Bedenk een grappige superheldennaam voor Arthur en vertel waarom die bij hem past."},
+  {title:"Tip voor mama", text:"Geef Linde één goede (of grappige) tip voor haar eerste maanden als mama. De spelleider noteert ze, als aandenken."},
 ];
 // ===========================================================================
 // ---------- helpers ----------
@@ -312,6 +357,22 @@ let me = store.get('me', null);                // speler: index in pl
 let map, posMarker, cpMarkers=[], userPos=null, cur=null, reachedBanner=false;
 const saveState = () => { store.set('state', state); publish(); };
 const total = () => state.players.reduce((s,p)=>s+p.pts,0);
+
+// ---------- verhaal (gedeeld) ----------
+function storyHtml(upTo){
+  return STORY.intro.map(t=>`<p>${esc(t)}</p>`).join('')
+    + (upTo>0 ? '<h3>Tot nu toe…</h3>' + GROUP_TASKS.slice(0,upTo).map(t=>`<p class="story">${esc(t.story||'')}</p>`).join('') : '');
+}
+function showStory(){
+  $('storyTitle').textContent = STORY.title;
+  $('storyBody').innerHTML = storyHtml(role==='host' ? state.nextCp : (snap ? snap.nx : 0));
+  $('storySend').style.display = role==='host' ? 'block' : 'none';
+  $('storySend').textContent = '📣 Toon op alle gsm\'s';
+  $('story').classList.add('show');
+}
+$('storyClose').onclick = ()=>$('story').classList.remove('show');
+$('storySend').onclick = ()=>{ state.storyAt=Date.now(); saveState(); $('storySend').textContent='✅ Verstuurd naar alle gsm\'s'; };
+$('mStory').onclick = ()=>{ $('menu').classList.remove('show'); showStory(); };
 
 // ---------- hartje voor Linde (gedeeld) ----------
 const loveLevel = lv => Math.max(0, Math.min(1, lv / CONFIG.heartMax));
@@ -377,7 +438,7 @@ function publish(){
   const g = state.active.grp;
   const payload = {v:Date.now(), pl:state.players.map(p=>[p.name,p.pts,p.letters.join('')]), nx:state.nextCp,
     g: g?{t:state.nextCp, gs:g.groups.map(x=>x.members), tm:g.tm?{r:g.tm.round,a:g.tm.att,s:g.tm.st,rem:g.tm.st==='run'?Math.max(0,g.tm.end-Date.now()):0,ok:g.tm.ok?1:0}:null}:null,
-    i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0]), fin:state.fin?1:0, sol:state.sol?1:0, lv:Math.round(state.love*100)/100};
+    i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0]), fin:state.fin?1:0, sol:state.sol?1:0, lv:Math.round(state.love*100)/100, st:state.storyAt||0};
   post(topic(state.code), payload);
 }
 function newPool(){ return shuffle(CONFIG.sentence.toUpperCase().replace(/[^A-ZÀ-Ý0-9]/g,'').split('')); }
@@ -443,6 +504,7 @@ const refUrl = t => 'https://www.google.com/search?tbm=isch&q='+encodeURICompone
 function showGroupModal(){
   const task=GROUP_TASKS[state.nextCp];
   $('cardTag').textContent='Checkpoint '+(state.nextCp+1)+' · '+task.kind; $('cardTitle').textContent=task.title; $('cardText').textContent=task.text;
+  const cs=$('cardStory'); cs.textContent=task.story||''; cs.style.display=task.story?'block':'none';
   const pr=[].concat(task.items?['🎒 '+task.items.join(', ')]:[], task.note?[task.note]:[]).join(' · '); $('cardProps').textContent=pr; $('cardProps').style.display=pr?'block':'none';
   const ref=$('cardRef'); if(task.ref){ ref.href=refUrl(task); ref.style.display='inline-block'; } else ref.style.display='none';
   const img=$('cardImg'); img.style.display='none'; if(task.img){ img.onload=()=>img.style.display='block'; img.onerror=()=>img.style.display='none'; img.src=task.img; }
@@ -533,13 +595,15 @@ $('finaleBtn').onclick = ()=>{
 };
 function finaleView(players, sol){
   $('finalTiles').innerHTML = players.map((p,i)=>`<div class="tile"><b>${esc(p.n)}${role==='player'&&i===me?' (jij)':''}</b> <span class="hint">(${p.pts} ⭐)</span><div class="big">${p.l.split('').sort().join(' ')||'–'}</div></div>`).join('');
-  $('finalHint').textContent='Zin: '+CONFIG.sentence.split(' ').map(w=>'_ '.repeat(w.length).trim()).join('    ')+'  ('+CONFIG.sentence.replace(/\s/g,'').length+' letters)';
+  $('finalHint').textContent='Zin: '+CONFIG.sentence.split(' ').map(w=>'_ '.repeat(w.length).trim()).join('   /   ')+'  ('+CONFIG.sentence.replace(/\s/g,'').length+' letters)';
   $('sol').textContent=CONFIG.sentence; $('sol').style.display=sol?'block':'none';
   $('showSol').style.display = role==='host' && !sol ? 'block':'none';
-  $('finalMsg').textContent=CONFIG.finalMessage; $('finale').classList.add('show');
+  const fs=$('finalStory'); fs.style.display = sol?'block':'none';
+  fs.innerHTML = sol ? STORY.epilogue.map(t=>`<p>${esc(t)}</p>`).join('') + `<div class="formula">${esc(NAMES.linde)} + ${esc(NAMES.partner)} + ${esc(NAMES.baby)} = ∞ ❤️</div>` : '';
+  $('finalMsg').textContent = sol ? CONFIG.finalMessage : ''; $('finale').classList.add('show');
 }
 function showFinale(){ finaleView(state.players.map(p=>({n:p.name,pts:p.pts,l:p.letters.join('')})), state.sol); }
-$('showSol').onclick = ()=>{ state.sol=1; saveState(); $('sol').style.display='block'; $('showSol').style.display='none'; };
+$('showSol').onclick = ()=>{ state.sol=1; saveState(); showFinale(); };
 $('finalClose').onclick = ()=>$('finale').classList.remove('show');
 
 $('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display=$('mItems').style.display=$('mHeart').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
@@ -567,7 +631,7 @@ $('startBtn').onclick = ()=>{
   if(!code){ alert('Vul een spelcode in.'); return; }
   state={code, love:0, players:names.map(n=>({name:n,pts:0,letters:[],turns:0})), nextCp:0, pool:newPool(), indDeck:[],
     remindMin:+$('remindMin').value, lastTaskAt:Date.now(), active:{grp:null,ind:[]}, fin:0, sol:0};
-  store.set('role','host'); store.set('state',state); $('setup').classList.remove('show'); bootHost();
+  store.set('role','host'); store.set('state',state); $('setup').classList.remove('show'); bootHost(); showStory();
 };
 
 // =====================================================================
@@ -585,11 +649,12 @@ function renderPlayer(){
     h+=`<div class="tile" style="border-color:var(--accent)"><span class="tag ind">Jouw opdracht</span><h2 style="margin:0">${esc(t.title)}</h2><p>${esc(t.text)}</p>`
       + (myInd[2] ? '<p>✅ Gemeld! Wacht op de punten van de spelleider.</p>' : '<button class="ok" style="width:100%" id="doneBtn">Klaar! ✓</button>') + '</div>'; }
   if(snap.g){ const t=GROUP_TASKS[snap.g.t]; const gi=snap.g.gs.findIndex(m=>m.includes(me));
-    h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}${t.ref?`<a href="${refUrl(t)}" target="_blank" rel="noopener">🔎 Voorbeeldfoto zoeken</a>`:''}<p>${esc(t.text)}</p>`
+    h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}${t.story?`<p class="story">${esc(t.story)}</p>`:''}${t.ref?`<a href="${refUrl(t)}" target="_blank" rel="noopener">🔎 Voorbeeldfoto zoeken</a>`:''}<p>${esc(t.text)}</p>`
       + (snap.g.tm ? playerTimer(t) : `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div>`) + '</div>'; }
   if(!myInd && !snap.g) h+='<p class="hint">Wandel mee! Je krijgt hier je opdracht zodra de spelleider er een geeft. 🎒</p>';
   $('playerPanel').innerHTML=h; $('playerPanel').style.display='block';
   const d=$('doneBtn'); if(d) d.onclick=()=>{ post(topic(store.get('code'))+'-in',{t:'done',p:me}); d.disabled=true; d.textContent='Verzonden…'; };
+  if(snap.st && store.get('seenStory')!==snap.st){ store.set('seenStory',snap.st); showStory(); }
   if(snap.fin) finaleView(snap.pl.map(p=>({n:p[0],pts:p[1],l:p[2]})), snap.sol);
 }
 let tmRecv=0, tmIv2=null;
