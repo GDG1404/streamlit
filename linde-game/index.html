@@ -6,126 +6,162 @@
 <title>Operatie Linde</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  :root {
-    --bg:#fff8f0; --card:#ffffff; --ink:#2b2233; --muted:#7a6f85;
-    --accent:#e8590c; --accent2:#7048e8; --ok:#2f9e44; --line:#eadfd2;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#1d1824; --card:#2a2333; --ink:#f4eefa; --muted:#a99db8; --line:#3d3349; }
-  }
+  :root { --bg:#fff8f0; --card:#fff; --ink:#2b2233; --muted:#7a6f85; --accent:#e8590c; --accent2:#7048e8; --ok:#2f9e44; --line:#eadfd2; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1d1824; --card:#2a2333; --ink:#f4eefa; --muted:#a99db8; --line:#3d3349; } }
   * { box-sizing:border-box; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink);
-    font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
   #app { display:flex; flex-direction:column; height:100%; }
-  header { padding:10px 16px; display:flex; align-items:center; gap:12px;
-    background:var(--card); border-bottom:1px solid var(--line); }
+  header { padding:8px 16px; display:flex; align-items:center; gap:10px; background:var(--card); border-bottom:1px solid var(--line); }
   header h1 { font-size:18px; margin:0; flex:1; }
-  .pill { background:var(--bg); border:1px solid var(--line); border-radius:99px;
-    padding:4px 10px; font-size:14px; white-space:nowrap; }
-  #map { flex:1; min-height:200px; }
-  #bar { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:var(--card);
-    border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+  .pill { background:var(--bg); border:1px solid var(--line); border-radius:99px; padding:4px 10px; font-size:14px; white-space:nowrap; }
+  #map { flex:1; min-height:160px; }
+  #bar { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:var(--card); border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
   #status { font-size:14px; color:var(--muted); }
-  #letters { font-size:26px; letter-spacing:6px; font-weight:700; color:var(--accent2); min-height:34px; }
+  #banner { display:none; background:var(--accent); color:#fff; padding:8px 12px; border-radius:10px; font-weight:600; }
   .row { display:flex; gap:8px; flex-wrap:wrap; }
-  button { font:inherit; border:0; border-radius:12px; padding:12px 16px; cursor:pointer;
-    background:var(--accent); color:#fff; font-weight:600; }
+  button { font:inherit; border:0; border-radius:12px; padding:12px 14px; cursor:pointer; background:var(--accent); color:#fff; font-weight:600; }
   button.sec { background:var(--bg); color:var(--ink); border:1px solid var(--line); }
   button.ok { background:var(--ok); }
   button.small { padding:8px 12px; font-size:14px; }
-  .overlay { position:fixed; inset:0; z-index:2000; background:rgba(20,10,30,.6);
-    display:none; align-items:center; justify-content:center; padding:16px; }
+  button.flex { flex:1; }
+  .overlay { position:fixed; inset:0; z-index:2000; background:rgba(20,10,30,.6); display:none; align-items:center; justify-content:center; padding:12px; }
   .overlay.show { display:flex; }
-  .modal { background:var(--card); border-radius:18px; padding:20px; width:100%; max-width:420px;
-    max-height:90%; overflow:auto; }
+  .modal { background:var(--card); border-radius:18px; padding:18px; width:100%; max-width:440px; max-height:94%; overflow:auto; }
   .modal h2 { margin:0 0 4px; font-size:22px; }
-  .tag { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.05em;
-    text-transform:uppercase; padding:3px 8px; border-radius:99px; margin-bottom:8px; color:#fff; }
-  .tag.chaos { background:var(--accent); } .tag.cp { background:var(--accent2); }
-  .modal p { margin:8px 0 16px; font-size:18px; }
-  .modal .hint { font-size:13px; color:var(--muted); margin-top:-8px; }
-  textarea, input[type=text] { width:100%; font:inherit; padding:10px; border-radius:10px;
-    border:1px solid var(--line); background:var(--bg); color:var(--ink); }
-  .setup-grid { display:grid; gap:10px; margin:12px 0; }
-  label { font-size:14px; color:var(--muted); display:block; margin-bottom:4px; }
-  .compl { font-style:italic; border-left:3px solid var(--accent2); padding:4px 10px; margin:6px 0; }
-  .big { font-size:34px; text-align:center; letter-spacing:8px; font-weight:800; color:var(--accent2); }
+  .modal p { margin:8px 0 12px; font-size:17px; }
+  .tag { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:3px 8px; border-radius:99px; margin-bottom:8px; color:#fff; background:var(--accent2); }
+  .tag.ind { background:var(--accent); }
+  .hint { font-size:13px; color:var(--muted); }
+  .props { background:var(--bg); border:1px dashed var(--line); border-radius:10px; padding:8px 10px; font-size:14px; margin-bottom:12px; }
+  #cardImg { width:100%; max-height:240px; object-fit:contain; border-radius:10px; margin-bottom:10px; background:var(--bg); display:none; }
+  .grp { border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-bottom:8px; }
+  .grp b { display:block; margin-bottom:6px; }
+  .pts { display:flex; gap:6px; flex-wrap:wrap; }
+  .pts button { padding:8px 0; width:44px; background:var(--bg); color:var(--ink); border:1px solid var(--line); }
+  .pts button.sel { background:var(--accent2); color:#fff; border-color:var(--accent2); }
+  textarea, input[type=text], select { width:100%; font:inherit; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+  label { font-size:14px; color:var(--muted); display:block; margin:10px 0 4px; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:6px 4px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .ltr { display:inline-block; background:var(--accent2); color:#fff; border-radius:6px; padding:2px 7px; margin:1px; font-weight:700; }
+  .tile { border:2px solid var(--accent2); border-radius:14px; padding:10px; margin-bottom:10px; }
+  .tile .big { font-size:26px; font-weight:800; letter-spacing:6px; color:var(--accent2); }
+  .sol { font-size:22px; font-weight:800; text-align:center; letter-spacing:3px; color:var(--ok); }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>🕵️ Operatie Linde</h1>
-    <span class="pill" id="starsPill">⭐ 0</span>
+    <h1 id="title">🕵️ Operatie Linde</h1>
+    <span class="pill" id="connPill" title="verbinding">●</span>
+    <span class="pill" id="totalPill">⭐ 0</span>
     <button class="sec small" id="menuBtn">☰</button>
   </header>
   <div id="map"></div>
   <div id="bar">
-    <div id="letters"></div>
+    <div id="banner"></div>
     <div id="status">Laden…</div>
+    <div id="playerPanel" style="display:none"></div>
+    <div class="row" id="hostRow">
+      <button class="flex" id="groupBtn">📍 Groepsopdracht</button>
+      <button class="flex" id="indBtn">🎯 Individueel</button>
+    </div>
+    <div class="row" id="hostRow2">
+      <button class="sec small flex" id="indAllBtn">🎯 Iedereen een opdracht</button>
+      <button class="sec small flex" id="activeBtn">📋 Lopend (0)</button>
+    </div>
     <div class="row">
-      <button class="sec small" id="complBtn">💌 Compliment voor Linde</button>
-      <button class="sec small" id="chaosBtn">🎲 Chaos nu!</button>
+      <button class="sec small flex" id="boardBtn">🏆 Scorebord &amp; letters</button>
     </div>
   </div>
 </div>
 
-<div class="overlay" id="setup"><div class="modal">
+<!-- rol kiezen -->
+<div class="overlay" id="role"><div class="modal">
   <h2>Operatie Linde 🎉</h2>
-  <p class="hint" style="margin-top:0">25 jaar! Jullie zijn geheim agenten. Verzamel samen de letters van het geheime woord.</p>
-  <div class="setup-grid">
-    <div><label>Spelcode (iedereen dezelfde invullen – zo krijgen alle gsm's tegelijk dezelfde chaoskaart)</label>
-      <input type="text" id="roomCode" value="LINDE25"></div>
-    <div><label>GPX-bestand van de wandeling (leeg = demoroute)</label>
-      <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml,text/xml"></div>
-    <div><label>Chaosniveau</label>
-      <select id="chaosLevel" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit">
-        <option value="6">Veel chaos (om de ±6 min)</option>
-        <option value="9" selected>Gezellig chaotisch (om de ±9 min)</option>
-        <option value="14">Rustig (om de ±14 min)</option>
-      </select></div>
-  </div>
-  <button id="startBtn" style="width:100%">Start de missie</button>
+  <p class="hint" style="margin-top:0">Wie ben jij?</p>
+  <button style="width:100%;margin-bottom:10px" id="roleHost">🎒 Ik ben de spelleider</button>
+  <button class="sec" style="width:100%" id="rolePlayer">🙋 Ik ben een speler</button>
 </div></div>
 
+<!-- setup spelleider -->
+<div class="overlay" id="setup"><div class="modal">
+  <h2>Spelleider instellen</h2>
+  <label>Spelcode (de spelers vullen deze in op hun gsm)</label>
+  <input type="text" id="codeIn">
+  <label>Deelnemers (één per regel, Linde doet ook mee)</label>
+  <textarea id="playersIn" rows="9"></textarea>
+  <label>Herinnering voor een individuele opdracht om de … minuten</label>
+  <select id="remindMin"><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option></select>
+  <button id="startBtn" style="width:100%;margin-top:14px">Start de missie</button>
+</div></div>
+
+<!-- speler join -->
+<div class="overlay" id="join"><div class="modal">
+  <h2>Meedoen</h2>
+  <label>Spelcode (krijg je van de spelleider)</label>
+  <input type="text" id="joinCode">
+  <button id="joinBtn" style="width:100%;margin-top:12px">Verbinden</button>
+  <div id="joinNames" style="margin-top:12px"></div>
+  <p class="hint" id="joinStatus"></p>
+</div></div>
+
+<!-- groepsopdracht (spelleider) -->
 <div class="overlay" id="card"><div class="modal">
   <span class="tag" id="cardTag"></span>
   <h2 id="cardTitle"></h2>
+  <img id="cardImg" alt="">
   <p id="cardText"></p>
-  <div id="cardExtra"></div>
-  <div class="row">
-    <button class="ok" id="cardDone">Gedaan! ✓</button>
-    <button class="sec" id="cardPass">Pas</button>
+  <div class="props" id="cardProps"></div>
+  <div class="row" id="splitRow" style="margin-bottom:8px">
+    <select id="splitSel" style="flex:1"><option value="1">Alle samen</option><option value="2" selected>2 groepen</option><option value="4">4 groepen</option></select>
+    <button class="sec small" id="reshuffle">🔀 Opnieuw loten</button>
   </div>
-  <p class="hint" style="margin-top:12px">Pas mag altijd. Geen straf, geen vragen. 🙂</p>
+  <div id="groupsBox"></div>
+  <div class="row" style="margin-top:8px">
+    <button class="ok flex" id="cardOk">Valideer ✓</button>
+    <button class="sec" id="cardSkip">Overslaan</button>
+  </div>
 </div></div>
 
-<div class="overlay" id="compl"><div class="modal">
-  <h2>Compliment voor Linde 💌</h2>
-  <p class="hint">Geef de gsm door. Typ iets liefs of grappigs. Pas op het einde worden ze voorgelezen.</p>
-  <textarea id="complText" rows="3" placeholder="Linde, jij bent…"></textarea>
+<!-- lopende individuele opdrachten (spelleider) -->
+<div class="overlay" id="active"><div class="modal">
+  <h2>📋 Lopende opdrachten</h2>
+  <p class="hint">Geef punten (0-3) om te valideren. De speler krijgt zijn letters meteen.</p>
+  <div id="activeBox"></div>
+  <button class="sec" id="activeClose" style="width:100%;margin-top:8px">Sluiten</button>
+</div></div>
+
+<!-- scoreboard -->
+<div class="overlay" id="board"><div class="modal">
+  <h2>🏆 Scorebord</h2>
+  <p class="hint" id="boardHint">Tik op + / − om punten handmatig aan te passen.</p>
+  <table id="boardTbl"></table>
   <div class="row" style="margin-top:12px">
-    <button id="complSave">Bewaar</button>
-    <button class="sec" id="complClose">Sluiten</button>
+    <button class="flex" id="finaleBtn">🎁 Letterfinale starten</button>
+    <button class="sec" id="boardClose">Sluiten</button>
   </div>
 </div></div>
 
+<!-- finale -->
 <div class="overlay" id="finale"><div class="modal">
-  <span class="tag cp">Finale</span>
-  <h2>Missie geslaagd! 🎉</h2>
-  <p>Het geheime woord is:</p>
-  <div class="big" id="finalWord"></div>
-  <p id="finalStars"></p>
+  <span class="tag">Finale</span>
+  <h2>Leg de zin samen! 🎉</h2>
+  <p class="hint">Iedereen heeft letters gekregen. Vorm samen een korte zin over Linde's verjaardag.</p>
+  <div id="finalTiles"></div>
+  <p id="finalHint" class="hint"></p>
+  <button class="sec" id="showSol" style="width:100%">Toon oplossing</button>
+  <div class="sol" id="sol" style="display:none;margin:12px 0"></div>
   <p id="finalMsg"></p>
-  <div id="finalCompl"></div>
   <button id="finalClose" style="width:100%">Sluiten</button>
 </div></div>
 
+<!-- menu -->
 <div class="overlay" id="menu"><div class="modal">
   <h2>Menu</h2>
   <div class="row" style="flex-direction:column">
-    <button class="sec" id="mNext">Volgende checkpoint nu ontgrendelen (test)</button>
-    <button class="sec" id="mFinale">Finale bekijken</button>
+    <button class="sec" id="mNext">Volgend checkpoint nu starten (test)</button>
+    <button class="sec" id="mLetters">Letterkaartjes (afdruklijst)</button>
     <button class="sec" id="mReset">Alles resetten</button>
     <button class="sec" id="mClose">Sluiten</button>
   </div>
@@ -135,214 +171,324 @@
 <script>
 // ====================== CONFIG – hier pas je alles aan ======================
 const CONFIG = {
-  secretWord: "LINDE25",              // 1 letter per checkpoint
-  finalMessage: "Gefeliciteerd, Linde! Op nog véél mooie wandelingen. ❤️ – papa",
-  unlockRadiusM: 40,                  // zo dichtbij moet je zijn om een opdracht te zien
-  chaosCooldownMin: 3,                // minimaal aantal minuten na een kaart
+  // Zin die op het einde samengelegd wordt. Letters worden over de deelnemers verdeeld.
+  sentence: "GELUKKIG VERJAARDAG LINDE",
+  finalMessage: "Gefeliciteerd, Linde! 25 jaar – en nog zoveel mooie wandelingen te gaan. ❤️",
+  unlockRadiusM: 40,
+  relay: "https://ntfy.sh",           // gratis berichtendienst om alle gsm's te koppelen
+  gpx: "",                           // plak hier de inhoud van je GPX-bestand (tussen backticks)
+  defaultPlayers: ["Linde","Speler 2","Speler 3","Speler 4","Speler 5","Speler 6","Speler 7","Speler 8"],
 };
 
-// Opdrachten bij de checkpoints. {text} is wat de app toont.
-// Je kan hier eigen vragen over Linde invullen!
-const CHECKPOINT_TASKS = [
-  {title:"Linde-quiz", text:"Wat is Lindes lievelingseten? Iedereen schrijft het in zijn hoofd op. Telt af: 3-2-1 en zeg het tegelijk!"},
-  {title:"25 dingen", text:"Zoek samen 25 dingen onderweg: iets rond, iets geel, iets dat ritselt, iets scheef… Tel hardop mee tot het volgende checkpoint."},
-  {title:"Wie zou het doen?", text:"Wie van de groep zou als eerste verdwalen op een wandeling? Op 3 wijst iedereen tegelijk."},
-  {title:"Verhaal van Linde", text:"Maak samen een verhaal over Linde, elk om de beurt één zin. Begin met: 'Het was een koude dag toen Linde…'"},
-  {title:"Schatting", text:"Hoeveel stappen is het tot het volgende bord/boom/bank? Iedereen schat in stilte, dichtste wint een ster voor de groep."},
-  {title:"Gespreksduo's", text:"Loop tot het volgende checkpoint met iemand met wie je nog niet gepraat hebt. Vraag: 'Wat is jouw mooiste herinnering met Linde?'"},
-  {title:"Groepsfoto", text:"Maak een groepsfoto – maar iedereen kijkt een andere kant uit en doet alsof er niets aan de hand is."},
-  {title:"Laatste stuk", text:"Nog even samen! Loop de laatste meters in een mooie rij, Linde vooraan."},
+// Groepsopdrachten = checkpoints in volgorde. img = beeldmateriaal in de map linde-game/img/ (zet je eigen foto's daar).
+// props = wat jij uit de rugzak haalt.
+const GROUP_TASKS = [
+  {kind:"Letters", title:"Vorm de letters L-I-N-D-E", text:"Vorm met jullie lichamen de letters L, I, N, D, E op de grond (of rechtop). Samenwerken en overleggen! Foto bij succes.", props:"Rugzak: niets nodig (evt. sjaals voor de lijnen).", img:null},
+  {kind:"Schilderij", title:"Beeld het schilderij uit", text:"Stel dit schilderij zo getrouwer mogelijk na. Jullie hebben 4 minuten om te verdelen en te poseren.", props:"Rugzak: hoeden, sjaals, lijst (karton).", img:"img/schilderij1.jpg"},
+  {kind:"Filmscène", title:"Beeld de filmscène uit", text:"Speel deze scène na en leg ze vast op foto of video. 4 minuten voorbereiding.", props:"Rugzak: zonnebril, hoed, sjaal.", img:"img/film1.jpg"},
+  {kind:"Musical", title:"Beeld de musical-scène uit", text:"Doe de iconische pose of het refrein van deze musical na, met bijpassend gebaar.", props:"Rugzak: toverstok / hoed / mantel.", img:"img/musical1.jpg"},
+  {kind:"Schilderij", title:"Tweede schilderij", text:"Nog een meesterwerk om na te bootsen. Wie bepaalt wie wie is?", props:"Rugzak: hoeden, doek.", img:"img/schilderij2.jpg"},
+  {kind:"Filmscène", title:"Slotscène", text:"Een laatste filmscène als afsluiter. Maak er iets heel moois van voor Linde!", props:"Rugzak: kroon, sjerp, confetti.", img:"img/film2.jpg"},
 ];
 
-// Chaoskaarten. all = iedereen tegelijk (minder gênant). Voeg gerust toe!
-const CHAOS = [
-  {all:false, title:"Mopje!", text:"Vertel een mop aan een willekeurige persoon in de groep. Mag een slechte zijn. Zéker mag een slechte zijn."},
-  {all:true,  title:"Zingen op 3", text:"Op 3 zingt iedereen tegelijk de eerste regel van 'Lang zal ze leven'. Zacht of luid, jullie keuze."},
-  {all:true,  title:"Hinkelen", text:"Hinkel tot de volgende boom/paal/bank. Wie als laatste aankomt kiest het volgende gespreksonderwerp."},
-  {all:true,  title:"Slow motion", text:"Loop 30 seconden in slow motion. Wie lacht, is er niet uit – maar moet wel doorlopen."},
-  {all:true,  title:"Achteruit", text:"Loop 2 minuten achteruit. Kijk goed uit en laat de voorste lopen."},
-  {all:true,  title:"Hoogdravend", text:"Spreek elkaar tot het volgende checkpoint aan met 'Edele heer' of 'Edele dame'."},
-  {all:true,  title:"Stille minuut", text:"Eén minuut volledige stilte. Wie hoort het meeste? Vertel het daarna."},
-  {all:true,  title:"Dierengeluid", text:"Kies stiekem een dier. Op 3 maakt iedereen het geluid. Zoek wie hetzelfde koos."},
-  {all:false, title:"Complimentje", text:"Geef iemand een oprecht compliment over iets wat je vandaag zag. Echt, geen ironie."},
-  {all:true,  title:"Robotwandeling", text:"Loop 1 minuut als een robot. 'Bzzzt.' Spreken enkel in robot-taal."},
-  {all:false, title:"Kies een bondgenoot", text:"Zoek de persoon die het dichtst bij je loopt. Jullie zijn nu een duo. Bedenk een geheime groet en gebruik hem de rest van de wandeling."},
-  {all:true,  title:"Schaduwspel", text:"Maak met je schaduw (of de schaduw van een ander) een figuur. Raad wie wat was."},
-  {all:false, title:"Weddenschap", text:"Wedden: wie ziet het eerst een eekhoorn, hond of fiets? Verlies = trakteer straks een rondje."},
-  {all:true,  title:"Telefoon weg", text:"Iedereen steekt de telefoon weg tot het volgende checkpoint. Foto's maken mag straks weer."},
-  {all:true,  title:"Geheim woord", text:"Iedereen zegt zo snel mogelijk het woord 'banaan' in een zin, zonder dat een ander het door heeft. Wie ontdekt het eerst de anderen?"},
-  {all:false, title:"Wie zegt wat", text:"Kies iemand en raad zijn lievelingsfilm zonder te vragen. Klopt het? Dan loopt die persoon 10 stappen voorop."},
-  {all:true,  title:"Hand in hand", text:"Houd 30 seconden hand in hand met je buur. Wie wegkijkt verliest. (Niemand verliest echt.)"},
-  {all:true,  title:"Pinguïnwandeling", text:"Loop 20 stappen als een pinguïn. Armen langs het lichaam, kleine pasjes."},
-  {all:false, title:"Hoogste boom", text:"Zoek de hoogste boom in zicht. De groep schat hoe hoog hij is, de dichtste schatting wint een ster."},
-  {all:true,  title:"Applaus", text:"Geef 10 seconden een daverend applaus voor het landschap. Buig ook voor het landschap."},
+// Individuele opdrachten. Spelleider valideert (0-3 punten).
+const IND_TASKS = [
+  {title:"Achteruit", text:"Wandel 100 meter achteruit. De anderen zeggen 'stop' of 'links'.", props:""},
+  {title:"Op mijn rug", text:"Vraag aan iemand of hij/zij je op de rug wil laten rijden (paardrijden) – 20 stappen. Of vraag aan een ander of je iemand mag dragen.", props:""},
+  {title:"Mop", text:"Vertel een mop aan iemand naar keuze. De spelleider beoordeelt hoeveel mensen lachen.", props:""},
+  {title:"Lied", text:"Zing minstens 10 seconden een liedje dat bij Linde past. Zacht mag.", props:""},
+  {title:"Hinkelen", text:"Hinkel 30 stappen. Linkerbeen eerst, dan rechts.", props:""},
+  {title:"Compliment", text:"Geef een oprecht compliment aan Linde, in één zin.", props:""},
+  {title:"Reclame", text:"Verkoop dit voorwerp als was het het beste product ter wereld (30 s).", props:"Rugzak: een gewoon voorwerp (lepel, rol toiletpapier, ...)."},
+  {title:"Slow motion", text:"Loop 20 stappen in slow motion zonder te lachen.", props:""},
+  {title:"Pinguïn", text:"Loop als een pinguïn tot de volgende lantaarnpaal/boom.", props:""},
+  {title:"Hoge dame/heer", text:"Spreek iedereen 5 minuten aan met 'Edele heer/dame'.", props:""},
+  {title:"Bondgenoot", text:"Zoek iemand en bedenk een geheime groet. Gebruik ze vanaf nu bij elke ontmoeting.", props:""},
+  {title:"Ballon", text:"Houd de ballon 20 seconden in de lucht zonder dat hij de grond raakt.", props:"Rugzak: ballon."},
+  {title:"Rap", text:"Rap 4 regels over de wandeling van vandaag.", props:""},
+  {title:"Dubbelganger", text:"Loop 20 stappen als de persoon rechts van je. De groep raadt wie het is.", props:""},
+  {title:"Foto-opdracht", text:"Neem een foto van iets in de omgeving dat jou aan Linde doet denken. Leg uit waarom.", props:""},
+  {title:"Hoed", text:"Draag deze rare hoed tot het volgende checkpoint.", props:"Rugzak: een gekke hoed."},
+  {title:"Stem", text:"Praat in een babystem tot het volgende checkpoint.", props:""},
+  {title:"Dans", text:"Doe 10 seconden een danspasje naar keuze. Alleen of met een maatje.", props:""},
+  {title:"Interview", text:"Interview iemand 1 minuut: 'Wat is je mooiste herinnering met Linde?' (Spelleider noteert.)", props:""},
+  {title:"Stilte", text:"Hou 2 minuten je mond, en luister goed. Vertel daarna wat je hoorde.", props:""},
 ];
 // ===========================================================================
-
 // ---------- helpers ----------
 const $ = id => document.getElementById(id);
-const load = (k,d) => { try { const v = localStorage.getItem('linde_'+k); return v? JSON.parse(v): d; } catch(e){ return d; } };
-const save = (k,v) => { try { localStorage.setItem('linde_'+k, JSON.stringify(v)); } catch(e){} };
-function hash(str){ let h=1779033703^str.length; for(let i=0;i<str.length;i++){ h=Math.imul(h^str.charCodeAt(i),3432918353); h=h<<13|h>>>19; } return h>>>0; }
-function rng(seedStr){ let a=hash(seedStr); return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
-function haversine(a,b){ const R=6371000, rad=Math.PI/180;
-  const dLat=(b[0]-a[0])*rad, dLng=(b[1]-a[1])*rad;
-  const x=Math.sin(dLat/2)**2+Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(dLng/2)**2;
-  return 2*R*Math.asin(Math.sqrt(x)); }
+const store = {
+  get(k,d){ try{ const v=localStorage.getItem('linde3_'+k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem('linde3_'+k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem('linde3_'+k); }catch(e){} },
+};
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+function haversine(a,b){ const R=6371000,r=Math.PI/180,dLat=(b[0]-a[0])*r,dLng=(b[1]-a[1])*r;
+  const x=Math.sin(dLat/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const RELAY = new URLSearchParams(location.search).get('relay') || CONFIG.relay;
+const topic = c => 'linde-' + String(c).toLowerCase().replace(/[^a-z0-9]/g,'');
+
+// ---------- relay (ntfy): spelleider zendt toestand uit, spelers melden 'klaar' terug ----------
+function setConn(ok){ const p=$('connPill'); p.textContent = ok?'● online':'● offline'; p.style.color = ok?'#2f9e44':'#e03131'; }
+async function post(t, obj){ try{ const r=await fetch(`${RELAY}/${t}`,{method:'POST',body:JSON.stringify(obj)}); setConn(r.ok); }catch(e){ setConn(false); } }
+function subscribe(t, since, cb){
+  const es = new EventSource(`${RELAY}/${t}/sse`+(since?`?since=${since}`:''));
+  es.addEventListener('open',()=>setConn(true));
+  es.addEventListener('message',e=>{ try{ cb(JSON.parse(JSON.parse(e.data).message)); }catch(_){} });
+  es.onerror=()=>setConn(false);
+  return es;
+}
+
+// ---------- route ----------
+const DEMO_ROUTE = (()=>{ const c=[51.0543,3.7174], p=[]; for(let i=0;i<=60;i++){ const t=i/60*2*Math.PI;
+  p.push([c[0]+0.006*Math.sin(t)*(1+0.3*Math.cos(2*t)), c[1]+0.010*Math.cos(t)*(1+0.2*Math.sin(3*t))]); } return p; })();
+function parseGpx(text){ const xml=new DOMParser().parseFromString(text,'text/xml');
+  let n=xml.getElementsByTagName('trkpt'); if(!n.length) n=xml.getElementsByTagName('rtept');
+  return Array.from(n).map(x=>[parseFloat(x.getAttribute('lat')),parseFloat(x.getAttribute('lon'))]); }
+function placeCheckpoints(route,n){ const cum=[0]; for(let i=1;i<route.length;i++) cum.push(cum[i-1]+haversine(route[i-1],route[i]));
+  const total=cum[cum.length-1], cps=[]; for(let k=1;k<=n;k++){ let i=cum.findIndex(d=>d>=total*k/n); if(i<0) i=route.length-1; cps.push(route[i]); } return cps; }
+const ROUTE = (()=>{ if(CONFIG.gpx && CONFIG.gpx.trim()){ const r=parseGpx(CONFIG.gpx); if(r.length>1) return r; } return DEMO_ROUTE; })();
+const CHECKPOINTS = placeCheckpoints(ROUTE, GROUP_TASKS.length);
 
 // ---------- state ----------
-let state = load('state', null) || {started:false, room:'LINDE25', chaosMin:9, route:null,
-  checkpoints:[], nextCp:0, stars:0, shownSlots:{}, lastChaosAt:0, compliments:[]};
-let map, posMarker, userPos = null, cpMarkers = [], currentCard = null;
+// role: 'host' | 'player'.  host houdt de waarheid bij (state); spelers houden de laatste snapshot (snap).
+let role = store.get('role', null);
+let state = store.get('state', null);          // host
+let snap  = store.get('snap', null);           // speler: {v, pl:[[naam,pts,letters]], nx, g:{t,gs:[[idx..]]}|null, i:[[p,t,done]], fin, sol, tot}
+let me = store.get('me', null);                // speler: index in pl
+let map, posMarker, cpMarkers=[], userPos=null, cur=null, reachedBanner=false;
+const saveState = () => { store.set('state', state); publish(); };
+const total = () => state.players.reduce((s,p)=>s+p.pts,0);
 
-const DEMO_ROUTE = (()=>{ // lusje van ± 2 km, aanpasbaar via je eigen GPX
-  const c=[51.0543,3.7174], pts=[]; for(let i=0;i<=60;i++){ const t=i/60*2*Math.PI;
-    pts.push([c[0]+0.006*Math.sin(t)*(1+0.3*Math.cos(2*t)), c[1]+0.010*Math.cos(t)*(1+0.2*Math.sin(3*t))]); }
-  return pts; })();
-
-function parseGpx(text){
-  const xml = new DOMParser().parseFromString(text, 'text/xml');
-  let nodes = xml.getElementsByTagName('trkpt');
-  if (!nodes.length) nodes = xml.getElementsByTagName('rtept');
-  const pts=[]; for (const n of nodes) pts.push([parseFloat(n.getAttribute('lat')), parseFloat(n.getAttribute('lon'))]);
-  return pts;
+// ---------- map / gps (gedeeld) ----------
+function initMap(nextCp){
+  map = L.map('map');
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  const line = L.polyline(ROUTE,{color:'#7048e8',weight:5,opacity:.8}).addTo(map);
+  map.fitBounds(line.getBounds(),{padding:[30,30]});
+  posMarker = L.circleMarker([0,0],{radius:9,color:'#fff',weight:3,fillColor:'#e8590c',fillOpacity:1});
+  drawCheckpoints(nextCp);
+  window.addEventListener('resize',()=>map.invalidateSize());
 }
-
-function placeCheckpoints(route, n){
-  const cum=[0]; for(let i=1;i<route.length;i++) cum.push(cum[i-1]+haversine(route[i-1],route[i]));
-  const total=cum[cum.length-1], cps=[];
-  for(let k=1;k<=n;k++){ const target = total*k/n; let i=cum.findIndex(d=>d>=target); if(i<0) i=route.length-1; cps.push(route[i]); }
-  return {cps, total};
-}
-
-// ---------- map ----------
-function initMap(){
-  map = L.map('map', {zoomControl:true});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
-  const line = L.polyline(state.route, {color:'#7048e8', weight:5, opacity:.8}).addTo(map);
-  map.fitBounds(line.getBounds(), {padding:[30,30]});
-  drawCheckpoints();
-  posMarker = L.circleMarker([0,0], {radius:9, color:'#fff', weight:3, fillColor:'#e8590c', fillOpacity:1});
-}
-function drawCheckpoints(){
+function drawCheckpoints(nextCp){
   cpMarkers.forEach(m=>m.remove()); cpMarkers=[];
-  state.checkpoints.forEach((p,i)=>{
-    const done = i < state.nextCp, isNext = i === state.nextCp;
-    const letter = CONFIG.secretWord[i] || '?';
-    const html = `<div style="background:${done?'#2f9e44':isNext?'#e8590c':'#868e96'};color:#fff;border:3px solid #fff;
-      border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;
-      box-shadow:0 1px 4px #0006">${done?letter:(i+1)}</div>`;
-    cpMarkers.push(L.marker(p,{icon:L.divIcon({html, className:'', iconSize:[34,34], iconAnchor:[17,17]})}).addTo(map));
+  CHECKPOINTS.forEach((p,i)=>{
+    const done=i<nextCp, next=i===nextCp;
+    const html=`<div style="background:${done?'#2f9e44':next?'#e8590c':'#868e96'};color:#fff;border:3px solid #fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 1px 4px #0006">${done?'✓':i+1}</div>`;
+    cpMarkers.push(L.marker(p,{icon:L.divIcon({html,className:'',iconSize:[34,34],iconAnchor:[17,17]})}).addTo(map));
   });
 }
-
-// ---------- GPS ----------
-function startGps(){
-  if(!navigator.geolocation){ $('status').textContent='Geen GPS beschikbaar – gebruik het menu om checkpoints handmatig te ontgrendelen.'; return; }
+function startGps(onMove){
+  if(!navigator.geolocation) return;
   navigator.geolocation.watchPosition(pos=>{
     userPos=[pos.coords.latitude,pos.coords.longitude];
     posMarker.setLatLng(userPos); if(!map.hasLayer(posMarker)) posMarker.addTo(map);
-    checkProximity(); updateStatus();
-  }, err=>{ $('status').textContent='GPS niet beschikbaar ('+err.message+'). Gebruik het menu om handmatig te ontgrendelen.'; },
-  {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+    onMove();
+  }, ()=>{}, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
-function checkProximity(){
-  if(!userPos || state.nextCp>=state.checkpoints.length || currentCard) return;
-  if(haversine(userPos, state.checkpoints[state.nextCp]) <= CONFIG.unlockRadiusM) showCheckpoint();
+function banner(t){ const b=$('banner'); b.textContent=t; b.style.display='block'; if(navigator.vibrate) navigator.vibrate([200,100,200]); }
+function distText(nextCp){ if(!userPos||nextCp>=CHECKPOINTS.length) return ''; const d=Math.round(haversine(userPos,CHECKPOINTS[nextCp])); return ` – nog ${d>1000?(d/1000).toFixed(1)+' km':d+' m'}`; }
+
+// =====================================================================
+//                              SPELLEIDER
+// =====================================================================
+function publish(){
+  if(role!=='host' || !state) return;
+  const g = state.active.grp;
+  const payload = {v:Date.now(), pl:state.players.map(p=>[p.name,p.pts,p.letters.join('')]), nx:state.nextCp,
+    g: g?{t:state.nextCp, gs:g.groups.map(x=>x.members)}:null,
+    i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0]), fin:state.fin?1:0, sol:state.sol?1:0};
+  post(topic(state.code), payload);
 }
-function updateStatus(){
-  const total = state.checkpoints.length;
-  $('letters').textContent = CONFIG.secretWord.slice(0,state.nextCp).split('').join(' ') + ' _'.repeat(Math.max(0,total-state.nextCp));
-  $('starsPill').textContent = '⭐ '+state.stars;
-  if(state.nextCp>=total){ $('status').textContent='Alle checkpoints gehaald! Tijd voor de finale.'; return; }
-  let s = `Checkpoint ${state.nextCp+1} van ${total}`;
-  if(userPos){ const d=Math.round(haversine(userPos,state.checkpoints[state.nextCp])); s += ` – nog ${d>1000?(d/1000).toFixed(1)+' km':d+' m'}`; }
-  $('status').textContent = s;
+function newPool(){ return shuffle(CONFIG.sentence.toUpperCase().replace(/[^A-ZÀ-Ý0-9]/g,'').split('')); }
+function award(p,n){ for(let i=0;i<n && state.pool.length;i++) p.letters.push(state.pool.pop()); }
+
+function hostUpdateStatus(){
+  $('totalPill').textContent='⭐ '+total();
+  $('activeBtn').textContent=`📋 Lopend (${state.active.ind.length})`;
+  const n=CHECKPOINTS.length;
+  if(state.nextCp>=n){ $('status').textContent='Alle groepsopdrachten gedaan! Tijd voor de letterfinale (🏆).'; $('groupBtn').textContent='📍 Klaar'; return; }
+  $('groupBtn').textContent=`📍 Groepsopdracht ${state.nextCp+1}/${n}`;
+  $('status').textContent=`Volgend checkpoint: ${GROUP_TASKS[state.nextCp].kind}`+distText(state.nextCp);
+  if(userPos && !reachedBanner && haversine(userPos,CHECKPOINTS[state.nextCp])<=CONFIG.unlockRadiusM){ reachedBanner=true; banner('📍 Checkpoint bereikt! Start de groepsopdracht.'); }
+}
+function pickPlayers(count){ // eerlijk: spelers zonder lopende opdracht en met minste beurten
+  const busy=new Set(state.active.ind.map(a=>a.p));
+  let cand=state.players.map((p,i)=>i).filter(i=>!busy.has(i));
+  cand=shuffle(cand).sort((a,b)=>state.players[a].turns-state.players[b].turns);
+  return cand.slice(0,count);
+}
+function nextIndTask(){ if(!state.indDeck.length) state.indDeck=shuffle(IND_TASKS.map((_,i)=>i)); return state.indDeck.pop(); }
+function assignInd(all){
+  const ps = pickPlayers(all?state.players.length:1);
+  if(!ps.length){ alert('Iedereen heeft al een lopende opdracht.'); return; }
+  ps.forEach(p=>state.active.ind.push({p, t:nextIndTask(), done:false}));
+  state.lastTaskAt=Date.now(); $('banner').style.display='none'; saveState(); hostUpdateStatus(); renderActive(); $('active').classList.add('show');
+}
+function renderActive(){
+  const box=$('activeBox'); box.innerHTML = state.active.ind.length ? '' : '<p class="hint">Geen lopende opdrachten.</p>';
+  state.active.ind.forEach((a,k)=>{
+    const t=IND_TASKS[a.t], d=document.createElement('div'); d.className='grp';
+    d.innerHTML=`<b>${esc(state.players[a.p].name)} ${a.done?'✅ meldt: klaar':''}</b><div><b>${esc(t.title)}</b> – ${esc(t.text)}</div>${t.props?`<div class="hint">🎒 ${esc(t.props)}</div>`:''}<div class="pts" style="margin-top:6px"></div>`;
+    const pts=d.querySelector('.pts');
+    for(let v=0;v<=3;v++){ const b=document.createElement('button'); b.textContent=v; b.onclick=()=>validateInd(k,v); pts.appendChild(b); }
+    const x=document.createElement('button'); x.textContent='✕'; x.title='verwijderen zonder punten'; x.onclick=()=>{ state.active.ind.splice(k,1); saveState(); renderActive(); hostUpdateStatus(); }; pts.appendChild(x);
+    box.appendChild(d);
+  });
+}
+function validateInd(k,v){
+  const a=state.active.ind[k], p=state.players[a.p]; p.pts+=v; p.turns++; award(p, v>=3?2:v>=1?1:0);
+  state.active.ind.splice(k,1); saveState(); renderActive(); renderBoard(); hostUpdateStatus();
 }
 
-// ---------- cards ----------
-function openCard(kind, c, onDone, onPass){
-  currentCard = {kind, c, onDone, onPass};
-  $('cardTag').className = 'tag '+(kind==='chaos'?'chaos':'cp');
-  $('cardTag').textContent = kind==='chaos' ? (c.all?'Chaos · iedereen tegelijk':'Chaos') : 'Checkpoint '+(state.nextCp+1);
-  $('cardTitle').textContent = c.title; $('cardText').textContent = c.text;
-  $('card').classList.add('show');
-  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+// groepsopdracht
+function makeGroups(k){ const ps=shuffle(state.players.map((_,i)=>i)); const gs=[]; for(let g=0;g<k;g++) gs.push({members:[],pts:null});
+  ps.forEach((p,i)=>gs[i%k].members.push(p)); return gs; }
+function renderGroups(){
+  $('groupsBox').innerHTML='';
+  cur.groups.forEach((g,gi)=>{
+    const d=document.createElement('div'); d.className='grp';
+    d.innerHTML=`<b>Groep ${gi+1}: ${g.members.map(i=>esc(state.players[i].name)).join(', ')}</b><div class="pts"></div>`;
+    const pts=d.querySelector('.pts');
+    for(let v=0;v<=5;v++){ const b=document.createElement('button'); b.textContent=v; if(g.pts===v) b.className='sel'; b.onclick=()=>{ g.pts=v; renderGroups(); }; pts.appendChild(b); }
+    $('groupsBox').appendChild(d);
+  });
 }
-function closeCard(){ $('card').classList.remove('show'); currentCard=null; }
-$('cardDone').onclick = ()=>{ const c=currentCard; closeCard(); c.onDone(); };
-$('cardPass').onclick = ()=>{ const c=currentCard; closeCard(); c.onPass(); };
+function openGroup(){
+  const task=GROUP_TASKS[state.nextCp];
+  cur={task, groups:makeGroups(+$('splitSel').value)}; state.active.grp=cur;
+  $('cardTag').textContent='Checkpoint '+(state.nextCp+1)+' · '+task.kind; $('cardTitle').textContent=task.title; $('cardText').textContent=task.text; $('cardProps').textContent=task.props||'';
+  const img=$('cardImg'); img.style.display='none'; if(task.img){ img.onload=()=>img.style.display='block'; img.onerror=()=>img.style.display='none'; img.src=task.img; }
+  renderGroups(); $('card').classList.add('show'); $('banner').style.display='none'; saveState();
+}
+function closeGroup(){ state.active.grp=null; cur=null; state.nextCp++; reachedBanner=false; drawCheckpoints(state.nextCp); $('card').classList.remove('show'); saveState(); hostUpdateStatus(); renderBoard(); }
+$('splitSel').onchange = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
+$('reshuffle').onclick = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
+$('cardOk').onclick = ()=>{ cur.groups.forEach(g=>{ const v=g.pts||0; g.members.forEach(i=>{ const p=state.players[i]; p.pts+=v; award(p, v>=4?2:v>=2?1:0); }); }); closeGroup(); };
+$('cardSkip').onclick = ()=>{ closeGroup(); };
+$('groupBtn').onclick = ()=>{ if(state.nextCp<CHECKPOINTS.length) openGroup(); };
+$('indBtn').onclick = ()=>assignInd(false);
+$('indAllBtn').onclick = ()=>assignInd(true);
+$('activeBtn').onclick = ()=>{ renderActive(); $('active').classList.add('show'); };
+$('activeClose').onclick = ()=>$('active').classList.remove('show');
 
-function showCheckpoint(){
-  const t = CHECKPOINT_TASKS[state.nextCp % CHECKPOINT_TASKS.length];
-  openCard('cp', t, ()=>completeCheckpoint(true), ()=>completeCheckpoint(false));
+function renderBoard(){
+  const t=$('boardTbl'); t.innerHTML='';
+  const players = role==='host' ? state.players.map(p=>({n:p.name,pts:p.pts,l:p.letters.join('')})) : snap.pl.map(p=>({n:p[0],pts:p[1],l:p[2]}));
+  players.map((p,i)=>({p,i})).sort((a,b)=>b.p.pts-a.p.pts).forEach(({p,i})=>{
+    const tr=document.createElement('tr');
+    const ctl = role==='host' ? `<button class="sec small" data-i="${i}" data-d="-1">−</button> <b style="display:inline-block;min-width:26px;text-align:center">${p.pts}</b> <button class="sec small" data-i="${i}" data-d="1">+</button>` : `<b>${p.pts} ⭐</b>`;
+    tr.innerHTML=`<td><b>${esc(p.n)}</b>${i===me&&role==='player'?' (jij)':''}<br>${p.l.split('').map(l=>`<span class="ltr">${l}</span>`).join('')||'<span class="hint">geen letters</span>'}</td><td style="text-align:right;white-space:nowrap">${ctl}</td>`;
+    t.appendChild(tr);
+  });
+  t.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const p=state.players[+b.dataset.i]; p.pts=Math.max(0,p.pts+(+b.dataset.d)); saveState(); renderBoard(); hostUpdateStatus(); });
 }
-function completeCheckpoint(gotStar){
-  if(gotStar) state.stars++;
-  state.nextCp++; save('state', state); drawCheckpoints(); updateStatus();
-  if(state.nextCp>=state.checkpoints.length) setTimeout(showFinale, 400);
-}
-function showChaos(c){
-  state.lastChaosAt = Date.now(); save('state', state);
-  openCard('chaos', c, ()=>{ state.stars++; save('state',state); updateStatus(); }, ()=>{});
-}
-function randomChaos(){ showChaos(CHAOS[Math.floor(Math.random()*CHAOS.length)]); }
+$('boardBtn').onclick = ()=>{ renderBoard(); $('board').classList.add('show'); };
+$('boardClose').onclick = ()=>$('board').classList.remove('show');
 
-// Chaos: alle gsm's met dezelfde spelcode krijgen op hetzelfde klokmoment dezelfde kaart.
-function chaosTick(){
-  if(!state.started || currentCard) return;
-  const SLOT = state.chaosMin*60000, now = Date.now(), slot = Math.floor(now/SLOT);
-  const r = rng(state.room+'|'+slot), offset = r()*SLOT*0.8 + SLOT*0.1, trigger = slot*SLOT+offset;
-  if(now >= trigger && now < trigger+2*60000 && !state.shownSlots[slot]
-     && now - state.lastChaosAt > CONFIG.chaosCooldownMin*60000){
-    state.shownSlots[slot]=true; showChaos(CHAOS[Math.floor(r()*CHAOS.length)]);
-  }
+$('finaleBtn').onclick = ()=>{
+  if(state.pool.length && !confirm('De resterende '+state.pool.length+' letters worden nu eerlijk verdeeld. Doorgaan?')) return;
+  while(state.pool.length){ const min=Math.min(...state.players.map(p=>p.letters.length)); const c=state.players.filter(p=>p.letters.length===min); award(c[Math.floor(Math.random()*c.length)],1); }
+  state.fin=1; saveState(); $('board').classList.remove('show'); showFinale();
+};
+function finaleView(players, sol){
+  $('finalTiles').innerHTML = players.map((p,i)=>`<div class="tile"><b>${esc(p.n)}${role==='player'&&i===me?' (jij)':''}</b> <span class="hint">(${p.pts} ⭐)</span><div class="big">${p.l.split('').sort().join(' ')||'–'}</div></div>`).join('');
+  $('finalHint').textContent='Zin: '+CONFIG.sentence.split(' ').map(w=>'_ '.repeat(w.length).trim()).join('    ')+'  ('+CONFIG.sentence.replace(/\s/g,'').length+' letters)';
+  $('sol').textContent=CONFIG.sentence; $('sol').style.display=sol?'block':'none';
+  $('showSol').style.display = role==='host' && !sol ? 'block':'none';
+  $('finalMsg').textContent=CONFIG.finalMessage; $('finale').classList.add('show');
 }
-
-// ---------- finale / complimenten ----------
-function showFinale(){
-  $('finalWord').textContent = CONFIG.secretWord.split('').join(' ');
-  const total=state.checkpoints.length + 0;
-  $('finalStars').textContent = `Jullie verzamelden ${state.stars} ⭐ — ${state.stars>=total*1.5?'goud 🥇':state.stars>=total?'zilver 🥈':'brons 🥉'}`;
-  $('finalMsg').textContent = CONFIG.finalMessage;
-  $('finalCompl').innerHTML = state.compliments.length ? '<h3>Complimenten voor Linde 💌</h3>'+
-    state.compliments.map(c=>`<div class="compl">${c.replace(/</g,'&lt;')}</div>`).join('') : '';
-  $('finale').classList.add('show');
-}
+function showFinale(){ finaleView(state.players.map(p=>({n:p.name,pts:p.pts,l:p.letters.join('')})), state.sol); }
+$('showSol').onclick = ()=>{ state.sol=1; saveState(); $('sol').style.display='block'; $('showSol').style.display='none'; };
 $('finalClose').onclick = ()=>$('finale').classList.remove('show');
-$('complBtn').onclick = ()=>$('compl').classList.add('show');
-$('complClose').onclick = ()=>$('compl').classList.remove('show');
-$('complSave').onclick = ()=>{ const v=$('complText').value.trim(); if(!v) return;
-  state.compliments.push(v); save('state',state); $('complText').value=''; $('compl').classList.remove('show'); };
-$('chaosBtn').onclick = randomChaos;
 
-// ---------- menu ----------
-$('menuBtn').onclick = ()=>$('menu').classList.add('show');
+$('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
 $('mClose').onclick = ()=>$('menu').classList.remove('show');
-$('mNext').onclick = ()=>{ $('menu').classList.remove('show'); if(state.nextCp<state.checkpoints.length) showCheckpoint(); };
-$('mFinale').onclick = ()=>{ $('menu').classList.remove('show'); showFinale(); };
-$('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ try{localStorage.removeItem('linde_state');}catch(e){} location.reload(); } };
+$('mNext').onclick = ()=>{ $('menu').classList.remove('show'); $('groupBtn').click(); };
+$('mLetters').onclick = ()=>{ alert('Letterkaartjes om te maken ('+CONFIG.sentence.replace(/\s/g,'').length+'):\n\n'+CONFIG.sentence.replace(/\s/g,'').split('').sort().join(' ')); };
+$('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ ['state','snap','role','me','code'].forEach(store.del); location.reload(); } };
 
-// ---------- start ----------
-async function startGame(){
-  state.room = $('roomCode').value.trim() || 'LINDE25';
-  state.chaosMin = parseInt($('chaosLevel').value,10);
-  const f = $('gpxFile').files[0];
-  let route = DEMO_ROUTE;
-  if(f){ const pts = parseGpx(await f.text()); if(pts.length>1) route = pts; else alert('GPX niet leesbaar, demoroute wordt gebruikt.'); }
-  state.route = route;
-  state.checkpoints = placeCheckpoints(route, CONFIG.secretWord.length).cps;
-  state.started = true; state.nextCp = 0; state.stars = 0; state.shownSlots={};
-  save('state', state); $('setup').classList.remove('show'); boot();
+function bootHost(){
+  role='host'; $('title').textContent='🕵️ Spelleider'; $('playerPanel').style.display='none';
+  initMap(state.nextCp); hostUpdateStatus(); startGps(hostUpdateStatus); publish();
+  setInterval(()=>{ // herinnering + heartbeat
+    if(!cur && Date.now()-state.lastTaskAt > state.remindMin*60000 && !state.active.ind.length){ banner('⏰ Tijd voor een individuele opdracht!'); state.lastTaskAt=Date.now(); store.set('state',state); }
+    publish();
+  }, 30000);
+  subscribe(topic(state.code)+'-in', null, m=>{ if(m.t==='done'){ const a=state.active.ind.find(x=>x.p===m.p); if(a && !a.done){ a.done=true; store.set('state',state); banner('✅ '+state.players[m.p].name+' meldt: klaar!'); renderActive(); publish(); hostUpdateStatus(); } } });
 }
-$('startBtn').onclick = startGame;
+$('startBtn').onclick = ()=>{
+  const names=$('playersIn').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const code=$('codeIn').value.trim();
+  if(names.length<2){ alert('Vul minstens 2 deelnemers in.'); return; }
+  if(!code){ alert('Vul een spelcode in.'); return; }
+  state={code, players:names.map(n=>({name:n,pts:0,letters:[],turns:0})), nextCp:0, pool:newPool(), indDeck:[],
+    remindMin:+$('remindMin').value, lastTaskAt:Date.now(), active:{grp:null,ind:[]}, fin:0, sol:0};
+  store.set('role','host'); store.set('state',state); $('setup').classList.remove('show'); bootHost();
+};
 
-function boot(){
-  initMap(); updateStatus(); startGps(); setInterval(chaosTick, 5000); setInterval(()=>{ checkProximity(); }, 5000);
-  window.addEventListener('resize', ()=>map.invalidateSize());
+// =====================================================================
+//                                SPELER
+// =====================================================================
+function pName(){ return snap.pl[me][0]; }
+function renderPlayer(){
+  if(!snap) return;
+  $('totalPill').textContent='⭐ '+snap.pl[me][1];
+  drawCheckpoints(snap.nx);
+  $('status').textContent = (snap.nx>=CHECKPOINTS.length ? 'Alle checkpoints gehaald!' : `Volgend checkpoint: ${GROUP_TASKS[snap.nx].kind}`+distText(snap.nx));
+  let h='';
+  const myInd = snap.i.find(a=>a[0]===me);
+  if(myInd){ const t=IND_TASKS[myInd[1]];
+    h+=`<div class="tile" style="border-color:var(--accent)"><span class="tag ind">Jouw opdracht</span><h2 style="margin:0">${esc(t.title)}</h2><p>${esc(t.text)}</p>${t.props?`<div class="hint">🎒 De spelleider heeft dit: ${esc(t.props)}</div>`:''}`
+      + (myInd[2] ? '<p>✅ Gemeld! Wacht op de punten van de spelleider.</p>' : '<button class="ok" style="width:100%" id="doneBtn">Klaar! ✓</button>') + '</div>'; }
+  if(snap.g){ const t=GROUP_TASKS[snap.g.t]; const gi=snap.g.gs.findIndex(m=>m.includes(me));
+    h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}<p>${esc(t.text)}</p>`
+      + `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div></div>`; }
+  if(!myInd && !snap.g) h+='<p class="hint">Wandel mee! Je krijgt hier je opdracht zodra de spelleider er een geeft. 🎒</p>';
+  $('playerPanel').innerHTML=h; $('playerPanel').style.display='block';
+  const d=$('doneBtn'); if(d) d.onclick=()=>{ post(topic(store.get('code'))+'-in',{t:'done',p:me}); d.disabled=true; d.textContent='Verzonden…'; };
+  if(snap.fin) finaleView(snap.pl.map(p=>({n:p[0],pts:p[1],l:p[2]})), snap.sol);
 }
-if(state.started && state.route) boot(); else $('setup').classList.add('show');
+let prevTask=null;
+function onSnap(s){
+  if(snap && s.v<snap.v) return;
+  const hadInd = snap && snap.i.some(a=>a[0]===me), hadGrp = snap && snap.g;
+  snap=s; store.set('snap',snap);
+  if($('join').classList.contains('show')) return showNames();
+  if(me!=null){ renderPlayer();
+    if(!hadInd && snap.i.some(a=>a[0]===me)) banner('🎯 Nieuwe opdracht voor jou!');
+    if(!hadGrp && snap.g) banner('📍 Groepsopdracht gestart!'); }
+}
+function showNames(){
+  $('joinStatus').textContent='Verbonden. Wie ben jij?';
+  $('joinNames').innerHTML=''; snap.pl.forEach((p,i)=>{ const b=document.createElement('button'); b.className='sec'; b.style.cssText='width:100%;margin-bottom:6px'; b.textContent=p[0];
+    b.onclick=()=>{ me=i; store.set('me',i); $('join').classList.remove('show'); bootPlayer(); }; $('joinNames').appendChild(b); });
+}
+function bootPlayer(){
+  role='player'; $('title').textContent='🕵️ '+pName(); $('hostRow').style.display=$('hostRow2').style.display='none';
+  $('finaleBtn').style.display='none'; $('boardHint').textContent='Stand van de groep.';
+  $('boardBtn').onclick=()=>{ renderBoard(); $('board').classList.add('show'); };
+  initMap(snap.nx); startGps(renderPlayer); renderPlayer();
+  subscribe(topic(store.get('code')), 'latest', onSnap);
+}
+$('joinBtn').onclick = ()=>{
+  const c=$('joinCode').value.trim(); if(!c) return; store.set('code',c); store.set('role','player'); role='player';
+  $('joinStatus').textContent='Verbinden…'; subscribe(topic(c),'latest',onSnap);
+  setTimeout(()=>{ if(!snap) $('joinStatus').textContent='Nog geen verbinding of de spelleider is nog niet gestart. Even geduld…'; }, 6000);
+};
+
+// =====================================================================
+//                              START
+// =====================================================================
+$('playersIn').value = CONFIG.defaultPlayers.join('\n');
+$('codeIn').value = Math.random().toString(36).slice(2,7).toUpperCase();
+$('roleHost').onclick = ()=>{ $('role').classList.remove('show'); $('setup').classList.add('show'); };
+$('rolePlayer').onclick = ()=>{ $('role').classList.remove('show'); $('join').classList.add('show'); };
+if(role==='host' && state) bootHost();
+else if(role==='player' && snap && me!=null) bootPlayer();
+else $('role').classList.add('show');
 </script>
 </body>
 </html>
