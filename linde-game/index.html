@@ -111,6 +111,7 @@
   <span class="tag" id="cardTag"></span>
   <h2 id="cardTitle"></h2>
   <img id="cardImg" alt="">
+  <a id="cardRef" target="_blank" rel="noopener" style="display:none;margin-bottom:10px;font-size:15px">🔎 Voorbeeldfoto zoeken</a>
   <p id="cardText"></p>
   <div class="props" id="cardProps"></div>
   <div class="row" id="splitRow" style="margin-bottom:8px">
@@ -174,6 +175,7 @@
   <h2>Menu</h2>
   <div class="row" style="flex-direction:column">
     <button class="sec" id="mNext">Volgend checkpoint nu starten (test)</button>
+    <button class="sec" id="mItems">🎒 Rugzaklijst</button>
     <button class="sec" id="mLetters">Letterkaartjes (afdruklijst)</button>
     <button class="sec" id="mReset">Alles resetten</button>
     <button class="sec" id="mClose">Sluiten</button>
@@ -194,40 +196,42 @@ const CONFIG = {
 };
 
 // Groepsopdrachten = checkpoints in volgorde. img = beeldmateriaal in de map linde-game/img/ (zet je eigen foto's daar).
-// props = wat jij uit de rugzak haalt.
+// items = wat er extra in de rugzak moet (bewust minimaal). ref = zoekterm voor een voorbeeldfoto.
+const SCREAM_IMG = "https://commons.wikimedia.org/wiki/Special:FilePath/Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg?width=700";
+// ref = zoekterm voor een voorbeeldfoto (opent Google Afbeeldingen). items = wat er in de rugzak moet.
 const GROUP_TASKS = [
-  {kind:"Letters", title:"Vorm de letters L-I-N-D-E", text:"Vorm met jullie lichamen de letters L, I, N, D, E op de grond (of rechtop). Samenwerken en overleggen! Foto bij succes.", props:"Rugzak: niets nodig (evt. sjaals voor de lijnen).", img:null},
-  {kind:"Schilderij", title:"Magritte: De zoon van de mens", text:"Bootst dit schilderij van René Magritte na: een man in pak en bolhoed, met een appel voor zijn gezicht. Iedereen in de groep doet het tegelijk, met een appel (of ander fruit) voor het gezicht. Foto van de hele groep naast elkaar, strak recht en ernstig kijkend.", props:"Rugzak: bolhoeden of hoeden, een appel per persoon (of ballonnen/fruit), das of stropdas.", img:"img/schilderij1.jpg", split:2},
-  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", text:"Beeld de beroemde scène uit: Rafiki houdt Simba hoog in de lucht. Linde is Simba (ze wordt NIET echt opgetild, ze staat op een verhoging of houdt een pop vast), de rest is de dierenschare eromheen met gebogen hoofden en handen omhoog. Foto bij succes.", props:"Rugzak: een knuffel of pop als Simba, een stok voor Rafiki, bladeren of takken.", img:"img/film1.jpg", split:1},
-  {kind:"Musical", title:"The Sound of Music: The hills are alive", text:"Linde is Maria op de heuvel: armen wijd open, draaiend op de plaats, 'The hills are alive…'. De rest is een koor in achtergrond of de nonnen. Neem er een video van van 10 seconden!", props:"Rugzak: een zonnehoed, een gitaar (of een tennisracket als gitaar), kleine bloemetjes.", img:"img/musical1.jpg", split:1},
-  {kind:"Evenwicht", title:"Ogen dicht, op één been", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", props:"Rugzak: niets nodig.", img:null, timer:{sec:10, attempts:10, size:4}},
-  {kind:"Niet lachen", title:"Stil kijken", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", props:"Zet het volume van jouw gsm luid. Eigen geluid? Zet lach.mp3 in linde-game/audio/.", img:null, sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
-  {kind:"Groepsfoto", title:"De vertrouwensval", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde staat of zit op een veilige, zachte plek, de rest vangt haar rustig op (niet echt laten vallen, eerst oefenen!). Foto bij succes.", props:"Veiligheid: kies een vlakke, zachte ondergrond (gras) en laat Linde zelf bepalen hoe ver ze gaat. Een pose die lijkt op opvangen volstaat.", img:null, split:1},
-  {kind:"Filmscène", title:"Titanic: ik vlieg!", text:"Beeld de scène aan de boeg uit. Linde is Rose met gespreide armen, de rest is de boeg, de golven of Jack achter haar. Zing eventueel mee met 'My Heart Will Go On'. Slotfoto voor Linde!", props:"Rugzak: een sjaal als zeil, een kroon en sjerp voor Linde, confetti.", img:"img/film2.jpg", split:1},
+  {kind:"Letters", title:"Vorm de letters L-I-N-D-E", text:"Vorm met jullie lichamen de letters L, I, N, D, E op de grond (of rechtop). Samenwerken en overleggen! Foto bij succes.", split:1},
+  {kind:"Schilderij", title:"Munch: De Schreeuw", text:"Bootst het schilderij 'De Schreeuw' na op het pad (dat is de brug). Eén persoon vooraan met de handen op de wangen en open mond, twee anderen wandelen rustig erachter. De rest is de golvende lucht: wiegende armen. Foto!", img:SCREAM_IMG, ref:"Munch De Schreeuw schilderij", split:1},
+  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", text:"Linde is Rafiki en houdt de rugzak van de spelleider omhoog alsof het Simba is. De rest is de dierenschare eromheen met gebogen hoofd en handen omhoog. Foto!", items:["De rugzak (Simba!)"], ref:"Lion King circle of life Rafiki holds up Simba", split:1},
+  {kind:"Musical", title:"The Sound of Music: The hills are alive", text:"Linde is Maria op de heuvel: armen wijd open en draaiend op de plaats. De rest zingt 'The hills are alive…' als koor. Maak er een video van 10 seconden van.", ref:"Sound of Music hills are alive Maria scene", split:1},
+  {kind:"Evenwicht", title:"Ogen dicht, op één been", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", timer:{sec:10, attempts:10, size:4}},
+  {kind:"Niet lachen", title:"Stil kijken", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", note:"Zet het volume van jouw gsm luid.", sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
+  {kind:"Groepsfoto", title:"De vertrouwensval", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde bepaalt zelf hoe ver ze gaat (vlakke, zachte ondergrond, eerst oefenen!). Foto bij succes.", split:1},
+  {kind:"Filmscène", title:"Titanic: ik vlieg!", text:"Beeld de scène aan de boeg uit. Linde is Rose met gespreide armen, de rest is de boeg, de golven of Jack achter haar. Slotfoto voor Linde, met kroontje!", items:["Kroontje voor Linde"], ref:"Titanic Rose Jack bow scene flying", split:1},
 ];
 
-// Individuele opdrachten. Spelleider valideert (0-3 punten).
+// Individuele opdrachten. Spelleider valideert (0-3 punten). Geen attributen nodig.
 const IND_TASKS = [
-  {title:"Achteruit", text:"Wandel 100 meter achteruit. De anderen zeggen 'stop' of 'links'.", props:""},
-  {title:"Op mijn rug", text:"Vraag aan iemand of hij/zij je op de rug wil laten rijden (paardrijden) – 20 stappen. Of vraag aan een ander of je iemand mag dragen.", props:""},
-  {title:"Mop", text:"Vertel een mop aan iemand naar keuze. De spelleider beoordeelt hoeveel mensen lachen.", props:""},
-  {title:"Lied", text:"Zing minstens 10 seconden een liedje dat bij Linde past. Zacht mag.", props:""},
-  {title:"Hinkelen", text:"Hinkel 30 stappen. Linkerbeen eerst, dan rechts.", props:""},
-  {title:"Compliment", text:"Geef een oprecht compliment aan Linde, in één zin.", props:""},
-  {title:"Reclame", text:"Verkoop dit voorwerp als was het het beste product ter wereld (30 s).", props:"Rugzak: een gewoon voorwerp (lepel, rol toiletpapier, ...)."},
-  {title:"Slow motion", text:"Loop 20 stappen in slow motion zonder te lachen.", props:""},
-  {title:"Pinguïn", text:"Loop als een pinguïn tot de volgende lantaarnpaal/boom.", props:""},
-  {title:"Hoge dame/heer", text:"Spreek iedereen 5 minuten aan met 'Edele heer/dame'.", props:""},
-  {title:"Bondgenoot", text:"Zoek iemand en bedenk een geheime groet. Gebruik ze vanaf nu bij elke ontmoeting.", props:""},
-  {title:"Ballon", text:"Houd de ballon 20 seconden in de lucht zonder dat hij de grond raakt.", props:"Rugzak: ballon."},
-  {title:"Rap", text:"Rap 4 regels over de wandeling van vandaag.", props:""},
-  {title:"Dubbelganger", text:"Loop 20 stappen als de persoon rechts van je. De groep raadt wie het is.", props:""},
-  {title:"Foto-opdracht", text:"Neem een foto van iets in de omgeving dat jou aan Linde doet denken. Leg uit waarom.", props:""},
-  {title:"Hoed", text:"Draag deze rare hoed tot het volgende checkpoint.", props:"Rugzak: een gekke hoed."},
-  {title:"Stem", text:"Praat in een babystem tot het volgende checkpoint.", props:""},
-  {title:"Dans", text:"Doe 10 seconden een danspasje naar keuze. Alleen of met een maatje.", props:""},
-  {title:"Interview", text:"Interview iemand 1 minuut: 'Wat is je mooiste herinnering met Linde?' (Spelleider noteert.)", props:""},
-  {title:"Stilte", text:"Hou 2 minuten je mond, en luister goed. Vertel daarna wat je hoorde.", props:""},
+  {title:"Achteruit", text:"Wandel 100 meter achteruit. De anderen zeggen 'stop' of 'links'."},
+  {title:"Op mijn rug", text:"Vraag aan iemand of hij/zij je op de rug wil laten rijden (paardrijden) – 20 stappen. Of vraag aan een ander of je iemand mag dragen."},
+  {title:"Mop", text:"Vertel een mop aan iemand naar keuze. De spelleider beoordeelt hoeveel mensen lachen."},
+  {title:"Lied", text:"Zing minstens 10 seconden een liedje dat bij Linde past. Zacht mag."},
+  {title:"Hinkelen", text:"Hinkel 30 stappen. Linkerbeen eerst, dan rechts."},
+  {title:"Compliment", text:"Geef een oprecht compliment aan Linde, in één zin."},
+  {title:"Reclame", text:"Raap onderweg een voorwerp op (tak, steen, blad) en verkoop het als het beste product ter wereld (30 s)."},
+  {title:"Slow motion", text:"Loop 20 stappen in slow motion zonder te lachen."},
+  {title:"Pinguïn", text:"Loop als een pinguïn tot de volgende lantaarnpaal/boom."},
+  {title:"Hoge dame/heer", text:"Spreek iedereen 5 minuten aan met 'Edele heer/dame'."},
+  {title:"Bondgenoot", text:"Zoek iemand en bedenk een geheime groet. Gebruik ze vanaf nu bij elke ontmoeting."},
+  {title:"Cape", text:"Draag je jas als cape tot het volgende checkpoint. Je bent een superheld, met bijpassende superheldenpose bij elke ontmoeting."},
+  {title:"Rap", text:"Rap 4 regels over de wandeling van vandaag."},
+  {title:"Dubbelganger", text:"Loop 20 stappen als de persoon rechts van je. De groep raadt wie het is."},
+  {title:"Foto-opdracht", text:"Neem een foto van iets in de omgeving dat jou aan Linde doet denken. Leg uit waarom."},
+  {title:"Steentoren", text:"Bouw een toren van minstens 3 steentjes of stokjes die 5 seconden blijft staan."},
+  {title:"Stem", text:"Praat in een babystem tot het volgende checkpoint."},
+  {title:"Dans", text:"Doe 10 seconden een danspasje naar keuze. Alleen of met een maatje."},
+  {title:"Interview", text:"Interview iemand 1 minuut: 'Wat is je mooiste herinnering met Linde?' (Spelleider noteert.)"},
+  {title:"Stilte", text:"Hou 2 minuten je mond, en luister goed. Vertel daarna wat je hoorde."},
 ];
 // ===========================================================================
 // ---------- helpers ----------
@@ -346,7 +350,7 @@ function renderActive(){
   const box=$('activeBox'); box.innerHTML = state.active.ind.length ? '' : '<p class="hint">Geen lopende opdrachten.</p>';
   state.active.ind.forEach((a,k)=>{
     const t=IND_TASKS[a.t], d=document.createElement('div'); d.className='grp';
-    d.innerHTML=`<b>${esc(state.players[a.p].name)} ${a.done?'✅ meldt: klaar':''}</b><div><b>${esc(t.title)}</b> – ${esc(t.text)}</div>${t.props?`<div class="hint">🎒 ${esc(t.props)}</div>`:''}<div class="pts" style="margin-top:6px"></div>`;
+    d.innerHTML=`<b>${esc(state.players[a.p].name)} ${a.done?'✅ meldt: klaar':''}</b><div><b>${esc(t.title)}</b> – ${esc(t.text)}</div><div class="pts" style="margin-top:6px"></div>`;
     const pts=d.querySelector('.pts');
     for(let v=0;v<=3;v++){ const b=document.createElement('button'); b.textContent=v; b.onclick=()=>validateInd(k,v); pts.appendChild(b); }
     const x=document.createElement('button'); x.textContent='✕'; x.title='verwijderen zonder punten'; x.onclick=()=>{ state.active.ind.splice(k,1); saveState(); renderActive(); hostUpdateStatus(); }; pts.appendChild(x);
@@ -376,9 +380,12 @@ function renderGroups(){
     $('groupsBox').appendChild(d);
   });
 }
+const refUrl = t => 'https://www.google.com/search?tbm=isch&q='+encodeURIComponent(t.ref);
 function showGroupModal(){
   const task=GROUP_TASKS[state.nextCp];
-  $('cardTag').textContent='Checkpoint '+(state.nextCp+1)+' · '+task.kind; $('cardTitle').textContent=task.title; $('cardText').textContent=task.text; $('cardProps').textContent=task.props||''; $('cardProps').style.display=task.props?'block':'none';
+  $('cardTag').textContent='Checkpoint '+(state.nextCp+1)+' · '+task.kind; $('cardTitle').textContent=task.title; $('cardText').textContent=task.text;
+  const pr=[].concat(task.items?['🎒 '+task.items.join(', ')]:[], task.note?[task.note]:[]).join(' · '); $('cardProps').textContent=pr; $('cardProps').style.display=pr?'block':'none';
+  const ref=$('cardRef'); if(task.ref){ ref.href=refUrl(task); ref.style.display='inline-block'; } else ref.style.display='none';
   const img=$('cardImg'); img.style.display='none'; if(task.img){ img.onload=()=>img.style.display='block'; img.onerror=()=>img.style.display='none'; img.src=task.img; }
   $('splitRow').style.display = task.timer?'none':'flex'; $('timerBox').style.display = task.timer?'block':'none';
   renderGroups(); renderTimer(); $('card').classList.add('show'); $('banner').style.display='none';
@@ -392,17 +399,29 @@ function openGroup(){
 function closeGroup(){ stopSound(); clearInterval(tmIv); state.active.grp=null; cur=null; state.nextCp++; reachedBanner=false; drawCheckpoints(state.nextCp); $('card').classList.remove('show'); saveState(); hostUpdateStatus(); renderBoard(); }
 
 // timer-opdracht (spelleider bedient)
-let tmIv=null, audioEl=null, actx=null, synthIv=null;
-function stopSound(){ if(audioEl){ audioEl.pause(); audioEl=null; } clearInterval(synthIv); synthIv=null; }
-function synthLaugh(){ // noodoplossing zonder mp3: opeenvolgende "ha"-klanken
+let tmIv=null, audioEl=null, actx=null, synthIv=null, laughOn=false;
+function stopSound(){ if(audioEl){ audioEl.pause(); audioEl=null; } laughOn=false; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){}
+  clearInterval(synthIv); synthIv=null; }
+function synthLaugh(){ // laatste noodoplossing: opeenvolgende "ha"-klanken
   try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); let k=0;
     synthIv=setInterval(()=>{ if(k++%8>=5) return; const o=actx.createOscillator(), f=actx.createBiquadFilter(), g=actx.createGain(), t=actx.currentTime;
       o.type='sawtooth'; o.frequency.setValueAtTime(330-k%3*25,t); o.frequency.exponentialRampToValueAtTime(210,t+.15);
       f.type='bandpass'; f.frequency.value=900; f.Q.value=1.5; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.35,t+.03); g.gain.exponentialRampToValueAtTime(.001,t+.16);
       o.connect(f); f.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+.18); },170); }catch(e){} }
+function speechLaugh(){ // de gsm-stem "lacht": hahaha / hihihi met wisselende toon en snelheid
+  if(!('speechSynthesis' in window)){ synthLaugh(); return; }
+  laughOn=true; let started=false;
+  const words=['Hahahaha!','Hihihihi!','Hohohoho!','Hahaha, hihihi!','Ha ha ha ha ha!','Hèhèhèhè!','Hoehoehoehoe!'];
+  const next=()=>{ if(!laughOn) return; const u=new SpeechSynthesisUtterance(words[Math.floor(Math.random()*words.length)]);
+    u.lang='nl-BE'; u.pitch=1+Math.random(); u.rate=1.2+Math.random()*.5; u.volume=1;
+    u.onstart=()=>{ started=true; }; u.onend=next; u.onerror=()=>{ if(laughOn) setTimeout(next,400); };
+    try{ speechSynthesis.speak(u); }catch(e){} };
+  next();
+  setTimeout(()=>{ if(laughOn && !started){ laughOn=false; try{ speechSynthesis.cancel(); }catch(e){} synthLaugh(); } }, 2500);
+}
 function playSound(src){ stopSound(); const a=new Audio(src); a.loop=true; audioEl=a;
-  a.onerror=()=>{ if(audioEl===a){ audioEl=null; synthLaugh(); } };
-  a.play().catch(()=>{ if(audioEl===a){ audioEl=null; synthLaugh(); } }); }
+  const fallback=()=>{ if(audioEl===a){ audioEl=null; speechLaugh(); } };
+  a.onerror=fallback; a.play().catch(fallback); }
 const tmPoints = (att,max) => Math.max(1, 5 - Math.floor((att-1)/(max/5)));   // snel gelukt = meer punten
 function renderTimer(){
   if(!cur || !cur.tm) return; const t=cur.task.timer, tm=cur.tm, g=cur.groups[tm.round];
@@ -464,9 +483,10 @@ function showFinale(){ finaleView(state.players.map(p=>({n:p.name,pts:p.pts,l:p.
 $('showSol').onclick = ()=>{ state.sol=1; saveState(); $('sol').style.display='block'; $('showSol').style.display='none'; };
 $('finalClose').onclick = ()=>$('finale').classList.remove('show');
 
-$('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
+$('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display=$('mItems').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
 $('mClose').onclick = ()=>$('menu').classList.remove('show');
 $('mNext').onclick = ()=>{ $('menu').classList.remove('show'); $('groupBtn').click(); };
+$('mItems').onclick = ()=>{ const it=[...new Set(GROUP_TASKS.flatMap(t=>t.items||[]))]; alert('In de rugzak:\n\n'+(it.length?it.map(x=>'• '+x).join('\n'):'niets bijzonders')); };
 $('mLetters').onclick = ()=>{ alert('Letterkaartjes om te maken ('+CONFIG.sentence.replace(/\s/g,'').length+'):\n\n'+CONFIG.sentence.replace(/\s/g,'').split('').sort().join(' ')); };
 $('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ ['state','snap','role','me','code'].forEach(store.del); location.reload(); } };
 
@@ -502,10 +522,10 @@ function renderPlayer(){
   let h='';
   const myInd = snap.i.find(a=>a[0]===me);
   if(myInd){ const t=IND_TASKS[myInd[1]];
-    h+=`<div class="tile" style="border-color:var(--accent)"><span class="tag ind">Jouw opdracht</span><h2 style="margin:0">${esc(t.title)}</h2><p>${esc(t.text)}</p>${t.props?`<div class="hint">🎒 De spelleider heeft dit: ${esc(t.props)}</div>`:''}`
+    h+=`<div class="tile" style="border-color:var(--accent)"><span class="tag ind">Jouw opdracht</span><h2 style="margin:0">${esc(t.title)}</h2><p>${esc(t.text)}</p>`
       + (myInd[2] ? '<p>✅ Gemeld! Wacht op de punten van de spelleider.</p>' : '<button class="ok" style="width:100%" id="doneBtn">Klaar! ✓</button>') + '</div>'; }
   if(snap.g){ const t=GROUP_TASKS[snap.g.t]; const gi=snap.g.gs.findIndex(m=>m.includes(me));
-    h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}<p>${esc(t.text)}</p>`
+    h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}${t.ref?`<a href="${refUrl(t)}" target="_blank" rel="noopener">🔎 Voorbeeldfoto zoeken</a>`:''}<p>${esc(t.text)}</p>`
       + (snap.g.tm ? playerTimer(t) : `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div>`) + '</div>'; }
   if(!myInd && !snap.g) h+='<p class="hint">Wandel mee! Je krijgt hier je opdracht zodra de spelleider er een geeft. 🎒</p>';
   $('playerPanel').innerHTML=h; $('playerPanel').style.display='block';
