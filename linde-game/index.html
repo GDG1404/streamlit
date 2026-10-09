@@ -203,6 +203,7 @@ const GROUP_TASKS = [
   {kind:"Evenwicht", title:"Ogen dicht, op één been", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", props:"Rugzak: niets nodig.", img:null, timer:{sec:10, attempts:10, size:4}},
   {kind:"Schilderij", title:"Tweede schilderij", text:"Nog een meesterwerk om na te bootsen. Wie bepaalt wie wie is?", props:"Rugzak: hoeden, doek.", img:"img/schilderij2.jpg"},
   {kind:"Niet lachen", title:"Stil kijken", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Lachen = opnieuw. Jullie hebben 5 pogingen.", props:"", img:null, timer:{sec:20, attempts:5, size:2}},
+  {kind:"Groepsfoto", title:"De vertrouwensval", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde staat of zit op een veilige, zachte plek, de rest vangt haar rustig op (niet echt laten vallen, eerst oefenen!). Foto bij succes.", props:"Veiligheid: kies een vlakke, zachte ondergrond (gras) en laat Linde zelf bepalen hoe ver ze gaat. Een pose die lijkt op opvangen volstaat.", img:null, split:1},
   {kind:"Filmscène", title:"Slotscène", text:"Een laatste filmscène als afsluiter. Maak er iets heel moois van voor Linde!", props:"Rugzak: kroon, sjerp, confetti.", img:"img/film2.jpg"},
 ];
 
@@ -385,6 +386,7 @@ function showGroupModal(){
 }
 function openGroup(){
   const task=GROUP_TASKS[state.nextCp];
+  if(task.split) $('splitSel').value=task.split;
   cur = task.timer ? {task, groups:makeGroupsBySize(task.timer.size), tm:{round:0,att:1,st:'idle',end:0,ok:0}} : {task, groups:makeGroups(+$('splitSel').value)};
   state.active.grp=cur; showGroupModal(); saveState();
 }
