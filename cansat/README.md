@@ -255,10 +255,12 @@ millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,...
 - Elke seconde komt er een nieuwe regel met getallen bij.
 - Het **oranje lampje** op de Teensy knippert: het programma draait.
 
-**Sluit nu de Serial Monitor** (klik op het kruisje van het tabblad *Serial Monitor*).
+**Sluit nu de Arduino IDE helemaal** (het hele programma, niet alleen het tabblad
+*Serial Monitor*). De Teensy blijft gewoon werken: het programma staat erop.
 
 > **Waarom sluiten?** De USB-poort kan maar door **één** programma tegelijk gebruikt
-> worden. In de volgende stap heeft `serial_logger` hem nodig.
+> worden. In de volgende stap heeft `serial_logger` hem nodig. De Arduino IDE houdt de
+> poort soms vast, ook als de Serial Monitor dicht is.
 
 ### B3. De metingen opslaan op de laptop
 
@@ -656,7 +658,8 @@ hapert of opnieuw opgestart wordt.
 | `'py' is not recognized as an internal or external command` | Python is niet (goed) geïnstalleerd. Doe A5 opnieuw. |
 | `No module named 'matplotlib'` (of `numpy`, `serial`, `PIL`) | Doe A6 opnieuw, in een opdrachtprompt in `C:\CanSat`. |
 | `can't open file ... No such file or directory` | De opdrachtprompt staat niet in `C:\CanSat`. Open hem opnieuw via de adresbalk (`cmd`). |
-| `serial_logger`: `could not open port` of `Access is denied` | De Serial Monitor van de Arduino IDE is nog open: sluit hem. Of je typte de verkeerde COM-poort: kijk opnieuw met `--list`. |
+| `serial_logger`: *COM9 is bezet door een ander programma* (of `Toegang geweigerd`, `Access is denied`) | Sluit de **Arduino IDE helemaal**. Stop `serial_logger` in andere vensters met Ctrl+C. Lukt het nog niet: USB-kabel uit, 5 s wachten, terug in. |
+| `serial_logger`: *al 5 s niets ontvangen* | Je koos waarschijnlijk de verkeerde poort. Kijk met `--list`: de Teensy is meestal `USB Serial Device`. Trek de kabel uit en kijk welke poort verdwijnt. |
 | `serial_logger` meldt: *de Teensy stuurt 26 (of 27, 29) kolommen in plaats van 34* | Op de Teensy staat nog een oude versie van de sketch. Doe B1 opnieuw. |
 | `serial_logger`: het aantal rijen blijft 0 | Draait de sketch? Knippert het lampje? Druk op het witte knopje van de Teensy. |
 | Dashboard toont `SIMULATED TEST DATA` | Het bestand werd niet gevonden. Start eerst `serial_logger` (B3), controleer de bestandsnaam, en start dan het dashboard opnieuw. |

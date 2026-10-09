@@ -23,6 +23,7 @@ maar één programma tegelijk kan de poort openen.
 import argparse
 import os
 import sys
+import time
 
 HEADER = ("millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,"
           "gyro_x,gyro_y,gyro_z,lacc_x,lacc_y,lacc_z,grav_x,grav_y,grav_z,"
@@ -61,17 +62,38 @@ def main():
     folder = os.path.dirname(os.path.abspath(args.out))
     os.makedirs(folder, exist_ok=True)              # bv. C:\CanSat
     new_file = not os.path.exists(args.out) or os.path.getsize(args.out) == 0
-    with serial.Serial(args.port, args.baud, timeout=1) as ser, \
-            open(args.out, "a", newline="", encoding="utf-8") as fh:
+    try:
+        ser = serial.Serial(args.port, args.baud, timeout=1)
+    except serial.SerialException as e:
+        if "PermissionError" in str(e) or "Access is denied" in str(e) \
+                or "Toegang geweigerd" in str(e):
+            print(f"FOUT: {args.port} is bezet door een ander programma.\n"
+                  "  - Sluit de Arduino IDE helemaal (niet alleen de Serial Monitor).\n"
+                  "  - Staat serial_logger nog open in een ander venster? Stop het met Ctrl+C.\n"
+                  "  - Lukt het nog niet: trek de USB-kabel uit, wacht 5 s, steek hem terug.")
+        else:
+            print(f"FOUT: kan {args.port} niet openen. Bestaat die poort? "
+                  "Kijk met: py tools\\serial_logger.py --list")
+        return 1
+    with ser, open(args.out, "a", newline="", encoding="utf-8") as fh:
         if new_file:
             fh.write(HEADER + "\r\n")
         print(f"Lezen van {args.port} → {args.out}  (Ctrl+C om te stoppen)")
         n = 0
         warned_old = False
+        warned_silent = False
+        t_start = time.monotonic()
         try:
             while True:
                 line = ser.readline().decode("utf-8", errors="replace").strip()
                 if not line:
+                    if (n == 0 and not warned_silent
+                            and time.monotonic() - t_start > 5):
+                        warned_silent = True
+                        print(f"\nLET OP: al 5 s niets ontvangen op {args.port}. "
+                              "Is dit wel de Teensy? Kijk met --list: de Teensy "
+                              "is meestal 'USB Serial Device'. Knippert het "
+                              "lampje op de Teensy?")
                     continue
                 parts = line.split(",")
                 if len(parts) == N_FIELDS and parts[0] != "millis":
