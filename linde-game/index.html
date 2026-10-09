@@ -14,7 +14,15 @@
   header { padding:8px 16px; display:flex; align-items:center; gap:10px; background:var(--card); border-bottom:1px solid var(--line); }
   header h1 { font-size:18px; margin:0; flex:1; }
   .pill { background:var(--bg); border:1px solid var(--line); border-radius:99px; padding:4px 10px; font-size:14px; white-space:nowrap; }
-  #map { flex:1; min-height:160px; }
+  #mapWrap { flex:1; min-height:160px; position:relative; }
+  #map { position:absolute; inset:0; }
+  #heartFloat { position:absolute; top:10px; right:10px; z-index:1000; text-align:center; cursor:pointer; user-select:none; filter:drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+  #heartSvg, #heartBigSvg { display:block; margin:0 auto; animation:beat var(--beat,1.7s) ease-in-out infinite; transition:width .9s cubic-bezier(.3,1.6,.5,1), height .9s cubic-bezier(.3,1.6,.5,1); }
+  #heartPct { display:inline-block; margin-top:-4px; background:#e03131; color:#fff; font-weight:800; font-size:13px; border-radius:99px; padding:1px 9px; }
+  @keyframes beat { 0%,100%{transform:scale(1)} 15%{transform:scale(1.12)} 30%{transform:scale(1)} 45%{transform:scale(1.07)} }
+  .fl { position:absolute; left:50%; top:40%; font-size:20px; pointer-events:none; animation:floatUp 1.9s ease-out forwards; }
+  @keyframes floatUp { 0%{opacity:1; transform:translate(-50%,0) scale(.6)} 100%{opacity:0; transform:translate(calc(-50% + var(--dx)),-120px) scale(1.3)} }
+  @media (prefers-reduced-motion: reduce) { #heartSvg, #heartBigSvg { animation:none; } .fl { display:none; } }
   #bar { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:var(--card); border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
   #status { font-size:14px; color:var(--muted); }
   #banner { display:none; background:var(--accent); color:#fff; padding:8px 12px; border-radius:10px; font-weight:600; }
@@ -57,7 +65,17 @@
     <span class="pill" id="totalPill">⭐ 0</span>
     <button class="sec small" id="menuBtn">☰</button>
   </header>
-  <div id="map"></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7aa5"/><stop offset="1" stop-color="#e03131"/></linearGradient>
+    <symbol id="heartSym" viewBox="0 0 32 30"><path d="M16 29 C16 29 1.5 19.5 1.5 9.5 C1.5 4.5 5 1 9.2 1 C12 1 14.6 2.6 16 5.2 C17.4 2.6 20 1 22.8 1 C27 1 30.5 4.5 30.5 9.5 C30.5 19.5 16 29 16 29 Z" fill="url(#hg)" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+  </defs></svg>
+  <div id="mapWrap">
+    <div id="map"></div>
+    <div id="heartFloat" style="display:none" title="Tik voor het grote hart">
+      <svg id="heartSvg" viewBox="0 0 32 30" style="width:44px;height:41px"><use href="#heartSym" width="32" height="30"/></svg>
+      <span id="heartPct">0%</span>
+    </div>
+  </div>
   <div id="bar">
     <div id="banner"></div>
     <div id="status">Laden…</div>
@@ -75,6 +93,18 @@
     </div>
   </div>
 </div>
+
+<!-- groot hart -->
+<div class="overlay" id="heartBig"><div class="modal" style="text-align:center">
+  <h2>💖 Liefde voor Linde</h2>
+  <div style="height:270px;display:flex;align-items:center;justify-content:center">
+    <svg id="heartBigSvg" viewBox="0 0 32 30" style="width:90px;height:84px"><use href="#heartSym" width="32" height="30"/></svg>
+  </div>
+  <div id="heartBigPct" style="font-size:30px;font-weight:800;color:#e03131">0%</div>
+  <p id="heartBigTxt"></p>
+  <p class="hint">Elke goede opdracht laat het hartje groeien.</p>
+  <button id="heartBigClose" style="width:100%">Sluiten</button>
+</div></div>
 
 <!-- rol kiezen -->
 <div class="overlay" id="role"><div class="modal">
@@ -175,6 +205,7 @@
   <h2>Menu</h2>
   <div class="row" style="flex-direction:column">
     <button class="sec" id="mNext">Volgend checkpoint nu starten (test)</button>
+    <button class="sec" id="mHeart">💖 Extra liefde (mooi moment!)</button>
     <button class="sec" id="mItems">🎒 Rugzaklijst</button>
     <button class="sec" id="mLetters">Letterkaartjes (afdruklijst)</button>
     <button class="sec" id="mReset">Alles resetten</button>
@@ -190,6 +221,7 @@ const CONFIG = {
   sentence: "GELUKKIG VERJAARDAG LINDE",
   finalMessage: "Gefeliciteerd, Linde! 25 jaar – en nog zoveel mooie wandelingen te gaan. ❤️",
   unlockRadiusM: 40,
+  heartMax: 36,                      // zoveel 'liefde' vult het hartje; op de finale loopt het altijd vol. Lager = sneller vol.
   relay: "https://ntfy.sh",           // gratis berichtendienst om alle gsm's te koppelen
   gpx: "",                           // plak hier de inhoud van je GPX-bestand (tussen backticks)
   defaultPlayers: ["Linde","Speler 2","Speler 3","Speler 4","Speler 5","Speler 6","Speler 7","Speler 8"],
@@ -281,6 +313,30 @@ let map, posMarker, cpMarkers=[], userPos=null, cur=null, reachedBanner=false;
 const saveState = () => { store.set('state', state); publish(); };
 const total = () => state.players.reduce((s,p)=>s+p.pts,0);
 
+// ---------- hartje voor Linde (gedeeld) ----------
+const loveLevel = lv => Math.max(0, Math.min(1, lv / CONFIG.heartMax));
+const loveText = l => l>=1 ? 'Een overvol hart voor Linde! 🥹💖' : l>=.75 ? 'Bijna een vol hart! 💞' : l>=.5 ? 'Linde voelt de liefde! 🥰' : l>=.25 ? 'Er groeit iets moois! 💗' : 'Het begint te kloppen… 💓';
+let lastLove = -1;
+function heartBurst(n){
+  const box=$('heartFloat'); for(let i=0;i<n;i++){ const e=document.createElement('span'); e.className='fl'; e.textContent=['💗','💖','💕','❤️'][i%4];
+    e.style.setProperty('--dx',(Math.random()*90-45)+'px'); e.style.animationDelay=(i*130)+'ms'; box.appendChild(e); setTimeout(()=>e.remove(),2400+i*130); }
+  try{ $('heartSvg').animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}],{duration:650,easing:'ease-out'}); }catch(e){}
+  if(navigator.vibrate) navigator.vibrate(60);
+}
+function renderHeart(lv, full){
+  const lvl = full ? 1 : loveLevel(lv), size = Math.round(44 + lvl*76);          // 44 → 120 px
+  $('heartFloat').style.display='block';
+  const hs=$('heartSvg'); hs.style.width=size+'px'; hs.style.height=Math.round(size*30/32)+'px';
+  document.documentElement.style.setProperty('--beat',(1.7-lvl*0.9).toFixed(2)+'s');   // hoe groter, hoe sneller het klopt
+  $('heartPct').textContent = Math.round(lvl*100)+'%';
+  const bs=$('heartBigSvg'), bsize=Math.round(90+lvl*190); bs.style.width=bsize+'px'; bs.style.height=Math.round(bsize*30/32)+'px';
+  $('heartBigPct').textContent = Math.round(lvl*100)+'%'; $('heartBigTxt').textContent = loveText(lvl);
+  if(lastLove>=0 && lvl>lastLove+1e-6) heartBurst(Math.min(8, 3+Math.round((lvl-lastLove)*40)));
+  lastLove = lvl;
+}
+$('heartFloat').onclick = ()=>$('heartBig').classList.add('show');
+$('heartBigClose').onclick = ()=>$('heartBig').classList.remove('show');
+
 // ---------- map / gps (gedeeld) ----------
 function initMap(nextCp){
   map = L.map('map');
@@ -307,7 +363,10 @@ function startGps(onMove){
     onMove();
   }, ()=>{}, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
 }
-function banner(t){ const b=$('banner'); b.textContent=t; b.style.display='block'; if(navigator.vibrate) navigator.vibrate([200,100,200]); }
+let bannerTimer=null;
+function banner(t){ const b=$('banner'); b.textContent=t; b.style.display='block'; if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  clearTimeout(bannerTimer); if(role==='player') bannerTimer=setTimeout(()=>{ b.style.display='none'; },9000); }   // spelers: melding verdwijnt vanzelf
+$('banner').onclick = ()=>{ $('banner').style.display='none'; };   // tik om weg te halen
 function distText(nextCp){ if(!userPos||nextCp>=CHECKPOINTS.length) return ''; const d=Math.round(haversine(userPos,CHECKPOINTS[nextCp])); return ` – nog ${d>1000?(d/1000).toFixed(1)+' km':d+' m'}`; }
 
 // =====================================================================
@@ -318,14 +377,14 @@ function publish(){
   const g = state.active.grp;
   const payload = {v:Date.now(), pl:state.players.map(p=>[p.name,p.pts,p.letters.join('')]), nx:state.nextCp,
     g: g?{t:state.nextCp, gs:g.groups.map(x=>x.members), tm:g.tm?{r:g.tm.round,a:g.tm.att,s:g.tm.st,rem:g.tm.st==='run'?Math.max(0,g.tm.end-Date.now()):0,ok:g.tm.ok?1:0}:null}:null,
-    i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0]), fin:state.fin?1:0, sol:state.sol?1:0};
+    i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0]), fin:state.fin?1:0, sol:state.sol?1:0, lv:Math.round(state.love*100)/100};
   post(topic(state.code), payload);
 }
 function newPool(){ return shuffle(CONFIG.sentence.toUpperCase().replace(/[^A-ZÀ-Ý0-9]/g,'').split('')); }
 function award(p,n){ for(let i=0;i<n && state.pool.length;i++) p.letters.push(state.pool.pop()); }
 
 function hostUpdateStatus(){
-  $('totalPill').textContent='⭐ '+total();
+  $('totalPill').textContent='⭐ '+total(); renderHeart(state.love, state.fin);
   $('activeBtn').textContent=`📋 Lopend (${state.active.ind.length})`;
   const n=CHECKPOINTS.length;
   if(state.nextCp>=n){ $('status').textContent='Alle groepsopdrachten gedaan! Tijd voor de letterfinale (🏆).'; $('groupBtn').textContent='📍 Klaar'; return; }
@@ -358,7 +417,7 @@ function renderActive(){
   });
 }
 function validateInd(k,v){
-  const a=state.active.ind[k], p=state.players[a.p]; p.pts+=v; p.turns++; award(p, v>=3?2:v>=1?1:0);
+  const a=state.active.ind[k], p=state.players[a.p]; state.love+=v/3; p.pts+=v; p.turns++; award(p, v>=3?2:v>=1?1:0);
   state.active.ind.splice(k,1); saveState(); renderActive(); renderBoard(); hostUpdateStatus();
 }
 
@@ -445,7 +504,7 @@ $('tmOkBtn').onclick=()=>{ stopSound(); const tm=cur.tm; tm.st='done'; tm.ok=1; 
 $('tmNext').onclick=()=>{ const tm=cur.tm; tm.round++; tm.att=1; tm.st='idle'; tm.ok=0; saveState(); renderTimer(); };
 $('splitSel').onchange = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
 $('reshuffle').onclick = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
-$('cardOk').onclick = ()=>{ cur.groups.forEach(g=>{ const v=g.pts||0; g.members.forEach(i=>{ const p=state.players[i]; p.pts+=v; award(p, v>=4?2:v>=2?1:0); }); }); closeGroup(); };
+$('cardOk').onclick = ()=>{ state.love += 3*cur.groups.reduce((t,g)=>t+(g.pts||0),0)/cur.groups.length/5; cur.groups.forEach(g=>{ const v=g.pts||0; g.members.forEach(i=>{ const p=state.players[i]; p.pts+=v; award(p, v>=4?2:v>=2?1:0); }); }); closeGroup(); };
 $('cardSkip').onclick = ()=>{ closeGroup(); };
 $('groupBtn').onclick = ()=>{ if(state.nextCp<CHECKPOINTS.length) openGroup(); };
 $('indBtn').onclick = ()=>assignInd(false);
@@ -470,7 +529,7 @@ $('boardClose').onclick = ()=>$('board').classList.remove('show');
 $('finaleBtn').onclick = ()=>{
   if(state.pool.length && !confirm('De resterende '+state.pool.length+' letters worden nu eerlijk verdeeld. Doorgaan?')) return;
   while(state.pool.length){ const min=Math.min(...state.players.map(p=>p.letters.length)); const c=state.players.filter(p=>p.letters.length===min); award(c[Math.floor(Math.random()*c.length)],1); }
-  state.fin=1; saveState(); $('board').classList.remove('show'); showFinale();
+  state.fin=1; saveState(); hostUpdateStatus(); $('board').classList.remove('show'); showFinale();
 };
 function finaleView(players, sol){
   $('finalTiles').innerHTML = players.map((p,i)=>`<div class="tile"><b>${esc(p.n)}${role==='player'&&i===me?' (jij)':''}</b> <span class="hint">(${p.pts} ⭐)</span><div class="big">${p.l.split('').sort().join(' ')||'–'}</div></div>`).join('');
@@ -483,15 +542,16 @@ function showFinale(){ finaleView(state.players.map(p=>({n:p.name,pts:p.pts,l:p.
 $('showSol').onclick = ()=>{ state.sol=1; saveState(); $('sol').style.display='block'; $('showSol').style.display='none'; };
 $('finalClose').onclick = ()=>$('finale').classList.remove('show');
 
-$('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display=$('mItems').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
+$('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display=$('mItems').style.display=$('mHeart').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
 $('mClose').onclick = ()=>$('menu').classList.remove('show');
 $('mNext').onclick = ()=>{ $('menu').classList.remove('show'); $('groupBtn').click(); };
+$('mHeart').onclick = ()=>{ state.love += 1.5; saveState(); hostUpdateStatus(); $('menu').classList.remove('show'); };
 $('mItems').onclick = ()=>{ const it=[...new Set(GROUP_TASKS.flatMap(t=>t.items||[]))]; alert('In de rugzak:\n\n'+(it.length?it.map(x=>'• '+x).join('\n'):'niets bijzonders')); };
 $('mLetters').onclick = ()=>{ alert('Letterkaartjes om te maken ('+CONFIG.sentence.replace(/\s/g,'').length+'):\n\n'+CONFIG.sentence.replace(/\s/g,'').split('').sort().join(' ')); };
 $('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ ['state','snap','role','me','code'].forEach(store.del); location.reload(); } };
 
 function bootHost(){
-  role='host'; $('title').textContent='🕵️ Spelleider'; $('playerPanel').style.display='none';
+  role='host'; state.love = state.love||0; $('title').textContent='🕵️ Spelleider'; $('playerPanel').style.display='none';
   initMap(state.nextCp); hostUpdateStatus(); startGps(hostUpdateStatus); publish();
   if(state.active.grp){ cur=state.active.grp; showGroupModal(); if(cur.tm && cur.tm.st==='run') tmIv=setInterval(tmTick,250); }
   setInterval(()=>{ // herinnering + heartbeat
@@ -505,7 +565,7 @@ $('startBtn').onclick = ()=>{
   const code=$('codeIn').value.trim();
   if(names.length<2){ alert('Vul minstens 2 deelnemers in.'); return; }
   if(!code){ alert('Vul een spelcode in.'); return; }
-  state={code, players:names.map(n=>({name:n,pts:0,letters:[],turns:0})), nextCp:0, pool:newPool(), indDeck:[],
+  state={code, love:0, players:names.map(n=>({name:n,pts:0,letters:[],turns:0})), nextCp:0, pool:newPool(), indDeck:[],
     remindMin:+$('remindMin').value, lastTaskAt:Date.now(), active:{grp:null,ind:[]}, fin:0, sol:0};
   store.set('role','host'); store.set('state',state); $('setup').classList.remove('show'); bootHost();
 };
@@ -516,7 +576,7 @@ $('startBtn').onclick = ()=>{
 function pName(){ return snap.pl[me][0]; }
 function renderPlayer(){
   if(!snap) return;
-  $('totalPill').textContent='⭐ '+snap.pl[me][1];
+  $('totalPill').textContent='⭐ '+snap.pl[me][1]; renderHeart(snap.lv||0, snap.fin);
   drawCheckpoints(snap.nx);
   $('status').textContent = (snap.nx>=CHECKPOINTS.length ? 'Alle checkpoints gehaald!' : `Volgend checkpoint: ${GROUP_TASKS[snap.nx].kind}`+distText(snap.nx));
   let h='';
