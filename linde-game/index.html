@@ -117,6 +117,19 @@
     <select id="splitSel" style="flex:1"><option value="1">Alle samen</option><option value="2" selected>2 groepen</option><option value="4">4 groepen</option></select>
     <button class="sec small" id="reshuffle">🔀 Opnieuw loten</button>
   </div>
+  <div id="timerBox" style="display:none">
+    <div class="grp" style="text-align:center">
+      <div class="hint" id="tmGroup"></div>
+      <div id="tmTime" style="font-size:54px;font-weight:800;color:var(--accent2)">10s</div>
+      <div class="hint" id="tmAtt"></div>
+      <div class="row" style="justify-content:center;margin-top:8px">
+        <button class="flex" id="tmStart">▶ Start timer</button>
+        <button class="ok flex" id="tmOkBtn" style="display:none">Gelukt ✓</button>
+        <button class="sec flex" id="tmFail" style="display:none">↻ Mislukt, opnieuw</button>
+        <button class="flex" id="tmNext" style="display:none">Volgende groep →</button>
+      </div>
+    </div>
+  </div>
   <div id="groupsBox"></div>
   <div class="row" style="margin-top:8px">
     <button class="ok flex" id="cardOk">Valideer ✓</button>
@@ -187,7 +200,9 @@ const GROUP_TASKS = [
   {kind:"Schilderij", title:"Beeld het schilderij uit", text:"Stel dit schilderij zo getrouwer mogelijk na. Jullie hebben 4 minuten om te verdelen en te poseren.", props:"Rugzak: hoeden, sjaals, lijst (karton).", img:"img/schilderij1.jpg"},
   {kind:"Filmscène", title:"Beeld de filmscène uit", text:"Speel deze scène na en leg ze vast op foto of video. 4 minuten voorbereiding.", props:"Rugzak: zonnebril, hoed, sjaal.", img:"img/film1.jpg"},
   {kind:"Musical", title:"Beeld de musical-scène uit", text:"Doe de iconische pose of het refrein van deze musical na, met bijpassend gebaar.", props:"Rugzak: toverstok / hoed / mantel.", img:"img/musical1.jpg"},
+  {kind:"Evenwicht", title:"Ogen dicht, op één been", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", props:"Rugzak: niets nodig.", img:null, timer:{sec:10, attempts:10, size:4}},
   {kind:"Schilderij", title:"Tweede schilderij", text:"Nog een meesterwerk om na te bootsen. Wie bepaalt wie wie is?", props:"Rugzak: hoeden, doek.", img:"img/schilderij2.jpg"},
+  {kind:"Niet lachen", title:"Stil kijken", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Lachen = opnieuw. Jullie hebben 5 pogingen.", props:"", img:null, timer:{sec:20, attempts:5, size:2}},
   {kind:"Filmscène", title:"Slotscène", text:"Een laatste filmscène als afsluiter. Maak er iets heel moois van voor Linde!", props:"Rugzak: kroon, sjerp, confetti.", img:"img/film2.jpg"},
 ];
 
@@ -298,7 +313,7 @@ function publish(){
   if(role!=='host' || !state) return;
   const g = state.active.grp;
   const payload = {v:Date.now(), pl:state.players.map(p=>[p.name,p.pts,p.letters.join('')]), nx:state.nextCp,
-    g: g?{t:state.nextCp, gs:g.groups.map(x=>x.members)}:null,
+    g: g?{t:state.nextCp, gs:g.groups.map(x=>x.members), tm:g.tm?{r:g.tm.round,a:g.tm.att,s:g.tm.st,rem:g.tm.st==='run'?Math.max(0,g.tm.end-Date.now()):0,ok:g.tm.ok?1:0}:null}:null,
     i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0]), fin:state.fin?1:0, sol:state.sol?1:0};
   post(topic(state.code), payload);
 }
@@ -346,6 +361,11 @@ function validateInd(k,v){
 // groepsopdracht
 function makeGroups(k){ const ps=shuffle(state.players.map((_,i)=>i)); const gs=[]; for(let g=0;g<k;g++) gs.push({members:[],pts:null});
   ps.forEach((p,i)=>gs[i%k].members.push(p)); return gs; }
+function makeGroupsBySize(size){ const ps=shuffle(state.players.map((_,i)=>i)); const gs=[];
+  for(let i=0;i<ps.length;i+=size) gs.push({members:ps.slice(i,i+size),pts:null});
+  if(gs.length>1 && gs[gs.length-1].members.length<size){ // rest aanvullen met spelers uit eerste groep
+    const last=gs[gs.length-1]; for(const m of ps){ if(last.members.length>=size) break; if(!last.members.includes(m)) last.members.push(m); } }
+  return gs; }
 function renderGroups(){
   $('groupsBox').innerHTML='';
   cur.groups.forEach((g,gi)=>{
@@ -356,14 +376,43 @@ function renderGroups(){
     $('groupsBox').appendChild(d);
   });
 }
+function showGroupModal(){
+  const task=GROUP_TASKS[state.nextCp];
+  $('cardTag').textContent='Checkpoint '+(state.nextCp+1)+' · '+task.kind; $('cardTitle').textContent=task.title; $('cardText').textContent=task.text; $('cardProps').textContent=task.props||''; $('cardProps').style.display=task.props?'block':'none';
+  const img=$('cardImg'); img.style.display='none'; if(task.img){ img.onload=()=>img.style.display='block'; img.onerror=()=>img.style.display='none'; img.src=task.img; }
+  $('splitRow').style.display = task.timer?'none':'flex'; $('timerBox').style.display = task.timer?'block':'none';
+  renderGroups(); renderTimer(); $('card').classList.add('show'); $('banner').style.display='none';
+}
 function openGroup(){
   const task=GROUP_TASKS[state.nextCp];
-  cur={task, groups:makeGroups(+$('splitSel').value)}; state.active.grp=cur;
-  $('cardTag').textContent='Checkpoint '+(state.nextCp+1)+' · '+task.kind; $('cardTitle').textContent=task.title; $('cardText').textContent=task.text; $('cardProps').textContent=task.props||'';
-  const img=$('cardImg'); img.style.display='none'; if(task.img){ img.onload=()=>img.style.display='block'; img.onerror=()=>img.style.display='none'; img.src=task.img; }
-  renderGroups(); $('card').classList.add('show'); $('banner').style.display='none'; saveState();
+  cur = task.timer ? {task, groups:makeGroupsBySize(task.timer.size), tm:{round:0,att:1,st:'idle',end:0,ok:0}} : {task, groups:makeGroups(+$('splitSel').value)};
+  state.active.grp=cur; showGroupModal(); saveState();
 }
-function closeGroup(){ state.active.grp=null; cur=null; state.nextCp++; reachedBanner=false; drawCheckpoints(state.nextCp); $('card').classList.remove('show'); saveState(); hostUpdateStatus(); renderBoard(); }
+function closeGroup(){ clearInterval(tmIv); state.active.grp=null; cur=null; state.nextCp++; reachedBanner=false; drawCheckpoints(state.nextCp); $('card').classList.remove('show'); saveState(); hostUpdateStatus(); renderBoard(); }
+
+// timer-opdracht (spelleider bedient)
+let tmIv=null;
+const tmPoints = (att,max) => Math.max(1, 5 - Math.floor((att-1)/(max/5)));   // snel gelukt = meer punten
+function renderTimer(){
+  if(!cur || !cur.tm) return; const t=cur.task.timer, tm=cur.tm, g=cur.groups[tm.round];
+  const rem = tm.st==='run' ? Math.max(0,tm.end-Date.now()) : t.sec*1000;
+  $('tmGroup').textContent = `Aan de beurt (groep ${tm.round+1}/${cur.groups.length}): ${g.members.map(i=>state.players[i].name).join(', ')}`;
+  $('tmTime').textContent = tm.st==='done' ? (tm.ok?'🎉 Gelukt!':'😅 Mislukt') : (rem===0&&tm.st==='run'?'⏱ Tijd om!':Math.ceil(rem/1000)+'s');
+  $('tmAtt').textContent = `Poging ${tm.att} van ${t.attempts}`;
+  $('tmStart').style.display = tm.st==='idle'?'block':'none';
+  $('tmFail').style.display = tm.st==='run'?'block':'none';
+  $('tmOkBtn').style.display = tm.st==='run'?'block':'none';
+  $('tmNext').style.display = tm.st==='done' && tm.round<cur.groups.length-1 ? 'block':'none';
+}
+function tmTick(){ if(!cur||!cur.tm) return; if(cur.tm.st==='run' && cur.tm.end-Date.now()<=0 && !cur.tm.buzzed){ cur.tm.buzzed=true; if(navigator.vibrate) navigator.vibrate([300,100,300]); }
+  renderTimer(); }
+$('tmStart').onclick=()=>{ cur.tm.st='run'; cur.tm.end=Date.now()+cur.task.timer.sec*1000; cur.tm.buzzed=false; clearInterval(tmIv); tmIv=setInterval(tmTick,250); saveState(); renderTimer(); };
+$('tmFail').onclick=()=>{ const t=cur.task.timer, tm=cur.tm;
+  if(tm.att>=t.attempts){ tm.st='done'; tm.ok=0; cur.groups[tm.round].pts=0; clearInterval(tmIv); }
+  else { tm.att++; tm.st='idle'; clearInterval(tmIv); }
+  saveState(); renderTimer(); renderGroups(); };
+$('tmOkBtn').onclick=()=>{ const tm=cur.tm; tm.st='done'; tm.ok=1; cur.groups[tm.round].pts=tmPoints(tm.att,cur.task.timer.attempts); clearInterval(tmIv); saveState(); renderTimer(); renderGroups(); };
+$('tmNext').onclick=()=>{ const tm=cur.tm; tm.round++; tm.att=1; tm.st='idle'; tm.ok=0; saveState(); renderTimer(); };
 $('splitSel').onchange = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
 $('reshuffle').onclick = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
 $('cardOk').onclick = ()=>{ cur.groups.forEach(g=>{ const v=g.pts||0; g.members.forEach(i=>{ const p=state.players[i]; p.pts+=v; award(p, v>=4?2:v>=2?1:0); }); }); closeGroup(); };
@@ -413,6 +462,7 @@ $('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ ['
 function bootHost(){
   role='host'; $('title').textContent='🕵️ Spelleider'; $('playerPanel').style.display='none';
   initMap(state.nextCp); hostUpdateStatus(); startGps(hostUpdateStatus); publish();
+  if(state.active.grp){ cur=state.active.grp; showGroupModal(); if(cur.tm && cur.tm.st==='run') tmIv=setInterval(tmTick,250); }
   setInterval(()=>{ // herinnering + heartbeat
     if(!cur && Date.now()-state.lastTaskAt > state.remindMin*60000 && !state.active.ind.length){ banner('⏰ Tijd voor een individuele opdracht!'); state.lastTaskAt=Date.now(); store.set('state',state); }
     publish();
@@ -445,21 +495,30 @@ function renderPlayer(){
       + (myInd[2] ? '<p>✅ Gemeld! Wacht op de punten van de spelleider.</p>' : '<button class="ok" style="width:100%" id="doneBtn">Klaar! ✓</button>') + '</div>'; }
   if(snap.g){ const t=GROUP_TASKS[snap.g.t]; const gi=snap.g.gs.findIndex(m=>m.includes(me));
     h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}<p>${esc(t.text)}</p>`
-      + `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div></div>`; }
+      + (snap.g.tm ? playerTimer(t) : `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div>`) + '</div>'; }
   if(!myInd && !snap.g) h+='<p class="hint">Wandel mee! Je krijgt hier je opdracht zodra de spelleider er een geeft. 🎒</p>';
   $('playerPanel').innerHTML=h; $('playerPanel').style.display='block';
   const d=$('doneBtn'); if(d) d.onclick=()=>{ post(topic(store.get('code'))+'-in',{t:'done',p:me}); d.disabled=true; d.textContent='Verzonden…'; };
   if(snap.fin) finaleView(snap.pl.map(p=>({n:p[0],pts:p[1],l:p[2]})), snap.sol);
 }
-let prevTask=null;
+let tmRecv=0, tmIv2=null;
+function playerTimer(t){
+  const tm=snap.g.tm, mine=snap.g.gs[tm.r].includes(me);
+  const names=snap.g.gs[tm.r].map(i=>esc(snap.pl[i][0])).join(', ');
+  const head = mine ? '<b style="color:var(--accent)">👉 Jullie zijn aan de beurt!</b>' : `Aan de beurt: ${names}`;
+  const big = tm.s==='done' ? (tm.ok?'🎉 Gelukt!':'😅 Mislukt') : (tm.s==='run' ? '<span id="plTime"></span>' : t.timer.sec+'s');
+  return `<div class="hint">${head}</div><div style="font-size:54px;font-weight:800;text-align:center;color:var(--accent2)">${big}</div><div class="hint" style="text-align:center">Poging ${tm.a} van ${t.timer.attempts}</div>`;
+}
+function plTimerTick(){ const el=$('plTime'); if(!el||!snap||!snap.g||!snap.g.tm) return; const left=Math.max(0,snap.g.tm.rem-(Date.now()-tmRecv)); el.textContent = left===0?'⏱ Tijd om!':Math.ceil(left/1000)+'s'; }
 function onSnap(s){
   if(snap && s.v<snap.v) return;
   const hadInd = snap && snap.i.some(a=>a[0]===me), hadGrp = snap && snap.g;
-  snap=s; store.set('snap',snap);
+  snap=s; tmRecv=Date.now(); store.set('snap',snap);
   if($('join').classList.contains('show')) return showNames();
   if(me!=null){ renderPlayer();
     if(!hadInd && snap.i.some(a=>a[0]===me)) banner('🎯 Nieuwe opdracht voor jou!');
-    if(!hadGrp && snap.g) banner('📍 Groepsopdracht gestart!'); }
+    if(!hadGrp && snap.g) banner('📍 Groepsopdracht gestart!');
+    if(snap.g&&snap.g.tm&&snap.g.tm.s==='run'&&snap.g.gs[snap.g.tm.r].includes(me)&&navigator.vibrate) navigator.vibrate(150); }
 }
 function showNames(){
   $('joinStatus').textContent='Verbonden. Wie ben jij?';
@@ -471,7 +530,7 @@ function bootPlayer(){
   $('finaleBtn').style.display='none'; $('boardHint').textContent='Stand van de groep.';
   $('boardBtn').onclick=()=>{ renderBoard(); $('board').classList.add('show'); };
   initMap(snap.nx); startGps(renderPlayer); renderPlayer();
-  subscribe(topic(store.get('code')), 'latest', onSnap);
+  subscribe(topic(store.get('code')), 'latest', onSnap); setInterval(plTimerTick,250);
 }
 $('joinBtn').onclick = ()=>{
   const c=$('joinCode').value.trim(); if(!c) return; store.set('code',c); store.set('role','player'); role='player';
