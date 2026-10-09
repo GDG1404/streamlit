@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Operatie Linde</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --bg:#fff8f0; --card:#ffffff; --ink:#2b2233; --muted:#7a6f85;
+    --accent:#e8590c; --accent2:#7048e8; --ok:#2f9e44; --line:#eadfd2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#1d1824; --card:#2a2333; --ink:#f4eefa; --muted:#a99db8; --line:#3d3349; }
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  #app { display:flex; flex-direction:column; height:100%; }
+  header { padding:10px 16px; display:flex; align-items:center; gap:12px;
+    background:var(--card); border-bottom:1px solid var(--line); }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  .pill { background:var(--bg); border:1px solid var(--line); border-radius:99px;
+    padding:4px 10px; font-size:14px; white-space:nowrap; }
+  #map { flex:1; min-height:200px; }
+  #bar { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:var(--card);
+    border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+  #status { font-size:14px; color:var(--muted); }
+  #letters { font-size:26px; letter-spacing:6px; font-weight:700; color:var(--accent2); min-height:34px; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  button { font:inherit; border:0; border-radius:12px; padding:12px 16px; cursor:pointer;
+    background:var(--accent); color:#fff; font-weight:600; }
+  button.sec { background:var(--bg); color:var(--ink); border:1px solid var(--line); }
+  button.ok { background:var(--ok); }
+  button.small { padding:8px 12px; font-size:14px; }
+  .overlay { position:fixed; inset:0; z-index:2000; background:rgba(20,10,30,.6);
+    display:none; align-items:center; justify-content:center; padding:16px; }
+  .overlay.show { display:flex; }
+  .modal { background:var(--card); border-radius:18px; padding:20px; width:100%; max-width:420px;
+    max-height:90%; overflow:auto; }
+  .modal h2 { margin:0 0 4px; font-size:22px; }
+  .tag { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.05em;
+    text-transform:uppercase; padding:3px 8px; border-radius:99px; margin-bottom:8px; color:#fff; }
+  .tag.chaos { background:var(--accent); } .tag.cp { background:var(--accent2); }
+  .modal p { margin:8px 0 16px; font-size:18px; }
+  .modal .hint { font-size:13px; color:var(--muted); margin-top:-8px; }
+  textarea, input[type=text] { width:100%; font:inherit; padding:10px; border-radius:10px;
+    border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+  .setup-grid { display:grid; gap:10px; margin:12px 0; }
+  label { font-size:14px; color:var(--muted); display:block; margin-bottom:4px; }
+  .compl { font-style:italic; border-left:3px solid var(--accent2); padding:4px 10px; margin:6px 0; }
+  .big { font-size:34px; text-align:center; letter-spacing:8px; font-weight:800; color:var(--accent2); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🕵️ Operatie Linde</h1>
+    <span class="pill" id="starsPill">⭐ 0</span>
+    <button class="sec small" id="menuBtn">☰</button>
+  </header>
+  <div id="map"></div>
+  <div id="bar">
+    <div id="letters"></div>
+    <div id="status">Laden…</div>
+    <div class="row">
+      <button class="sec small" id="complBtn">💌 Compliment voor Linde</button>
+      <button class="sec small" id="chaosBtn">🎲 Chaos nu!</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="setup"><div class="modal">
+  <h2>Operatie Linde 🎉</h2>
+  <p class="hint" style="margin-top:0">25 jaar! Jullie zijn geheim agenten. Verzamel samen de letters van het geheime woord.</p>
+  <div class="setup-grid">
+    <div><label>Spelcode (iedereen dezelfde invullen – zo krijgen alle gsm's tegelijk dezelfde chaoskaart)</label>
+      <input type="text" id="roomCode" value="LINDE25"></div>
+    <div><label>GPX-bestand van de wandeling (leeg = demoroute)</label>
+      <input type="file" id="gpxFile" accept=".gpx,application/gpx+xml,text/xml"></div>
+    <div><label>Chaosniveau</label>
+      <select id="chaosLevel" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit">
+        <option value="6">Veel chaos (om de ±6 min)</option>
+        <option value="9" selected>Gezellig chaotisch (om de ±9 min)</option>
+        <option value="14">Rustig (om de ±14 min)</option>
+      </select></div>
+  </div>
+  <button id="startBtn" style="width:100%">Start de missie</button>
+</div></div>
+
+<div class="overlay" id="card"><div class="modal">
+  <span class="tag" id="cardTag"></span>
+  <h2 id="cardTitle"></h2>
+  <p id="cardText"></p>
+  <div id="cardExtra"></div>
+  <div class="row">
+    <button class="ok" id="cardDone">Gedaan! ✓</button>
+    <button class="sec" id="cardPass">Pas</button>
+  </div>
+  <p class="hint" style="margin-top:12px">Pas mag altijd. Geen straf, geen vragen. 🙂</p>
+</div></div>
+
+<div class="overlay" id="compl"><div class="modal">
+  <h2>Compliment voor Linde 💌</h2>
+  <p class="hint">Geef de gsm door. Typ iets liefs of grappigs. Pas op het einde worden ze voorgelezen.</p>
+  <textarea id="complText" rows="3" placeholder="Linde, jij bent…"></textarea>
+  <div class="row" style="margin-top:12px">
+    <button id="complSave">Bewaar</button>
+    <button class="sec" id="complClose">Sluiten</button>
+  </div>
+</div></div>
+
+<div class="overlay" id="finale"><div class="modal">
+  <span class="tag cp">Finale</span>
+  <h2>Missie geslaagd! 🎉</h2>
+  <p>Het geheime woord is:</p>
+  <div class="big" id="finalWord"></div>
+  <p id="finalStars"></p>
+  <p id="finalMsg"></p>
+  <div id="finalCompl"></div>
+  <button id="finalClose" style="width:100%">Sluiten</button>
+</div></div>
+
+<div class="overlay" id="menu"><div class="modal">
+  <h2>Menu</h2>
+  <div class="row" style="flex-direction:column">
+    <button class="sec" id="mNext">Volgende checkpoint nu ontgrendelen (test)</button>
+    <button class="sec" id="mFinale">Finale bekijken</button>
+    <button class="sec" id="mReset">Alles resetten</button>
+    <button class="sec" id="mClose">Sluiten</button>
+  </div>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ====================== CONFIG – hier pas je alles aan ======================
+const CONFIG = {
+  secretWord: "LINDE25",              // 1 letter per checkpoint
+  finalMessage: "Gefeliciteerd, Linde! Op nog véél mooie wandelingen. ❤️ – papa",
+  unlockRadiusM: 40,                  // zo dichtbij moet je zijn om een opdracht te zien
+  chaosCooldownMin: 3,                // minimaal aantal minuten na een kaart
+};
+
+// Opdrachten bij de checkpoints. {text} is wat de app toont.
+// Je kan hier eigen vragen over Linde invullen!
+const CHECKPOINT_TASKS = [
+  {title:"Linde-quiz", text:"Wat is Lindes lievelingseten? Iedereen schrijft het in zijn hoofd op. Telt af: 3-2-1 en zeg het tegelijk!"},
+  {title:"25 dingen", text:"Zoek samen 25 dingen onderweg: iets rond, iets geel, iets dat ritselt, iets scheef… Tel hardop mee tot het volgende checkpoint."},
+  {title:"Wie zou het doen?", text:"Wie van de groep zou als eerste verdwalen op een wandeling? Op 3 wijst iedereen tegelijk."},
+  {title:"Verhaal van Linde", text:"Maak samen een verhaal over Linde, elk om de beurt één zin. Begin met: 'Het was een koude dag toen Linde…'"},
+  {title:"Schatting", text:"Hoeveel stappen is het tot het volgende bord/boom/bank? Iedereen schat in stilte, dichtste wint een ster voor de groep."},
+  {title:"Gespreksduo's", text:"Loop tot het volgende checkpoint met iemand met wie je nog niet gepraat hebt. Vraag: 'Wat is jouw mooiste herinnering met Linde?'"},
+  {title:"Groepsfoto", text:"Maak een groepsfoto – maar iedereen kijkt een andere kant uit en doet alsof er niets aan de hand is."},
+  {title:"Laatste stuk", text:"Nog even samen! Loop de laatste meters in een mooie rij, Linde vooraan."},
+];
+
+// Chaoskaarten. all = iedereen tegelijk (minder gênant). Voeg gerust toe!
+const CHAOS = [
+  {all:false, title:"Mopje!", text:"Vertel een mop aan een willekeurige persoon in de groep. Mag een slechte zijn. Zéker mag een slechte zijn."},
+  {all:true,  title:"Zingen op 3", text:"Op 3 zingt iedereen tegelijk de eerste regel van 'Lang zal ze leven'. Zacht of luid, jullie keuze."},
+  {all:true,  title:"Hinkelen", text:"Hinkel tot de volgende boom/paal/bank. Wie als laatste aankomt kiest het volgende gespreksonderwerp."},
+  {all:true,  title:"Slow motion", text:"Loop 30 seconden in slow motion. Wie lacht, is er niet uit – maar moet wel doorlopen."},
+  {all:true,  title:"Achteruit", text:"Loop 2 minuten achteruit. Kijk goed uit en laat de voorste lopen."},
+  {all:true,  title:"Hoogdravend", text:"Spreek elkaar tot het volgende checkpoint aan met 'Edele heer' of 'Edele dame'."},
+  {all:true,  title:"Stille minuut", text:"Eén minuut volledige stilte. Wie hoort het meeste? Vertel het daarna."},
+  {all:true,  title:"Dierengeluid", text:"Kies stiekem een dier. Op 3 maakt iedereen het geluid. Zoek wie hetzelfde koos."},
+  {all:false, title:"Complimentje", text:"Geef iemand een oprecht compliment over iets wat je vandaag zag. Echt, geen ironie."},
+  {all:true,  title:"Robotwandeling", text:"Loop 1 minuut als een robot. 'Bzzzt.' Spreken enkel in robot-taal."},
+  {all:false, title:"Kies een bondgenoot", text:"Zoek de persoon die het dichtst bij je loopt. Jullie zijn nu een duo. Bedenk een geheime groet en gebruik hem de rest van de wandeling."},
+  {all:true,  title:"Schaduwspel", text:"Maak met je schaduw (of de schaduw van een ander) een figuur. Raad wie wat was."},
+  {all:false, title:"Weddenschap", text:"Wedden: wie ziet het eerst een eekhoorn, hond of fiets? Verlies = trakteer straks een rondje."},
+  {all:true,  title:"Telefoon weg", text:"Iedereen steekt de telefoon weg tot het volgende checkpoint. Foto's maken mag straks weer."},
+  {all:true,  title:"Geheim woord", text:"Iedereen zegt zo snel mogelijk het woord 'banaan' in een zin, zonder dat een ander het door heeft. Wie ontdekt het eerst de anderen?"},
+  {all:false, title:"Wie zegt wat", text:"Kies iemand en raad zijn lievelingsfilm zonder te vragen. Klopt het? Dan loopt die persoon 10 stappen voorop."},
+  {all:true,  title:"Hand in hand", text:"Houd 30 seconden hand in hand met je buur. Wie wegkijkt verliest. (Niemand verliest echt.)"},
+  {all:true,  title:"Pinguïnwandeling", text:"Loop 20 stappen als een pinguïn. Armen langs het lichaam, kleine pasjes."},
+  {all:false, title:"Hoogste boom", text:"Zoek de hoogste boom in zicht. De groep schat hoe hoog hij is, de dichtste schatting wint een ster."},
+  {all:true,  title:"Applaus", text:"Geef 10 seconden een daverend applaus voor het landschap. Buig ook voor het landschap."},
+];
+// ===========================================================================
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const load = (k,d) => { try { const v = localStorage.getItem('linde_'+k); return v? JSON.parse(v): d; } catch(e){ return d; } };
+const save = (k,v) => { try { localStorage.setItem('linde_'+k, JSON.stringify(v)); } catch(e){} };
+function hash(str){ let h=1779033703^str.length; for(let i=0;i<str.length;i++){ h=Math.imul(h^str.charCodeAt(i),3432918353); h=h<<13|h>>>19; } return h>>>0; }
+function rng(seedStr){ let a=hash(seedStr); return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function haversine(a,b){ const R=6371000, rad=Math.PI/180;
+  const dLat=(b[0]-a[0])*rad, dLng=(b[1]-a[1])*rad;
+  const x=Math.sin(dLat/2)**2+Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x)); }
+
+// ---------- state ----------
+let state = load('state', null) || {started:false, room:'LINDE25', chaosMin:9, route:null,
+  checkpoints:[], nextCp:0, stars:0, shownSlots:{}, lastChaosAt:0, compliments:[]};
+let map, posMarker, userPos = null, cpMarkers = [], currentCard = null;
+
+const DEMO_ROUTE = (()=>{ // lusje van ± 2 km, aanpasbaar via je eigen GPX
+  const c=[51.0543,3.7174], pts=[]; for(let i=0;i<=60;i++){ const t=i/60*2*Math.PI;
+    pts.push([c[0]+0.006*Math.sin(t)*(1+0.3*Math.cos(2*t)), c[1]+0.010*Math.cos(t)*(1+0.2*Math.sin(3*t))]); }
+  return pts; })();
+
+function parseGpx(text){
+  const xml = new DOMParser().parseFromString(text, 'text/xml');
+  let nodes = xml.getElementsByTagName('trkpt');
+  if (!nodes.length) nodes = xml.getElementsByTagName('rtept');
+  const pts=[]; for (const n of nodes) pts.push([parseFloat(n.getAttribute('lat')), parseFloat(n.getAttribute('lon'))]);
+  return pts;
+}
+
+function placeCheckpoints(route, n){
+  const cum=[0]; for(let i=1;i<route.length;i++) cum.push(cum[i-1]+haversine(route[i-1],route[i]));
+  const total=cum[cum.length-1], cps=[];
+  for(let k=1;k<=n;k++){ const target = total*k/n; let i=cum.findIndex(d=>d>=target); if(i<0) i=route.length-1; cps.push(route[i]); }
+  return {cps, total};
+}
+
+// ---------- map ----------
+function initMap(){
+  map = L.map('map', {zoomControl:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+  const line = L.polyline(state.route, {color:'#7048e8', weight:5, opacity:.8}).addTo(map);
+  map.fitBounds(line.getBounds(), {padding:[30,30]});
+  drawCheckpoints();
+  posMarker = L.circleMarker([0,0], {radius:9, color:'#fff', weight:3, fillColor:'#e8590c', fillOpacity:1});
+}
+function drawCheckpoints(){
+  cpMarkers.forEach(m=>m.remove()); cpMarkers=[];
+  state.checkpoints.forEach((p,i)=>{
+    const done = i < state.nextCp, isNext = i === state.nextCp;
+    const letter = CONFIG.secretWord[i] || '?';
+    const html = `<div style="background:${done?'#2f9e44':isNext?'#e8590c':'#868e96'};color:#fff;border:3px solid #fff;
+      border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;
+      box-shadow:0 1px 4px #0006">${done?letter:(i+1)}</div>`;
+    cpMarkers.push(L.marker(p,{icon:L.divIcon({html, className:'', iconSize:[34,34], iconAnchor:[17,17]})}).addTo(map));
+  });
+}
+
+// ---------- GPS ----------
+function startGps(){
+  if(!navigator.geolocation){ $('status').textContent='Geen GPS beschikbaar – gebruik het menu om checkpoints handmatig te ontgrendelen.'; return; }
+  navigator.geolocation.watchPosition(pos=>{
+    userPos=[pos.coords.latitude,pos.coords.longitude];
+    posMarker.setLatLng(userPos); if(!map.hasLayer(posMarker)) posMarker.addTo(map);
+    checkProximity(); updateStatus();
+  }, err=>{ $('status').textContent='GPS niet beschikbaar ('+err.message+'). Gebruik het menu om handmatig te ontgrendelen.'; },
+  {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+}
+function checkProximity(){
+  if(!userPos || state.nextCp>=state.checkpoints.length || currentCard) return;
+  if(haversine(userPos, state.checkpoints[state.nextCp]) <= CONFIG.unlockRadiusM) showCheckpoint();
+}
+function updateStatus(){
+  const total = state.checkpoints.length;
+  $('letters').textContent = CONFIG.secretWord.slice(0,state.nextCp).split('').join(' ') + ' _'.repeat(Math.max(0,total-state.nextCp));
+  $('starsPill').textContent = '⭐ '+state.stars;
+  if(state.nextCp>=total){ $('status').textContent='Alle checkpoints gehaald! Tijd voor de finale.'; return; }
+  let s = `Checkpoint ${state.nextCp+1} van ${total}`;
+  if(userPos){ const d=Math.round(haversine(userPos,state.checkpoints[state.nextCp])); s += ` – nog ${d>1000?(d/1000).toFixed(1)+' km':d+' m'}`; }
+  $('status').textContent = s;
+}
+
+// ---------- cards ----------
+function openCard(kind, c, onDone, onPass){
+  currentCard = {kind, c, onDone, onPass};
+  $('cardTag').className = 'tag '+(kind==='chaos'?'chaos':'cp');
+  $('cardTag').textContent = kind==='chaos' ? (c.all?'Chaos · iedereen tegelijk':'Chaos') : 'Checkpoint '+(state.nextCp+1);
+  $('cardTitle').textContent = c.title; $('cardText').textContent = c.text;
+  $('card').classList.add('show');
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+}
+function closeCard(){ $('card').classList.remove('show'); currentCard=null; }
+$('cardDone').onclick = ()=>{ const c=currentCard; closeCard(); c.onDone(); };
+$('cardPass').onclick = ()=>{ const c=currentCard; closeCard(); c.onPass(); };
+
+function showCheckpoint(){
+  const t = CHECKPOINT_TASKS[state.nextCp % CHECKPOINT_TASKS.length];
+  openCard('cp', t, ()=>completeCheckpoint(true), ()=>completeCheckpoint(false));
+}
+function completeCheckpoint(gotStar){
+  if(gotStar) state.stars++;
+  state.nextCp++; save('state', state); drawCheckpoints(); updateStatus();
+  if(state.nextCp>=state.checkpoints.length) setTimeout(showFinale, 400);
+}
+function showChaos(c){
+  state.lastChaosAt = Date.now(); save('state', state);
+  openCard('chaos', c, ()=>{ state.stars++; save('state',state); updateStatus(); }, ()=>{});
+}
+function randomChaos(){ showChaos(CHAOS[Math.floor(Math.random()*CHAOS.length)]); }
+
+// Chaos: alle gsm's met dezelfde spelcode krijgen op hetzelfde klokmoment dezelfde kaart.
+function chaosTick(){
+  if(!state.started || currentCard) return;
+  const SLOT = state.chaosMin*60000, now = Date.now(), slot = Math.floor(now/SLOT);
+  const r = rng(state.room+'|'+slot), offset = r()*SLOT*0.8 + SLOT*0.1, trigger = slot*SLOT+offset;
+  if(now >= trigger && now < trigger+2*60000 && !state.shownSlots[slot]
+     && now - state.lastChaosAt > CONFIG.chaosCooldownMin*60000){
+    state.shownSlots[slot]=true; showChaos(CHAOS[Math.floor(r()*CHAOS.length)]);
+  }
+}
+
+// ---------- finale / complimenten ----------
+function showFinale(){
+  $('finalWord').textContent = CONFIG.secretWord.split('').join(' ');
+  const total=state.checkpoints.length + 0;
+  $('finalStars').textContent = `Jullie verzamelden ${state.stars} ⭐ — ${state.stars>=total*1.5?'goud 🥇':state.stars>=total?'zilver 🥈':'brons 🥉'}`;
+  $('finalMsg').textContent = CONFIG.finalMessage;
+  $('finalCompl').innerHTML = state.compliments.length ? '<h3>Complimenten voor Linde 💌</h3>'+
+    state.compliments.map(c=>`<div class="compl">${c.replace(/</g,'&lt;')}</div>`).join('') : '';
+  $('finale').classList.add('show');
+}
+$('finalClose').onclick = ()=>$('finale').classList.remove('show');
+$('complBtn').onclick = ()=>$('compl').classList.add('show');
+$('complClose').onclick = ()=>$('compl').classList.remove('show');
+$('complSave').onclick = ()=>{ const v=$('complText').value.trim(); if(!v) return;
+  state.compliments.push(v); save('state',state); $('complText').value=''; $('compl').classList.remove('show'); };
+$('chaosBtn').onclick = randomChaos;
+
+// ---------- menu ----------
+$('menuBtn').onclick = ()=>$('menu').classList.add('show');
+$('mClose').onclick = ()=>$('menu').classList.remove('show');
+$('mNext').onclick = ()=>{ $('menu').classList.remove('show'); if(state.nextCp<state.checkpoints.length) showCheckpoint(); };
+$('mFinale').onclick = ()=>{ $('menu').classList.remove('show'); showFinale(); };
+$('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ try{localStorage.removeItem('linde_state');}catch(e){} location.reload(); } };
+
+// ---------- start ----------
+async function startGame(){
+  state.room = $('roomCode').value.trim() || 'LINDE25';
+  state.chaosMin = parseInt($('chaosLevel').value,10);
+  const f = $('gpxFile').files[0];
+  let route = DEMO_ROUTE;
+  if(f){ const pts = parseGpx(await f.text()); if(pts.length>1) route = pts; else alert('GPX niet leesbaar, demoroute wordt gebruikt.'); }
+  state.route = route;
+  state.checkpoints = placeCheckpoints(route, CONFIG.secretWord.length).cps;
+  state.started = true; state.nextCp = 0; state.stars = 0; state.shownSlots={};
+  save('state', state); $('setup').classList.remove('show'); boot();
+}
+$('startBtn').onclick = startGame;
+
+function boot(){
+  initMap(); updateStatus(); startGps(); setInterval(chaosTick, 5000); setInterval(()=>{ checkProximity(); }, 5000);
+  window.addEventListener('resize', ()=>map.invalidateSize());
+}
+if(state.started && state.route) boot(); else $('setup').classList.add('show');
+</script>
+</body>
+</html>
