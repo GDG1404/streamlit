@@ -1044,7 +1044,8 @@ class Dashboard:
             self.txt_truth.set_color(C["dim"])
 
         # ── KPIs ──
-        vals = (f"{int(round(row['alt_m']))}",       # no "-0" f"{row['temp_C']:.1f}",
+        vals = (f"{int(round(row['alt_m']))}",       # int(): no "-0"
+                f"{row['temp_C']:.1f}",
                 f"{row['press_hPa']:.0f}",
                 f"{row_speed(self.sim, row):.1f}" if det == "DESCENT" else "0.0",
                 f"{cd:.2f}" if not math.isnan(cd) else "—")
