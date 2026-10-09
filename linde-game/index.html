@@ -201,8 +201,7 @@ const GROUP_TASKS = [
   {kind:"Filmscène", title:"Beeld de filmscène uit", text:"Speel deze scène na en leg ze vast op foto of video. 4 minuten voorbereiding.", props:"Rugzak: zonnebril, hoed, sjaal.", img:"img/film1.jpg"},
   {kind:"Musical", title:"Beeld de musical-scène uit", text:"Doe de iconische pose of het refrein van deze musical na, met bijpassend gebaar.", props:"Rugzak: toverstok / hoed / mantel.", img:"img/musical1.jpg"},
   {kind:"Evenwicht", title:"Ogen dicht, op één been", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", props:"Rugzak: niets nodig.", img:null, timer:{sec:10, attempts:10, size:4}},
-  {kind:"Schilderij", title:"Tweede schilderij", text:"Nog een meesterwerk om na te bootsen. Wie bepaalt wie wie is?", props:"Rugzak: hoeden, doek.", img:"img/schilderij2.jpg"},
-  {kind:"Niet lachen", title:"Stil kijken", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Lachen = opnieuw. Jullie hebben 5 pogingen.", props:"", img:null, timer:{sec:20, attempts:5, size:2}},
+  {kind:"Niet lachen", title:"Stil kijken", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", props:"Zet het volume van jouw gsm luid. Eigen geluid? Zet lach.mp3 in linde-game/audio/.", img:null, sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
   {kind:"Groepsfoto", title:"De vertrouwensval", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde staat of zit op een veilige, zachte plek, de rest vangt haar rustig op (niet echt laten vallen, eerst oefenen!). Foto bij succes.", props:"Veiligheid: kies een vlakke, zachte ondergrond (gras) en laat Linde zelf bepalen hoe ver ze gaat. Een pose die lijkt op opvangen volstaat.", img:null, split:1},
   {kind:"Filmscène", title:"Slotscène", text:"Een laatste filmscène als afsluiter. Maak er iets heel moois van voor Linde!", props:"Rugzak: kroon, sjerp, confetti.", img:"img/film2.jpg"},
 ];
@@ -390,10 +389,20 @@ function openGroup(){
   cur = task.timer ? {task, groups:makeGroupsBySize(task.timer.size), tm:{round:0,att:1,st:'idle',end:0,ok:0}} : {task, groups:makeGroups(+$('splitSel').value)};
   state.active.grp=cur; showGroupModal(); saveState();
 }
-function closeGroup(){ clearInterval(tmIv); state.active.grp=null; cur=null; state.nextCp++; reachedBanner=false; drawCheckpoints(state.nextCp); $('card').classList.remove('show'); saveState(); hostUpdateStatus(); renderBoard(); }
+function closeGroup(){ stopSound(); clearInterval(tmIv); state.active.grp=null; cur=null; state.nextCp++; reachedBanner=false; drawCheckpoints(state.nextCp); $('card').classList.remove('show'); saveState(); hostUpdateStatus(); renderBoard(); }
 
 // timer-opdracht (spelleider bedient)
-let tmIv=null;
+let tmIv=null, audioEl=null, actx=null, synthIv=null;
+function stopSound(){ if(audioEl){ audioEl.pause(); audioEl=null; } clearInterval(synthIv); synthIv=null; }
+function synthLaugh(){ // noodoplossing zonder mp3: opeenvolgende "ha"-klanken
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); let k=0;
+    synthIv=setInterval(()=>{ if(k++%8>=5) return; const o=actx.createOscillator(), f=actx.createBiquadFilter(), g=actx.createGain(), t=actx.currentTime;
+      o.type='sawtooth'; o.frequency.setValueAtTime(330-k%3*25,t); o.frequency.exponentialRampToValueAtTime(210,t+.15);
+      f.type='bandpass'; f.frequency.value=900; f.Q.value=1.5; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.35,t+.03); g.gain.exponentialRampToValueAtTime(.001,t+.16);
+      o.connect(f); f.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+.18); },170); }catch(e){} }
+function playSound(src){ stopSound(); const a=new Audio(src); a.loop=true; audioEl=a;
+  a.onerror=()=>{ if(audioEl===a){ audioEl=null; synthLaugh(); } };
+  a.play().catch(()=>{ if(audioEl===a){ audioEl=null; synthLaugh(); } }); }
 const tmPoints = (att,max) => Math.max(1, 5 - Math.floor((att-1)/(max/5)));   // snel gelukt = meer punten
 function renderTimer(){
   if(!cur || !cur.tm) return; const t=cur.task.timer, tm=cur.tm, g=cur.groups[tm.round];
@@ -406,14 +415,14 @@ function renderTimer(){
   $('tmOkBtn').style.display = tm.st==='run'?'block':'none';
   $('tmNext').style.display = tm.st==='done' && tm.round<cur.groups.length-1 ? 'block':'none';
 }
-function tmTick(){ if(!cur||!cur.tm) return; if(cur.tm.st==='run' && cur.tm.end-Date.now()<=0 && !cur.tm.buzzed){ cur.tm.buzzed=true; if(navigator.vibrate) navigator.vibrate([300,100,300]); }
+function tmTick(){ if(!cur||!cur.tm) return; if(cur.tm.st==='run' && cur.tm.end-Date.now()<=0 && !cur.tm.buzzed){ cur.tm.buzzed=true; stopSound(); if(navigator.vibrate) navigator.vibrate([300,100,300]); }
   renderTimer(); }
-$('tmStart').onclick=()=>{ cur.tm.st='run'; cur.tm.end=Date.now()+cur.task.timer.sec*1000; cur.tm.buzzed=false; clearInterval(tmIv); tmIv=setInterval(tmTick,250); saveState(); renderTimer(); };
-$('tmFail').onclick=()=>{ const t=cur.task.timer, tm=cur.tm;
+$('tmStart').onclick=()=>{ cur.tm.st='run'; cur.tm.end=Date.now()+cur.task.timer.sec*1000; cur.tm.buzzed=false; clearInterval(tmIv); tmIv=setInterval(tmTick,250); if(cur.task.sound) playSound(cur.task.sound); saveState(); renderTimer(); };
+$('tmFail').onclick=()=>{ stopSound(); const t=cur.task.timer, tm=cur.tm;
   if(tm.att>=t.attempts){ tm.st='done'; tm.ok=0; cur.groups[tm.round].pts=0; clearInterval(tmIv); }
   else { tm.att++; tm.st='idle'; clearInterval(tmIv); }
   saveState(); renderTimer(); renderGroups(); };
-$('tmOkBtn').onclick=()=>{ const tm=cur.tm; tm.st='done'; tm.ok=1; cur.groups[tm.round].pts=tmPoints(tm.att,cur.task.timer.attempts); clearInterval(tmIv); saveState(); renderTimer(); renderGroups(); };
+$('tmOkBtn').onclick=()=>{ stopSound(); const tm=cur.tm; tm.st='done'; tm.ok=1; cur.groups[tm.round].pts=tmPoints(tm.att,cur.task.timer.attempts); clearInterval(tmIv); saveState(); renderTimer(); renderGroups(); };
 $('tmNext').onclick=()=>{ const tm=cur.tm; tm.round++; tm.att=1; tm.st='idle'; tm.ok=0; saveState(); renderTimer(); };
 $('splitSel').onchange = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
 $('reshuffle').onclick = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
