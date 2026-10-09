@@ -42,7 +42,7 @@ import numpy as np
 
 # reuse simulator + theme from screen 1 (same folder)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import dashboard_scherm1 as s1  # SIM_SPEED/UPDATE_MS read via s1 (CLI)
+import dashboard_scherm1 as s1  # SIM_SPEED read via s1 (CLI)
 from dashboard_scherm1 import (C, PhaseDetector, TelemetrySimulator,
                                has_gps_fix, make_source)
 
@@ -68,6 +68,11 @@ MAP_DIM = 0.55        # darken factor so the dark theme keeps working
 # 3D flight view
 VIEW3D_SPAN = 400     # half-width of the xy scene (m)
 ROTATE_DEG_S = 1.5    # slow camera rotation (°/s); 0 = static
+
+# Screen 2 is heavy (3D views + map), so it redraws less often than
+# screen 1. 500 = 2x per second, 1000 = 1x per second. The data comes in
+# 1x per second, so you miss nothing.
+UPDATE_MS = 500
 
 # ── helpers ──────────────────────────────────────────────────
 def rotation_matrix(heading_deg, roll_deg, pitch_deg):
@@ -704,9 +709,10 @@ class Dashboard2:
         # replay stays real-time even when rendering takes >UPDATE_MS
         now = time.monotonic()
         if self._wall is None:
-            dt = s1.UPDATE_MS / 1000.0 * s1.SIM_SPEED
+            dt = UPDATE_MS / 1000.0 * s1.SIM_SPEED
         else:
-            dt = min(2.0, now - self._wall) * s1.SIM_SPEED
+            dt = min(max(2.0, 3 * UPDATE_MS / 1000.0),
+                     now - self._wall) * s1.SIM_SPEED
         self._wall = now
 
         # camera rotation runs on wall time, also when no new data
@@ -829,7 +835,7 @@ class Dashboard2:
 
     def run(self):
         self.anim = FuncAnimation(self.fig, self.update,
-                                  interval=s1.UPDATE_MS, cache_frame_data=False)
+                                  interval=UPDATE_MS, cache_frame_data=False)
         plt.show()
 
 
