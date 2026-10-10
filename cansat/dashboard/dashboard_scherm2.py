@@ -49,7 +49,6 @@ from dashboard_scherm1 import (C, PhaseDetector, TelemetrySimulator,
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 from matplotlib.collections import LineCollection
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.gridspec import GridSpec
@@ -69,9 +68,9 @@ MAP_DIM = 0.55        # darken factor so the dark theme keeps working
 VIEW3D_SPAN = 400     # half-width of the xy scene (m)
 ROTATE_DEG_S = 1.5    # slow camera rotation (°/s); 0 = static
 
-# Screen 2 is heavy (3D views + map), so it redraws less often than
-# screen 1. 500 = 2x per second, 1000 = 1x per second. The data comes in
-# 1x per second, so you miss nothing.
+# Screen 2 is heavy (3D views + map). It checks for new data every
+# UPDATE_MS, but only redraws when a new row came in (live/replay: about
+# 1x per second). 500 = check 2x per second, 1000 = 1x per second.
 UPDATE_MS = 500
 
 # ── helpers ──────────────────────────────────────────────────
@@ -195,6 +194,7 @@ class Dashboard2:
         self._f_now = 0.0
         self.view3d = True
         self._wall = None        # wall-clock pacing for real-time replay
+        self._changed = False    # new row since the last tick → redraw
         self._map_fixed = False          # True once basemap is redrawn for real GPS
         self._basemap_artists = []       # artists to remove on basemap redraw
         self._zoom = OSM_ZOOM            # current map zoom (zooms out)
@@ -721,6 +721,7 @@ class Dashboard2:
             self.ax_flight.view_init(elev=28, azim=self._azim)
 
         rows = self.sim.fetch(dt)
+        self._changed = bool(rows)
         if not rows:
             return []
         for r in rows[:-1]:
@@ -834,9 +835,18 @@ class Dashboard2:
         return []
 
     def run(self):
-        self.anim = FuncAnimation(self.fig, self.update,
-                                  interval=UPDATE_MS, cache_frame_data=False)
+        # A timer instead of FuncAnimation: FuncAnimation redraws the whole
+        # figure on every tick, also without new data. Drawing is the slow
+        # part (~0.1 s on a fast PC, more on a school laptop).
+        self.timer = self.fig.canvas.new_timer(interval=UPDATE_MS)
+        self.timer.add_callback(self._tick)
+        self.timer.start()
         plt.show()
+
+    def _tick(self):
+        self.update(0)
+        if self._changed:
+            self.fig.canvas.draw_idle()
 
 
 if __name__ == "__main__":
