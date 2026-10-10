@@ -136,6 +136,9 @@
   <textarea id="playersIn" rows="9"></textarea>
   <label>Herinnering voor een individuele opdracht om de … minuten</label>
   <select id="remindMin"><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option></select>
+  <label>GPX van de wandeling (bv. uit Garmin Connect). De spelers krijgen de route automatisch.</label>
+  <input type="file" id="gpxIn">
+  <div class="hint" id="gpxInfo" style="margin-top:4px"></div>
   <button id="startBtn" style="width:100%;margin-top:14px">Start de missie</button>
 </div></div>
 
@@ -364,11 +367,34 @@ const DEMO_ROUTE = (()=>{ const c=[51.0543,3.7174], p=[]; for(let i=0;i<=60;i++)
   p.push([c[0]+0.006*Math.sin(t)*(1+0.3*Math.cos(2*t)), c[1]+0.010*Math.cos(t)*(1+0.2*Math.sin(3*t))]); } return p; })();
 function parseGpx(text){ const xml=new DOMParser().parseFromString(text,'text/xml');
   let n=xml.getElementsByTagName('trkpt'); if(!n.length) n=xml.getElementsByTagName('rtept');
-  return Array.from(n).map(x=>[parseFloat(x.getAttribute('lat')),parseFloat(x.getAttribute('lon'))]); }
+  return Array.from(n).map(x=>[parseFloat(x.getAttribute('lat')),parseFloat(x.getAttribute('lon'))]).filter(p=>isFinite(p[0])&&isFinite(p[1])); }
 function placeCheckpoints(route,n){ const cum=[0]; for(let i=1;i<route.length;i++) cum.push(cum[i-1]+haversine(route[i-1],route[i]));
   const total=cum[cum.length-1], cps=[]; for(let k=1;k<=n;k++){ let i=cum.findIndex(d=>d>=total*k/n); if(i<0) i=route.length-1; cps.push(route[i]); } return cps; }
-const ROUTE = (()=>{ if(CONFIG.gpx && CONFIG.gpx.trim()){ const r=parseGpx(CONFIG.gpx); if(r.length>1) return r; } return DEMO_ROUTE; })();
-const CHECKPOINTS = placeCheckpoints(ROUTE, GROUP_TASKS.length);
+// ---------- route: GPX laden, vereenvoudigen en delen met de spelers ----------
+let ROUTE = [], CHECKPOINTS = [], routeLine = null, curRt = null;
+function setRoute(pts){ ROUTE = pts; CHECKPOINTS = placeCheckpoints(pts, GROUP_TASKS.length); }
+setRoute((()=>{ if(CONFIG.gpx && CONFIG.gpx.trim()){ const r=parseGpx(CONFIG.gpx); if(r.length>1) return r; } return DEMO_ROUTE; })());
+const encInt = d => { d = d<0 ? ~(d<<1) : (d<<1); let s=''; while(d>=0x20){ s+=String.fromCharCode((0x20|(d&0x1f))+63); d>>=5; } return s+String.fromCharCode(d+63); };
+function routeToCode(pts){ let la=0, lo=0, out=''; for(const [a,b] of pts){ const ra=Math.round(a*1e5), rb=Math.round(b*1e5); out+=encInt(ra-la)+encInt(rb-lo); la=ra; lo=rb; } return out; }
+function codeToRoute(str){ const pts=[]; let i=0, la=0, lo=0;
+  const next=()=>{ let r=0, sh=0, b; do{ b=str.charCodeAt(i++)-63; r|=(b&0x1f)<<sh; sh+=5; }while(b>=0x20); return (r&1) ? ~(r>>1) : (r>>1); };
+  while(i<str.length){ la+=next(); lo+=next(); pts.push([la/1e5, lo/1e5]); } return pts; }
+function simplifyRoute(pts, max){   // Douglas-Peucker: houdt de vorm, minder punten (past in één bericht)
+  if(pts.length<=max) return pts;
+  const k=Math.cos(pts[0][0]*Math.PI/180), P=pts.map(p=>[p[0], p[1]*k]);
+  const dist=(p,a,b)=>{ const dx=b[1]-a[1], dy=b[0]-a[0], l=dx*dx+dy*dy; if(!l) return Math.hypot(p[0]-a[0], p[1]-a[1]);
+    let t=((p[1]-a[1])*dx+(p[0]-a[0])*dy)/l; t=Math.max(0,Math.min(1,t)); return Math.hypot(p[1]-(a[1]+t*dx), p[0]-(a[0]+t*dy)); };
+  const run=eps=>{ const keep=new Uint8Array(P.length); keep[0]=keep[P.length-1]=1; const st=[[0,P.length-1]];
+    while(st.length){ const [s0,e0]=st.pop(); let md=0, mi=-1; for(let i=s0+1;i<e0;i++){ const d=dist(P[i],P[s0],P[e0]); if(d>md){ md=d; mi=i; } }
+      if(md>eps && mi>0){ keep[mi]=1; st.push([s0,mi],[mi,e0]); } }
+    const out=[]; for(let i=0;i<P.length;i++) if(keep[i]) out.push(pts[i]); return out; };
+  let eps=1e-6, out=run(eps); while(out.length>max){ eps*=1.4; out=run(eps); } return out;
+}
+const routeLength = pts => pts.reduce((t,p,i)=> i ? t+haversine(pts[i-1],p) : 0, 0);
+function applyRoute(code){   // speler: nieuwe route van de spelleider overnemen
+  if(!code || code===curRt) return; curRt=code; setRoute(codeToRoute(code));
+  if(map && routeLine){ routeLine.setLatLngs(ROUTE); map.fitBounds(routeLine.getBounds(),{padding:[30,30]}); lastNx=-1; }
+}
 
 // ---------- state ----------
 // role: 'host' | 'player'.  host houdt de waarheid bij (state); spelers houden de laatste snapshot (snap).
@@ -425,8 +451,8 @@ function initMap(nextCp){
   map = L.map('map');
   if(DEMO){ $('map').style.cssText+=';background-color:#e9f0e2;background-image:linear-gradient(#d7e3cc 1px,transparent 1px),linear-gradient(90deg,#d7e3cc 1px,transparent 1px);background-size:32px 32px'; }
   else L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-  const line = L.polyline(ROUTE,{color:'#7048e8',weight:5,opacity:.8}).addTo(map);
-  map.fitBounds(line.getBounds(),{padding:[30,30]});
+  routeLine = L.polyline(ROUTE,{color:'#7048e8',weight:5,opacity:.8}).addTo(map);
+  map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
   posMarker = L.circleMarker([0,0],{radius:9,color:'#fff',weight:3,fillColor:'#e8590c',fillOpacity:1});
   drawCheckpoints(nextCp);
   window.addEventListener('resize',()=>map.invalidateSize());
@@ -463,6 +489,7 @@ function publish(){
   const payload = {v:Date.now(), pl:state.players.map(p=>[p.name,p.pts,p.letters.join('')]), nx:state.nextCp,
     g: g?{t:state.nextCp, gs:g.groups.map(x=>x.members), tm:g.tm?{r:g.tm.round,a:g.tm.att,s:g.tm.st,rem:g.tm.st==='run'?Math.max(0,g.tm.end-Date.now()):0,ok:g.tm.ok?1:0}:null}:null,
     i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0]), fin:state.fin?1:0, sol:state.sol?1:0, lv:Math.round(state.love*100)/100, st:state.storyAt||0};
+  if(state.rt) payload.rt=state.rt;
   post(topic(state.code), payload);
 }
 function newPool(){ return shuffle(CONFIG.sentence.toUpperCase().replace(/[^A-ZÀ-Ý0-9]/g,'').split('')); }
@@ -640,6 +667,7 @@ $('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ ['
 
 function bootHost(){
   role='host'; state.love = state.love||0; $('title').textContent='🕵️ Spelleider'; $('playerPanel').style.display='none';
+  if(state.rt){ curRt=state.rt; setRoute(codeToRoute(state.rt)); }
   initMap(state.nextCp); hostUpdateStatus(); startGps(hostUpdateStatus); publish();
   if(state.active.grp){ cur=state.active.grp; showGroupModal(); if(cur.tm && cur.tm.st==='run') tmIv=setInterval(tmTick,250); }
   setInterval(()=>{ // herinnering + heartbeat
@@ -648,12 +676,21 @@ function bootHost(){
   }, 30000);
   subscribe(topic(state.code)+'-in', null, m=>{ if(m.t==='done'){ const a=state.active.ind.find(x=>x.p===m.p); if(a && !a.done){ a.done=true; store.set('state',state); banner('✅ '+state.players[m.p].name+' meldt: klaar!'); renderActive(); publish(); hostUpdateStatus(); } } });
 }
-$('startBtn').onclick = ()=>{
+$('gpxIn').onchange = async ()=>{
+  const f=$('gpxIn').files[0]; if(!f){ $('gpxInfo').textContent=''; return; }
+  try{ const pts=parseGpx(await f.text()); if(pts.length<2) throw new Error('leeg');
+    $('gpxInfo').textContent='Route gelezen: '+(routeLength(pts)/1000).toFixed(1)+' km, '+pts.length+' punten.'; }
+  catch(e){ $('gpxInfo').textContent='Dit bestand kon ik niet lezen als GPX.'; }
+};
+$('startBtn').onclick = async ()=>{
   const names=$('playersIn').value.split('\n').map(s=>s.trim()).filter(Boolean);
   const code=$('codeIn').value.trim();
   if(names.length<2){ alert('Vul minstens 2 deelnemers in.'); return; }
   if(!code){ alert('Vul een spelcode in.'); return; }
-  state={code, love:0, players:names.map(n=>({name:n,pts:0,letters:[],turns:0})), nextCp:0, pool:newPool(), indDeck:[],
+  let rt=null; const gf=$('gpxIn').files[0];
+  if(gf){ try{ const pts=parseGpx(await gf.text()); if(pts.length<2) throw new Error('leeg'); rt=routeToCode(simplifyRoute(pts,140)); }
+          catch(e){ alert('Dit GPX-bestand kon ik niet lezen. De demoroute wordt gebruikt.'); } }
+  state={code, rt, love:0, players:names.map(n=>({name:n,pts:0,letters:[],turns:0})), nextCp:0, pool:newPool(), indDeck:[],
     remindMin:+$('remindMin').value, lastTaskAt:Date.now(), active:{grp:null,ind:[]}, fin:0, sol:0};
   store.set('role','host'); store.set('state',state); $('setup').classList.remove('show'); bootHost(); showStory();
 };
@@ -665,6 +702,7 @@ function pName(){ return snap.pl[me][0]; }
 let finKey='', lastNx=-1;
 function renderPlayer(){
   if(!snap) return;
+  applyRoute(snap.rt);
   $('totalPill').textContent='⭐ '+snap.pl[me][1]; renderHeart(snap.lv||0, snap.fin);
   if(lastNx!==snap.nx){ lastNx=snap.nx; drawCheckpoints(snap.nx); }
   $('status').textContent = (snap.nx>=CHECKPOINTS.length ? 'Alle checkpoints gehaald!' : `Volgend checkpoint: ${GROUP_TASKS[snap.nx].kind}`+distText(snap.nx));
@@ -718,7 +756,7 @@ function bootPlayer(){
   role='player'; if(joinES){ joinES.close(); joinES=null; } $('title').textContent='🕵️ '+pName(); $('hostRow').style.display=$('hostRow2').style.display='none';
   $('finaleBtn').style.display='none'; $('boardHint').textContent='Stand van de groep.';
   $('boardBtn').onclick=()=>{ renderBoard(); $('board').classList.add('show'); };
-  initMap(snap.nx); startGps(renderPlayer); renderPlayer();
+  applyRoute(snap.rt); initMap(snap.nx); startGps(renderPlayer); renderPlayer();
   subscribe(topic(store.get('code')), 'latest', onSnap); setInterval(plTimerTick,250);
 }
 $('joinBtn').onclick = ()=>{

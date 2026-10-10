@@ -7,6 +7,11 @@ Eén bestand: `index.html`. Zet het online (bv. GitHub Pages) en open de link op
 - Alles loopt via ntfy.sh (gratis, geen account). De spelcode is dus het enige "wachtwoord".
 - Opdrachten, de zin voor de letterfinale en je GPX pas je bovenaan in `index.html` aan (`CONFIG`, `GROUP_TASKS`, `IND_TASKS`).
 
+## De route (GPX)
+De spelleider kiest bij het instellen zelf het GPX-bestand van de wandeling. De app vereenvoudigt de route tot ±100 punten en
+stuurt ze mee naar alle spelers, die dus niets hoeven te laden. Uit Garmin Connect (website): open de cursus, tik op het tandwiel
+en kies "Exporteren naar GPX". De 8 checkpoints worden gelijkmatig over de route verdeeld.
+
 ## Rugzak (bewust minimaal)
 Je rugzak zelf (als "Simba") en een kroontje voor Linde. Meer is niet nodig; het menu ☰ toont de lijst.
 
