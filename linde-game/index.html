@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Operatie Linde</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root { --bg:#fff8f0; --card:#fff; --ink:#2b2233; --muted:#7a6f85; --accent:#e8590c; --accent2:#7048e8; --ok:#2f9e44; --line:#eadfd2; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1d1824; --card:#2a2333; --ink:#f4eefa; --muted:#a99db8; --line:#3d3349; } }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  #app { display:flex; flex-direction:column; height:100%; }
+  header { padding:8px 16px; display:flex; align-items:center; gap:10px; background:var(--card); border-bottom:1px solid var(--line); }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  .pill { background:var(--bg); border:1px solid var(--line); border-radius:99px; padding:4px 10px; font-size:14px; white-space:nowrap; }
+  #mapWrap { flex:1; min-height:160px; position:relative; }
+  #map { position:absolute; inset:0; }
+  #heartFloat { position:absolute; top:10px; right:10px; z-index:1000; text-align:center; cursor:pointer; user-select:none; filter:drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+  #heartSvg, #heartBigSvg { display:block; margin:0 auto; animation:beat var(--beat,1.7s) ease-in-out infinite; transition:width .9s cubic-bezier(.3,1.6,.5,1), height .9s cubic-bezier(.3,1.6,.5,1); }
+  #heartPct { display:inline-block; margin-top:-4px; background:#e03131; color:#fff; font-weight:800; font-size:13px; border-radius:99px; padding:1px 9px; }
+  @keyframes beat { 0%,100%{transform:scale(1)} 15%{transform:scale(1.12)} 30%{transform:scale(1)} 45%{transform:scale(1.07)} }
+  .fl { position:absolute; left:50%; top:40%; font-size:20px; pointer-events:none; animation:floatUp 1.9s ease-out forwards; }
+  @keyframes floatUp { 0%{opacity:1; transform:translate(-50%,0) scale(.6)} 100%{opacity:0; transform:translate(calc(-50% + var(--dx)),-120px) scale(1.3)} }
+  @media (prefers-reduced-motion: reduce) { #heartSvg, #heartBigSvg { animation:none; } .fl { display:none; } }
+  #bar { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:var(--card); border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
+  #status { font-size:14px; color:var(--muted); }
+  #banner { display:none; background:var(--accent); color:#fff; padding:8px 12px; border-radius:10px; font-weight:600; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; }
+  button { font:inherit; border:0; border-radius:12px; padding:12px 14px; cursor:pointer; background:var(--accent); color:#fff; font-weight:600; }
+  button.sec { background:var(--bg); color:var(--ink); border:1px solid var(--line); }
+  button.ok { background:var(--ok); }
+  button.small { padding:8px 12px; font-size:14px; }
+  button.flex { flex:1; }
+  .overlay { position:fixed; inset:0; z-index:2000; background:rgba(20,10,30,.6); display:none; align-items:center; justify-content:center; padding:12px; }
+  .overlay.show { display:flex; }
+  .modal { background:var(--card); border-radius:18px; padding:18px; width:100%; max-width:440px; max-height:94%; overflow:auto; }
+  .modal h2 { margin:0 0 4px; font-size:22px; }
+  .modal p { margin:8px 0 12px; font-size:17px; }
+  .tag { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:3px 8px; border-radius:99px; margin-bottom:8px; color:#fff; background:var(--accent2); }
+  .tag.ind { background:var(--accent); }
+  .hint { font-size:13px; color:var(--muted); }
+  .props { background:var(--bg); border:1px dashed var(--line); border-radius:10px; padding:8px 10px; font-size:14px; margin-bottom:12px; }
+  #cardImg { width:100%; max-height:240px; object-fit:contain; border-radius:10px; margin-bottom:10px; background:var(--bg); display:none; }
+  .grp { border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-bottom:8px; }
+  .grp b { display:block; margin-bottom:6px; }
+  .pts { display:flex; gap:6px; flex-wrap:wrap; }
+  .pts button { padding:8px 0; width:44px; background:var(--bg); color:var(--ink); border:1px solid var(--line); }
+  .pts button.sel { background:var(--accent2); color:#fff; border-color:var(--accent2); }
+  textarea, input[type=text], select { width:100%; font:inherit; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+  label { font-size:14px; color:var(--muted); display:block; margin:10px 0 4px; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:6px 4px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .ltr { display:inline-block; background:var(--accent2); color:#fff; border-radius:6px; padding:2px 7px; margin:1px; font-weight:700; }
+  .tile { border:2px solid var(--accent2); border-radius:14px; padding:10px; margin-bottom:10px; }
+  .tile .big { font-size:26px; font-weight:800; letter-spacing:6px; color:var(--accent2); }
+  .story { font-style:italic; color:var(--muted); border-left:3px solid var(--accent2); padding-left:10px; margin:6px 0 10px; }
+  .formula { text-align:center; font-size:22px; font-weight:800; color:var(--accent2); margin:10px 0; }
+  .sol { font-size:22px; font-weight:800; text-align:center; letter-spacing:3px; color:var(--ok); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1 id="title">🕵️ Operatie Linde</h1>
+    <span class="pill" id="connPill" title="verbinding">●</span>
+    <span class="pill" id="totalPill">⭐ 0</span>
+    <button class="sec small" id="menuBtn">☰</button>
+  </header>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7aa5"/><stop offset="1" stop-color="#e03131"/></linearGradient>
+    <symbol id="heartSym" viewBox="0 0 32 30"><path d="M16 29 C16 29 1.5 19.5 1.5 9.5 C1.5 4.5 5 1 9.2 1 C12 1 14.6 2.6 16 5.2 C17.4 2.6 20 1 22.8 1 C27 1 30.5 4.5 30.5 9.5 C30.5 19.5 16 29 16 29 Z" fill="url(#hg)" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"/></symbol>
+  </defs></svg>
+  <div id="mapWrap">
+    <div id="map"></div>
+    <div id="heartFloat" style="display:none" title="Tik voor het grote hart">
+      <svg id="heartSvg" viewBox="0 0 32 30" style="width:44px;height:41px"><use href="#heartSym" width="32" height="30"/></svg>
+      <span id="heartPct">0%</span>
+    </div>
+  </div>
+  <div id="bar">
+    <div id="banner"></div>
+    <div id="status">Laden…</div>
+    <div id="playerPanel" style="display:none"></div>
+    <div class="row" id="hostRow">
+      <button class="flex" id="groupBtn">📍 Groepsopdracht</button>
+      <button class="flex" id="indBtn">🎯 Individueel</button>
+    </div>
+    <div class="row" id="hostRow2">
+      <button class="sec small flex" id="indAllBtn">🎯 Iedereen een opdracht</button>
+      <button class="sec small flex" id="activeBtn">📋 Lopend (0)</button>
+    </div>
+    <div class="row">
+      <button class="sec small flex" id="boardBtn">🏆 Scorebord &amp; letters</button>
+    </div>
+  </div>
+</div>
+
+<!-- verhaal -->
+<div class="overlay" id="story"><div class="modal">
+  <span class="tag">📜 Missie-briefing</span>
+  <h2 id="storyTitle"></h2>
+  <div id="storyBody"></div>
+  <div class="row" style="margin-top:10px">
+    <button class="flex" id="storySend">📣 Toon op alle gsm's</button>
+    <button class="sec" id="storyClose">Sluiten</button>
+  </div>
+</div></div>
+
+<!-- groot hart -->
+<div class="overlay" id="heartBig"><div class="modal" style="text-align:center">
+  <h2>💖 Het Hart van Linde</h2>
+  <div style="height:270px;display:flex;align-items:center;justify-content:center">
+    <svg id="heartBigSvg" viewBox="0 0 32 30" style="width:90px;height:84px"><use href="#heartSym" width="32" height="30"/></svg>
+  </div>
+  <div id="heartBigPct" style="font-size:30px;font-weight:800;color:#e03131">0%</div>
+  <p id="heartBigTxt"></p>
+  <p class="hint">Elke goede opdracht laat het hartje groeien.</p>
+  <button id="heartBigClose" style="width:100%">Sluiten</button>
+</div></div>
+
+<!-- rol kiezen -->
+<div class="overlay" id="role"><div class="modal">
+  <h2>Operatie Linde 🎉</h2>
+  <p class="hint" style="margin-top:0">Wie ben jij?</p>
+  <button style="width:100%;margin-bottom:10px" id="roleHost">🎒 Ik ben de spelleider</button>
+  <button class="sec" style="width:100%" id="rolePlayer">🙋 Ik ben een speler</button>
+</div></div>
+
+<!-- setup spelleider -->
+<div class="overlay" id="setup"><div class="modal">
+  <h2>Spelleider instellen</h2>
+  <label>Spelcode (de spelers vullen deze in op hun gsm)</label>
+  <input type="text" id="codeIn">
+  <label>Deelnemers (één per regel, Linde doet ook mee)</label>
+  <textarea id="playersIn" rows="9"></textarea>
+  <label>Herinnering voor een individuele opdracht om de … minuten</label>
+  <select id="remindMin"><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option></select>
+  <label>GPX van de wandeling (bv. uit Garmin Connect). De spelers krijgen de route automatisch.</label>
+  <input type="file" id="gpxIn">
+  <div class="hint" id="gpxInfo" style="margin-top:4px"></div>
+  <button id="startBtn" style="width:100%;margin-top:14px">Start de missie</button>
+</div></div>
+
+<!-- speler join -->
+<div class="overlay" id="join"><div class="modal">
+  <h2>Meedoen</h2>
+  <label>Spelcode (krijg je van de spelleider)</label>
+  <input type="text" id="joinCode">
+  <button id="joinBtn" style="width:100%;margin-top:12px">Verbinden</button>
+  <div id="joinNames" style="margin-top:12px"></div>
+  <p class="hint" id="joinStatus"></p>
+</div></div>
+
+<!-- groepsopdracht (spelleider) -->
+<div class="overlay" id="card"><div class="modal">
+  <span class="tag" id="cardTag"></span>
+  <h2 id="cardTitle"></h2>
+  <img id="cardImg" alt="">
+  <a id="cardRef" target="_blank" rel="noopener" style="display:none;margin-bottom:10px;font-size:15px">🔎 Voorbeeldfoto zoeken</a>
+  <p class="story" id="cardStory" style="display:none"></p>
+  <p id="cardText"></p>
+  <div class="props" id="cardProps"></div>
+  <div class="row" id="splitRow" style="margin-bottom:8px">
+    <select id="splitSel" style="flex:1"><option value="1">Alle samen</option><option value="2" selected>2 groepen</option><option value="4">4 groepen</option></select>
+    <button class="sec small" id="reshuffle">🔀 Opnieuw loten</button>
+  </div>
+  <div id="timerBox" style="display:none">
+    <div class="grp" style="text-align:center">
+      <div class="hint" id="tmGroup"></div>
+      <div id="tmTime" style="font-size:54px;font-weight:800;color:var(--accent2)">10s</div>
+      <div class="hint" id="tmAtt"></div>
+      <div class="row" style="justify-content:center;margin-top:8px">
+        <button class="flex" id="tmStart">▶ Start timer</button>
+        <button class="ok flex" id="tmOkBtn" style="display:none">Gelukt ✓</button>
+        <button class="sec flex" id="tmFail" style="display:none">↻ Mislukt, opnieuw</button>
+        <button class="flex" id="tmNext" style="display:none">Volgende groep →</button>
+      </div>
+    </div>
+  </div>
+  <div id="groupsBox"></div>
+  <div class="row" style="margin-top:8px">
+    <button class="ok flex" id="cardOk">Valideer ✓</button>
+    <button class="sec" id="cardSkip">Overslaan</button>
+  </div>
+</div></div>
+
+<!-- lopende individuele opdrachten (spelleider) -->
+<div class="overlay" id="active"><div class="modal">
+  <h2>📋 Lopende opdrachten</h2>
+  <p class="hint">Geef punten (0-3) om te valideren. De speler krijgt zijn letters meteen.</p>
+  <div id="activeBox"></div>
+  <button class="sec" id="activeClose" style="width:100%;margin-top:8px">Sluiten</button>
+</div></div>
+
+<!-- scoreboard -->
+<div class="overlay" id="board"><div class="modal">
+  <h2>🏆 Scorebord</h2>
+  <p class="hint" id="boardHint">Tik op + / − om punten handmatig aan te passen.</p>
+  <table id="boardTbl"></table>
+  <div class="row" style="margin-top:12px">
+    <button class="flex" id="finaleBtn">🎁 Letterfinale starten</button>
+    <button class="sec" id="boardClose">Sluiten</button>
+  </div>
+</div></div>
+
+<!-- finale -->
+<div class="overlay" id="finale"><div class="modal">
+  <span class="tag">Finale</span>
+  <h2>Leg de zin samen! 🎉</h2>
+  <p class="hint">Iedereen heeft letters gekregen. Vorm samen een korte zin over Linde's verjaardag.</p>
+  <div id="finalTiles"></div>
+  <p id="finalHint" class="hint"></p>
+  <button class="sec" id="showSol" style="width:100%">Toon oplossing</button>
+  <div class="sol" id="sol" style="display:none;margin:12px 0"></div>
+  <div id="finalStory" style="display:none"></div>
+  <p id="finalMsg"></p>
+  <button id="finalClose" style="width:100%">Sluiten</button>
+</div></div>
+
+<!-- menu -->
+<div class="overlay" id="menu"><div class="modal">
+  <h2>Menu</h2>
+  <div class="row" style="flex-direction:column">
+    <button class="sec" id="mNext">Volgend checkpoint nu starten (test)</button>
+    <button class="sec" id="mStory">📜 Verhaal herlezen</button>
+    <button class="sec" id="mHeart">💖 Extra liefde (mooi moment!)</button>
+    <button class="sec" id="mItems">🎒 Rugzaklijst</button>
+    <button class="sec" id="mLetters">Letterkaartjes (afdruklijst)</button>
+    <button class="sec" id="mReset">Alles resetten</button>
+    <button class="sec" id="mClose">Sluiten</button>
+  </div>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+// ====================== CONFIG – hier pas je alles aan ======================
+const CONFIG = {
+  // Zin die op het einde samengelegd wordt. Letters worden over de deelnemers verdeeld.
+  sentence: "GELUKKIG VERJAARDAG LINDE",
+  finalMessage: "Op nog véél mooie wandelingen! ❤️ – je Genootschap",
+  unlockRadiusM: 40,
+  heartMax: 36,                      // zoveel 'liefde' vult het hartje; op de finale loopt het altijd vol. Lager = sneller vol.
+  relay: "https://ntfy.sh",           // gratis berichtendienst om alle gsm's te koppelen
+  gpx: "",                           // plak hier de inhoud van je GPX-bestand (tussen backticks)
+  defaultPlayers: ["Linde","Speler 2","Speler 3","Speler 4","Speler 5","Speler 6","Speler 7","Speler 8"],
+};
+
+// ----- Het verhaal. Pas gerust namen en teksten aan. -----
+const NAMES = {linde:"Linde", partner:"Thibau", baby:"Arthur", dorp:"Doorslaar", plek:"Hulst"};
+const STORY = {
+  title: "Het Geheim van Meester Linde",
+  intro: [
+    `Er was eens een rustig dorp, ${NAMES.dorp}, waar het leven vredig voorbijtikte… tot Meester ${NAMES.linde} er kwam wonen.`,
+    `${NAMES.linde} is geen gewone leerkracht. Ze heeft een Master in de Wiskunde en kan elk kind in drie minuten laten snappen waarom min maal min plus is. Samen met ${NAMES.partner} woonde ze er gelukkig, tot er onlangs het grootste wiskundige wonder aller tijden gebeurde: 1 + 1 werd 3. ${NAMES.baby} was geboren.`,
+    `Maar wiskunde kent ook mysteries. ${NAMES.linde} is 25 geworden, en volgens de oeroude regels van het Geheime Genootschap van de Gulden Snede krijgt elke Meester op haar 25e verjaardag een geheime Formule.`,
+    `Het Genootschap, dat zijn jullie: de familie en vrienden van ${NAMES.linde}. De Formule is in stukjes (letters) verstopt langs deze wandeling, verdeeld over acht hoofdstukken. Elk geslaagd hoofdstuk levert letters op. Op het einde leggen jullie ze samen tot de zin die de Formule ontsluit.`,
+    `Maar let op: de Formule werkt alleen als het Hart van ${NAMES.linde} vol is. En dat Hart groeit niet door te rekenen. Het groeit door samen te lachen, elkaar op te vangen en af en toe iets geks te doen (niemand moet, iedereen mag 'Pas' zeggen). Het is de enige som ter wereld waarbij delen vermenigvuldigen is.`,
+    `${NAMES.linde} is vandaag geen toeschouwer maar Agent L. Zonder haar wiskundig brein lukt het nooit, maar wat de Formule onthult, weet ze nog niet… ${NAMES.partner} en ${NAMES.baby} zijn de geheime opdrachtgevers van deze missie.`,
+    `Elk jaar komt het Genootschap samen op een geheime plek. Dit jaar is dat het Speelbos van ${NAMES.plek}. De missie begint op de parking en eindigt op dezelfde parking, na één grote lus. Wie daar terug aankomt met een gekraakte Formule, heeft gewonnen.`,
+    `Jullie opdracht: wandel, speel, werk samen en vul het Hart van ${NAMES.linde}. Succes, agenten!`,
+  ],
+  epilogue: [
+    `De Formule is gekraakt! 🎉 Ze luidt: “${CONFIG.sentence}”.`,
+    `Maar het Genootschap bewaarde nog één geheim: de échte formule achter alles. Een wiskundige berekende lang geleden dat ${NAMES.linde} + ${NAMES.partner} + ${NAMES.baby} gelijk is aan oneindig, omdat liefde de enige som is waarbij delen vermenigvuldigen is.`,
+    `Gefeliciteerd, Meester ${NAMES.linde}. 25 jaar, een master in de wiskunde, een lieve zoon en een Hart dat overvol is. We tellen niet meer: we zijn gewoon heel fier op je. ❤️`,
+  ],
+};
+
+// Groepsopdrachten = checkpoints in volgorde. img = beeldmateriaal in de map linde-game/img/ (zet je eigen foto's daar).
+// items = wat er extra in de rugzak moet (bewust minimaal). ref = zoekterm voor een voorbeeldfoto.
+const SCREAM_IMG = "https://commons.wikimedia.org/wiki/Special:FilePath/Edvard_Munch,_1893,_The_Scream,_oil,_tempera_and_pastel_on_cardboard,_91_x_73_cm,_National_Gallery_of_Norway.jpg?width=700";
+// ref = zoekterm voor een voorbeeldfoto (opent Google Afbeeldingen). items = wat er in de rugzak moet.
+const GROUP_TASKS = [
+  {kind:"Letters", title:"Vorm de letters L-I-N-D-E", story:"Hoofdstuk 1 – De Handtekening. Elke Formule begint met een handtekening. Bewijs aan het Genootschap dat jullie echte vrienden zijn door de naam van de Meester te schrijven met jullie lichamen.", text:"Vorm met jullie lichamen de letters L, I, N, D, E op de grond (of rechtop). Samenwerken en overleggen! Foto bij succes.", split:1},
+  {kind:"Schilderij", title:"Munch: De Schreeuw", story:"Hoofdstuk 2 – De Schreeuw. Elke leerkracht kent hem: de ochtend na het nakijken van honderd examens. Roep het er samen uit… en poseer.", text:"Bootst het schilderij 'De Schreeuw' na op het pad (dat is de brug). Eén persoon vooraan met de handen op de wangen en open mond, twee anderen wandelen rustig erachter. De rest is de golvende lucht: wiegende armen. Foto!", img:SCREAM_IMG, ref:"Munch De Schreeuw schilderij", split:1},
+  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", story:"Hoofdstuk 3 – De Cirkel des Levens. In Doorslaar werd een welpje geboren, klein maar al heel geliefd. De rugzak is vandaag Arthur. Tijd om hem plechtig aan het dorp te tonen.", text:"Linde is Rafiki en houdt de rugzak van de spelleider omhoog alsof het Simba is. De rest is de dierenschare eromheen met gebogen hoofd en handen omhoog. Foto!", items:["De rugzak (Simba!)"], ref:"Lion King circle of life Rafiki holds up Simba", split:1},
+  {kind:"Musical", title:"The Sound of Music: The hills are alive", story:"Hoofdstuk 4 – De Heuvel. Ook Maria uit The Sound of Music had een hart voor kinderen en zong ze in slaap. Linde mag even Maria zijn, op haar eigen heuvel.", text:"Linde is Maria op de heuvel: armen wijd open en draaiend op de plaats. De rest zingt 'The hills are alive…' als koor. Maak er een video van 10 seconden van.", ref:"Sound of Music hills are alive Maria scene", split:1},
+  {kind:"Evenwicht", title:"Ogen dicht, op één been", story:"Hoofdstuk 5 – Het Evenwicht. Lesgeven, een baby, een huishouden en nog tijd voor jezelf: nieuwe ouders zijn de beste acrobaten ter wereld. Toon dat jullie het ook kunnen.", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", timer:{sec:10, attempts:10, size:4}},
+  {kind:"Niet lachen", title:"Stil kijken", story:"Hoofdstuk 6 – De Lachtest. Niets is moeilijker dan ernstig blijven als iemand je recht in de ogen kijkt en het gelach in de lucht hangt. Het Genootschap test jullie zelfbeheersing.", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", note:"Zet het volume van jouw gsm luid.", sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
+  {kind:"Groepsfoto", title:"De vertrouwensval", story:"Hoofdstuk 7 – Het Vertrouwen. Er is een heel dorp nodig om een kind groot te brengen. Linde mag vallen, want het dorp vangt haar op.", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde bepaalt zelf hoe ver ze gaat (vlakke, zachte ondergrond, eerst oefenen!). Foto bij succes.", split:1},
+  {kind:"Filmscène", title:"Titanic: ik vlieg!", story:"Hoofdstuk 8 – Ik vlieg! De laatste proef: Linde, 25 jaar en op haar hoogtepunt, aan de boeg van haar leven. Tijd voor de slotfoto.", text:"Beeld de scène aan de boeg uit. Linde is Rose met gespreide armen, de rest is de boeg, de golven of Jack achter haar. Slotfoto voor Linde, met kroontje!", items:["Kroontje voor Linde"], ref:"Titanic Rose Jack bow scene flying", split:1},
+];
+
+// Individuele opdrachten. Spelleider valideert (0-3 punten). Geen attributen nodig.
+const IND_TASKS = [
+  {title:"Achteruit", text:"Wandel 100 meter achteruit. De anderen zeggen 'stop' of 'links'."},
+  {title:"Op mijn rug", text:"Vraag aan iemand of hij/zij je op de rug wil laten rijden (paardrijden) – 20 stappen. Of vraag aan een ander of je iemand mag dragen."},
+  {title:"Mop", text:"Vertel een mop aan iemand naar keuze. De spelleider beoordeelt hoeveel mensen lachen."},
+  {title:"Lied", text:"Zing minstens 10 seconden een liedje dat bij Linde past. Zacht mag."},
+  {title:"Hinkelen", text:"Hinkel 30 stappen. Linkerbeen eerst, dan rechts."},
+  {title:"Compliment", text:"Geef een oprecht compliment aan Linde, in één zin."},
+  {title:"Reclame", text:"Raap onderweg een voorwerp op (tak, steen, blad) en verkoop het als het beste product ter wereld (30 s)."},
+  {title:"Slow motion", text:"Loop 20 stappen in slow motion zonder te lachen."},
+  {title:"Pinguïn", text:"Loop als een pinguïn tot de volgende lantaarnpaal/boom."},
+  {title:"Hoge dame/heer", text:"Spreek iedereen 5 minuten aan met 'Edele heer/dame'."},
+  {title:"Bondgenoot", text:"Zoek iemand en bedenk een geheime groet. Gebruik ze vanaf nu bij elke ontmoeting."},
+  {title:"Cape", text:"Draag je jas als cape tot het volgende checkpoint. Je bent een superheld, met bijpassende superheldenpose bij elke ontmoeting."},
+  {title:"Rap", text:"Rap 4 regels over de wandeling van vandaag."},
+  {title:"Dubbelganger", text:"Loop 20 stappen als de persoon rechts van je. De groep raadt wie het is."},
+  {title:"Foto-opdracht", text:"Neem een foto van iets in de omgeving dat jou aan Linde doet denken. Leg uit waarom."},
+  {title:"Steentoren", text:"Bouw een toren van minstens 3 steentjes of stokjes die 5 seconden blijft staan."},
+  {title:"Stem", text:"Praat in een babystem tot het volgende checkpoint."},
+  {title:"Dans", text:"Doe 10 seconden een danspasje naar keuze. Alleen of met een maatje."},
+  {title:"Interview", text:"Interview iemand 1 minuut: 'Wat is je mooiste herinnering met Linde?' (Spelleider noteert.)"},
+  {title:"Stilte", text:"Hou 2 minuten je mond, en luister goed. Vertel daarna wat je hoorde."},
+  {title:"Wiskundemop", text:"Vertel een mop over wiskunde of getallen aan iemand naar keuze. Een slechte mag, een heel slechte is beter."},
+  {title:"Priemgetal-pas", text:"Loop priemgetallen: 2 stappen, dan 3, dan 5, dan 7, dan 11. Tel hardop mee en eindig met een sprongetje."},
+  {title:"Pi-lied", text:"Zeg de cijfers van pi (3,14159…) op een melodie naar keuze. Hoe ver geraak je?"},
+  {title:"Gulden snede", text:"Zoek in de natuur iets met een spiraal of symmetrie (dennenappel, bloem, blad) en toon het aan Linde: 'Meester, wat zie je?'"},
+  {title:"Schatting", text:"Schat hoeveel stappen het is tot een boom of paal ver voor je. Tel dan hardop. Hoe dichter, hoe beter."},
+  {title:"1 + 1 = 3", text:"Bewijs aan de groep dat 1 + 1 = 3. Je mag het verzinnen en je mag het mooi maken (denk aan Linde, Thibau en Arthur)."},
+  {title:"Wiegelied", text:"Zing zachtjes 10 seconden een wiegelied, alsof je iemand in slaap sust."},
+  {title:"Superheldennaam", text:"Bedenk een grappige superheldennaam voor Arthur en vertel waarom die bij hem past."},
+  {title:"Tip voor mama", text:"Geef Linde één goede (of grappige) tip voor haar eerste maanden als mama. De spelleider noteert ze, als aandenken."},
+  {title:"Boomstamevenwicht", text:"Loop over een boomstam, een stam op de grond of een denkbeeldige lijn zonder af te vallen. Ogen open, armen mogen. Hoe verder, hoe beter."},
+  {title:"Boomknuffel", text:"Geef een boom een knuffel van 5 seconden en zeg hardop waarom net deze boom. Mooiste reden wint."},
+  {title:"Kabouternaam", text:"Bedenk een kabouternaam voor jezelf (bv. Mosbaard of Dennenappel) en stel je zo aan de anderen voor."},
+  {title:"Hutjesbouwer", text:"Bouw samen met iemand anders in 2 minuten een minihut of kabouterhuisje van takken en bladeren. Foto als bewijs."},
+];
+// ===========================================================================
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const DEMO = window.LINDE_DEMO || null;       // alleen gezet door demo.html (twee gsm's naast elkaar); normaal null
+const mem = {};
+const store = DEMO ? {
+  get(k,d){ return k in mem ? mem[k] : d; },
+  set(k,v){ mem[k]=JSON.parse(JSON.stringify(v)); },
+  del(k){ delete mem[k]; },
+} : {
+  get(k,d){ try{ const v=localStorage.getItem('linde3_'+k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem('linde3_'+k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem('linde3_'+k); }catch(e){} },
+};
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+function haversine(a,b){ const R=6371000,r=Math.PI/180,dLat=(b[0]-a[0])*r,dLng=(b[1]-a[1])*r;
+  const x=Math.sin(dLat/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(x)); }
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const RELAY = new URLSearchParams(location.search).get('relay') || CONFIG.relay;
+const topic = c => 'linde-' + String(c).toLowerCase().replace(/[^a-z0-9]/g,'');
+
+// ---------- relay (ntfy): spelleider zendt toestand uit, spelers melden 'klaar' terug ----------
+function setConn(ok){ const p=$('connPill'); p.textContent = ok?'● online':'● offline'; p.style.color = ok?'#2f9e44':'#e03131'; }
+const demoSubs = {};
+function demoToast(msg){ const d=document.createElement('div'); d.textContent=msg;
+  d.style.cssText='position:fixed;left:12px;right:12px;bottom:96px;z-index:5000;background:#2b2233;color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line;font-size:14px';
+  document.body.appendChild(d); setTimeout(()=>d.remove(),5000); }
+if(DEMO){
+  window.confirm = ()=>true; window.alert = demoToast;
+  window.addEventListener('message', e=>{ const d=e.data; if(!d || !d.linde) return;
+    if(d.linde==='msg'){ const cb=demoSubs[d.t]; if(cb) cb(JSON.parse(JSON.stringify(d.obj))); }
+    else if(d.linde==='click'){ const el=document.querySelector(d.sel); if(el) el.click(); }
+    else if(d.linde==='clickAll'){ const n=document.querySelectorAll(d.sel).length; for(let i=0;i<n;i++){ const el=document.querySelectorAll(d.sel)[i]; if(el) el.click(); } }
+    else if(d.linde==='clickWhile'){ for(let c=0;c<(d.max||20);c++){ const el=document.querySelector(d.sel); if(!el) break; el.click(); } }
+    else if(d.linde==='clickText'){ const g=[...document.querySelectorAll(d.within)].find(x=>{ const b=x.querySelector('b'); return b && b.textContent.trim().startsWith(d.text); }); const el=g&&g.querySelector(d.then); if(el) el.click(); }
+    else if(d.linde==='scroll'){ const el=document.querySelector(d.sel); if(el) el.scrollTo({top:d.top,behavior:'smooth'}); }
+  });
+}
+async function post(t, obj){ if(DEMO){ parent.postMessage({linde:'pub',t,obj},'*'); setConn(true); return; } try{ const r=await fetch(`${RELAY}/${t}`,{method:'POST',body:JSON.stringify(obj)}); setConn(r.ok); }catch(e){ setConn(false); } }
+function subscribe(t, since, cb){
+  if(DEMO){ demoSubs[t]=cb; parent.postMessage({linde:'sub',t,since},'*'); setConn(true); return {close(){}}; }
+  let es=null, dead=false, fails=0, retry=null;
+  const open=()=>{
+    if(dead) return;
+    es = new EventSource(`${RELAY}/${t}/sse`+(since?`?since=${since}`:''));
+    es.addEventListener('open',()=>{ fails=0; setConn(true); });
+    es.addEventListener('message',e=>{ try{ cb(JSON.parse(JSON.parse(e.data).message)); }catch(_){} });
+    es.onerror=()=>{ setConn(false);
+      if(es.readyState===2 && !retry){ es.close(); retry=setTimeout(()=>{ retry=null; open(); }, Math.min(30000, 3000*(++fails))); } };   // verbinding dicht (bv. fout van de server): zelf opnieuw proberen
+  };
+  open();
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && es && es.readyState===2 && !retry){ fails=0; open(); } });
+  return {close(){ dead=true; clearTimeout(retry); if(es) es.close(); }};
+}
+
+// ---------- route ----------
+const DEMO_ROUTE = (()=>{ const c=[51.0543,3.7174], p=[]; for(let i=0;i<=60;i++){ const t=i/60*2*Math.PI;
+  p.push([c[0]+0.006*Math.sin(t)*(1+0.3*Math.cos(2*t)), c[1]+0.010*Math.cos(t)*(1+0.2*Math.sin(3*t))]); } return p; })();
+function parseGpx(text){ const xml=new DOMParser().parseFromString(text,'text/xml');
+  let n=xml.getElementsByTagName('trkpt'); if(!n.length) n=xml.getElementsByTagName('rtept');
+  return Array.from(n).map(x=>[parseFloat(x.getAttribute('lat')),parseFloat(x.getAttribute('lon'))]).filter(p=>isFinite(p[0])&&isFinite(p[1])); }
+function placeCheckpoints(route,n){ const cum=[0]; for(let i=1;i<route.length;i++) cum.push(cum[i-1]+haversine(route[i-1],route[i]));
+  const total=cum[cum.length-1], cps=[]; for(let k=1;k<=n;k++){ let i=cum.findIndex(d=>d>=total*k/n); if(i<0) i=route.length-1; cps.push(route[i]); } return cps; }
+// ---------- scherm wakker houden (anders valt de verbinding weg als de gsm op slot gaat) ----------
+let wakeLock=null;
+async function keepAwake(){
+  if(DEMO) return;
+  try{ if('wakeLock' in navigator){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>{ wakeLock=null; }); } }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && !wakeLock) keepAwake(); });
+
+// ---------- route: GPX laden, vereenvoudigen en delen met de spelers ----------
+let ROUTE = [], CHECKPOINTS = [], routeLine = null, curRt = null;
+function setRoute(pts){ ROUTE = pts; CHECKPOINTS = placeCheckpoints(pts, GROUP_TASKS.length); }
+setRoute((()=>{ if(CONFIG.gpx && CONFIG.gpx.trim()){ const r=parseGpx(CONFIG.gpx); if(r.length>1) return r; } return DEMO_ROUTE; })());
+const encInt = d => { d = d<0 ? ~(d<<1) : (d<<1); let s=''; while(d>=0x20){ s+=String.fromCharCode((0x20|(d&0x1f))+63); d>>=5; } return s+String.fromCharCode(d+63); };
+function routeToCode(pts){ let la=0, lo=0, out=''; for(const [a,b] of pts){ const ra=Math.round(a*1e5), rb=Math.round(b*1e5); out+=encInt(ra-la)+encInt(rb-lo); la=ra; lo=rb; } return out; }
+function codeToRoute(str){ const pts=[]; let i=0, la=0, lo=0;
+  const next=()=>{ let r=0, sh=0, b; do{ b=str.charCodeAt(i++)-63; r|=(b&0x1f)<<sh; sh+=5; }while(b>=0x20); return (r&1) ? ~(r>>1) : (r>>1); };
+  while(i<str.length){ la+=next(); lo+=next(); pts.push([la/1e5, lo/1e5]); } return pts; }
+function simplifyRoute(pts, max){   // Douglas-Peucker: houdt de vorm, minder punten (past in één bericht)
+  if(pts.length<=max) return pts;
+  const k=Math.cos(pts[0][0]*Math.PI/180), P=pts.map(p=>[p[0], p[1]*k]);
+  const dist=(p,a,b)=>{ const dx=b[1]-a[1], dy=b[0]-a[0], l=dx*dx+dy*dy; if(!l) return Math.hypot(p[0]-a[0], p[1]-a[1]);
+    let t=((p[1]-a[1])*dx+(p[0]-a[0])*dy)/l; t=Math.max(0,Math.min(1,t)); return Math.hypot(p[1]-(a[1]+t*dx), p[0]-(a[0]+t*dy)); };
+  const run=eps=>{ const keep=new Uint8Array(P.length); keep[0]=keep[P.length-1]=1; const st=[[0,P.length-1]];
+    while(st.length){ const [s0,e0]=st.pop(); let md=0, mi=-1; for(let i=s0+1;i<e0;i++){ const d=dist(P[i],P[s0],P[e0]); if(d>md){ md=d; mi=i; } }
+      if(md>eps && mi>0){ keep[mi]=1; st.push([s0,mi],[mi,e0]); } }
+    const out=[]; for(let i=0;i<P.length;i++) if(keep[i]) out.push(pts[i]); return out; };
+  let eps=1e-6, out=run(eps); while(out.length>max){ eps*=1.4; out=run(eps); } return out;
+}
+const routeLength = pts => pts.reduce((t,p,i)=> i ? t+haversine(pts[i-1],p) : 0, 0);
+function applyRoute(code){   // speler: nieuwe route van de spelleider overnemen
+  if(!code || code===curRt) return; curRt=code; setRoute(codeToRoute(code));
+  if(map && routeLine){ routeLine.setLatLngs(ROUTE); map.fitBounds(routeLine.getBounds(),{padding:[30,30]}); lastNx=-1; }
+}
+
+// ---------- state ----------
+// role: 'host' | 'player'.  host houdt de waarheid bij (state); spelers houden de laatste snapshot (snap).
+let role = store.get('role', null);
+let state = store.get('state', null);          // host
+let snap  = store.get('snap', null);           // speler: {v, pl:[[naam,pts,letters]], nx, g:{t,gs:[[idx..]]}|null, i:[[p,t,done]], fin, sol, tot}
+let me = store.get('me', null);                // speler: index in pl
+let map, posMarker, cpMarkers=[], userPos=null, cur=null, reachedBanner=false;
+const saveState = () => { store.set('state', state); publish(); };
+const total = () => state.players.reduce((s,p)=>s+p.pts,0);
+
+// ---------- verhaal (gedeeld) ----------
+function storyHtml(upTo){
+  return STORY.intro.map(t=>`<p>${esc(t)}</p>`).join('')
+    + (upTo>0 ? '<h3>Tot nu toe…</h3>' + GROUP_TASKS.slice(0,upTo).map(t=>`<p class="story">${esc(t.story||'')}</p>`).join('') : '');
+}
+function showStory(){
+  $('storyTitle').textContent = STORY.title;
+  $('storyBody').innerHTML = storyHtml(role==='host' ? state.nextCp : (snap ? snap.nx : 0));
+  $('storySend').style.display = role==='host' ? 'block' : 'none';
+  $('storySend').textContent = '📣 Toon op alle gsm\'s';
+  $('story').classList.add('show');
+}
+$('storyClose').onclick = ()=>$('story').classList.remove('show');
+$('storySend').onclick = ()=>{ state.storyAt=Date.now(); saveState(); $('storySend').textContent='✅ Verstuurd naar alle gsm\'s'; };
+$('mStory').onclick = ()=>{ $('menu').classList.remove('show'); showStory(); };
+
+// ---------- hartje voor Linde (gedeeld) ----------
+const loveLevel = lv => Math.max(0, Math.min(1, lv / CONFIG.heartMax));
+const loveText = l => l>=1 ? 'Een overvol hart voor Linde! 🥹💖' : l>=.75 ? 'Bijna een vol hart! 💞' : l>=.5 ? 'Linde voelt de liefde! 🥰' : l>=.25 ? 'Er groeit iets moois! 💗' : 'Het begint te kloppen… 💓';
+let lastLove = -1;
+function heartBurst(n){
+  const box=$('heartFloat'); for(let i=0;i<n;i++){ const e=document.createElement('span'); e.className='fl'; e.textContent=['💗','💖','💕','❤️'][i%4];
+    e.style.setProperty('--dx',(Math.random()*90-45)+'px'); e.style.animationDelay=(i*130)+'ms'; box.appendChild(e); setTimeout(()=>e.remove(),2400+i*130); }
+  try{ $('heartSvg').animate([{transform:'scale(1)'},{transform:'scale(1.4)'},{transform:'scale(1)'}],{duration:650,easing:'ease-out'}); }catch(e){}
+  if(navigator.vibrate) navigator.vibrate(60);
+}
+function renderHeart(lv, full){
+  const lvl = full ? 1 : loveLevel(lv), size = Math.round(44 + lvl*76);          // 44 → 120 px
+  $('heartFloat').style.display='block';
+  const hs=$('heartSvg'); hs.style.width=size+'px'; hs.style.height=Math.round(size*30/32)+'px';
+  document.documentElement.style.setProperty('--beat',(1.7-lvl*0.9).toFixed(2)+'s');   // hoe groter, hoe sneller het klopt
+  $('heartPct').textContent = Math.round(lvl*100)+'%';
+  const bs=$('heartBigSvg'), bsize=Math.round(90+lvl*190); bs.style.width=bsize+'px'; bs.style.height=Math.round(bsize*30/32)+'px';
+  $('heartBigPct').textContent = Math.round(lvl*100)+'%'; $('heartBigTxt').textContent = loveText(lvl);
+  if(lastLove>=0 && lvl>lastLove+1e-6) heartBurst(Math.min(8, 3+Math.round((lvl-lastLove)*40)));
+  lastLove = lvl;
+}
+$('heartFloat').onclick = ()=>$('heartBig').classList.add('show');
+$('heartBigClose').onclick = ()=>$('heartBig').classList.remove('show');
+
+// ---------- map / gps (gedeeld) ----------
+function initMap(nextCp){
+  map = L.map('map');
+  if(DEMO){ $('map').style.cssText+=';background-color:#e9f0e2;background-image:linear-gradient(#d7e3cc 1px,transparent 1px),linear-gradient(90deg,#d7e3cc 1px,transparent 1px);background-size:32px 32px'; }
+  else L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  routeLine = L.polyline(ROUTE,{color:'#7048e8',weight:5,opacity:.8}).addTo(map);
+  map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
+  posMarker = L.circleMarker([0,0],{radius:9,color:'#fff',weight:3,fillColor:'#e8590c',fillOpacity:1});
+  drawCheckpoints(nextCp);
+  window.addEventListener('resize',()=>map.invalidateSize());
+}
+function drawCheckpoints(nextCp){
+  cpMarkers.forEach(m=>m.remove()); cpMarkers=[];
+  CHECKPOINTS.forEach((p,i)=>{
+    const done=i<nextCp, next=i===nextCp;
+    const html=`<div style="background:${done?'#2f9e44':next?'#e8590c':'#868e96'};color:#fff;border:3px solid #fff;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:800;box-shadow:0 1px 4px #0006">${done?'✓':i+1}</div>`;
+    cpMarkers.push(L.marker(p,{icon:L.divIcon({html,className:'',iconSize:[34,34],iconAnchor:[17,17]})}).addTo(map));
+  });
+}
+function startGps(onMove){
+  if(DEMO){ let i=0; setInterval(()=>{ i=(i+1)%ROUTE.length; userPos=ROUTE[i]; posMarker.setLatLng(userPos); if(!map.hasLayer(posMarker)) posMarker.addTo(map); onMove(); }, 1800); return; }
+  if(!navigator.geolocation) return;
+  navigator.geolocation.watchPosition(pos=>{
+    userPos=[pos.coords.latitude,pos.coords.longitude];
+    posMarker.setLatLng(userPos); if(!map.hasLayer(posMarker)) posMarker.addTo(map);
+    onMove();
+  }, ()=>{}, {enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+}
+let bannerTimer=null;
+function banner(t){ const b=$('banner'); b.textContent=t; b.style.display='block'; if(navigator.vibrate) navigator.vibrate([200,100,200]);
+  clearTimeout(bannerTimer); if(role==='player') bannerTimer=setTimeout(()=>{ b.style.display='none'; },9000); }   // spelers: melding verdwijnt vanzelf
+$('banner').onclick = ()=>{ $('banner').style.display='none'; };   // tik om weg te halen
+function distText(nextCp){ if(!userPos||nextCp>=CHECKPOINTS.length) return ''; const d=Math.round(haversine(userPos,CHECKPOINTS[nextCp])); return ` – nog ${d>1000?(d/1000).toFixed(1)+' km':d+' m'}`; }
+
+// =====================================================================
+//                              SPELLEIDER
+// =====================================================================
+let pubTimer=null;
+function publish(){   // meerdere wijzigingen kort na elkaar worden één bericht (zuinig met de gratis berichtendienst)
+  if(role!=='host' || !state) return;
+  clearTimeout(pubTimer); pubTimer=setTimeout(publishNow, 400);
+}
+function publishNow(){
+  if(role!=='host' || !state) return;
+  const g = state.active.grp;
+  const payload = {v:Date.now(), pl:state.players.map(p=>[p.name,p.pts,p.letters.join('')]), nx:state.nextCp,
+    g: g?{t:state.nextCp, gs:g.groups.map(x=>x.members), tm:g.tm?{r:g.tm.round,a:g.tm.att,s:g.tm.st,rem:g.tm.st==='run'?Math.max(0,g.tm.end-Date.now()):0,ok:g.tm.ok?1:0}:null}:null,
+    i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0,a.id||0]), fin:state.fin?1:0, sol:state.sol?1:0, lv:Math.round(state.love*100)/100, st:state.storyAt||0};
+  if(state.rt) payload.rt=state.rt;
+  post(topic(state.code), payload);
+}
+function newPool(){ return shuffle(CONFIG.sentence.toUpperCase().replace(/[^A-ZÀ-Ý0-9]/g,'').split('')); }
+function award(p,n){ for(let i=0;i<n && state.pool.length;i++) p.letters.push(state.pool.pop()); }
+
+function hostUpdateStatus(){
+  $('totalPill').textContent='⭐ '+total(); renderHeart(state.love, state.fin);
+  $('activeBtn').textContent=`📋 Lopend (${state.active.ind.length})`;
+  const n=CHECKPOINTS.length;
+  if(state.nextCp>=n){ $('status').textContent='Alle groepsopdrachten gedaan! Tijd voor de letterfinale (🏆).'; $('groupBtn').textContent='📍 Klaar'; return; }
+  $('groupBtn').textContent=`📍 Groepsopdracht ${state.nextCp+1}/${n}`;
+  $('status').textContent=`Volgend checkpoint: ${GROUP_TASKS[state.nextCp].kind}`+distText(state.nextCp);
+  if(userPos && !reachedBanner && haversine(userPos,CHECKPOINTS[state.nextCp])<=CONFIG.unlockRadiusM){ reachedBanner=true; banner('📍 Checkpoint bereikt! Start de groepsopdracht.'); }
+}
+function pickPlayers(count){ // eerlijk: spelers zonder lopende opdracht en met minste beurten
+  const busy=new Set(state.active.ind.map(a=>a.p));
+  let cand=state.players.map((p,i)=>i).filter(i=>!busy.has(i));
+  cand=shuffle(cand).sort((a,b)=>state.players[a].turns-state.players[b].turns);
+  return cand.slice(0,count);
+}
+function nextIndTask(){ if(!state.indDeck.length) state.indDeck=shuffle(IND_TASKS.map((_,i)=>i)); return state.indDeck.pop(); }
+function assignInd(all){
+  const ps = pickPlayers(all?state.players.length:1);
+  if(!ps.length){ alert('Iedereen heeft al een lopende opdracht.'); return; }
+  ps.forEach(p=>state.active.ind.push({p, t:nextIndTask(), done:false, id:(state.seq=(state.seq||0)+1)}));
+  state.lastTaskAt=Date.now(); $('banner').style.display='none'; saveState(); hostUpdateStatus(); renderActive(); $('active').classList.add('show');
+}
+function renderActive(){
+  const box=$('activeBox'); box.innerHTML = state.active.ind.length ? '' : '<p class="hint">Geen lopende opdrachten.</p>';
+  state.active.ind.forEach((a,k)=>{
+    const t=IND_TASKS[a.t], d=document.createElement('div'); d.className='grp';
+    d.innerHTML=`<b>${esc(state.players[a.p].name)} ${a.done?'✅ meldt: klaar':''}</b><div><b>${esc(t.title)}</b> – ${esc(t.text)}</div><div class="pts" style="margin-top:6px"></div>`;
+    const pts=d.querySelector('.pts');
+    for(let v=0;v<=3;v++){ const b=document.createElement('button'); b.textContent=v; b.onclick=()=>validateInd(k,v); pts.appendChild(b); }
+    const x=document.createElement('button'); x.textContent='✕'; x.title='verwijderen zonder punten'; x.onclick=()=>{ state.active.ind.splice(k,1); saveState(); renderActive(); hostUpdateStatus(); }; pts.appendChild(x);
+    box.appendChild(d);
+  });
+}
+function validateInd(k,v){
+  const a=state.active.ind[k], p=state.players[a.p]; state.love+=v/3; p.pts+=v; p.turns++; award(p, v>=3?2:v>=1?1:0);
+  state.active.ind.splice(k,1); saveState(); renderActive(); renderBoard(); hostUpdateStatus();
+}
+
+// groepsopdracht
+function makeGroups(k){ const ps=shuffle(state.players.map((_,i)=>i)); const gs=[]; for(let g=0;g<k;g++) gs.push({members:[],pts:null});
+  ps.forEach((p,i)=>gs[i%k].members.push(p)); return gs; }
+function makeGroupsBySize(size){ const ps=shuffle(state.players.map((_,i)=>i)); const gs=[];
+  for(let i=0;i<ps.length;i+=size) gs.push({members:ps.slice(i,i+size),pts:null});
+  if(gs.length>1 && gs[gs.length-1].members.length<size){ // rest aanvullen met spelers uit eerste groep
+    const last=gs[gs.length-1]; for(const m of ps){ if(last.members.length>=size) break; if(!last.members.includes(m)) last.members.push(m); } }
+  return gs; }
+function renderGroups(){
+  $('groupsBox').innerHTML='';
+  cur.groups.forEach((g,gi)=>{
+    const d=document.createElement('div'); d.className='grp';
+    d.innerHTML=`<b>Groep ${gi+1}: ${g.members.map(i=>esc(state.players[i].name)).join(', ')}</b><div class="pts"></div>`;
+    const pts=d.querySelector('.pts');
+    for(let v=0;v<=5;v++){ const b=document.createElement('button'); b.textContent=v; if(g.pts===v) b.className='sel'; b.onclick=()=>{ g.pts=v; renderGroups(); }; pts.appendChild(b); }
+    $('groupsBox').appendChild(d);
+  });
+}
+const refUrl = t => 'https://www.google.com/search?tbm=isch&q='+encodeURIComponent(t.ref);
+function showGroupModal(){
+  const task=GROUP_TASKS[state.nextCp];
+  $('cardTag').textContent='Checkpoint '+(state.nextCp+1)+' · '+task.kind; $('cardTitle').textContent=task.title; $('cardText').textContent=task.text;
+  const cs=$('cardStory'); cs.textContent=task.story||''; cs.style.display=task.story?'block':'none';
+  const pr=[].concat(task.items?['🎒 '+task.items.join(', ')]:[], task.note?[task.note]:[]).join(' · '); $('cardProps').textContent=pr; $('cardProps').style.display=pr?'block':'none';
+  const ref=$('cardRef'); if(task.ref){ ref.href=refUrl(task); ref.style.display='inline-block'; } else ref.style.display='none';
+  const img=$('cardImg'); img.style.display='none'; if(task.img){ img.onload=()=>img.style.display='block'; img.onerror=()=>img.style.display='none'; img.src=task.img; }
+  $('splitRow').style.display = task.timer?'none':'flex'; $('timerBox').style.display = task.timer?'block':'none';
+  renderGroups(); renderTimer(); $('card').classList.add('show'); $('banner').style.display='none';
+}
+function openGroup(){
+  const task=GROUP_TASKS[state.nextCp];
+  if(task.split) $('splitSel').value=task.split;
+  cur = task.timer ? {task, groups:makeGroupsBySize(task.timer.size), tm:{round:0,att:1,st:'idle',end:0,ok:0}} : {task, groups:makeGroups(+$('splitSel').value)};
+  state.active.grp=cur; showGroupModal(); saveState();
+}
+function closeGroup(){ stopSound(); clearInterval(tmIv); state.active.grp=null; cur=null; state.nextCp++; reachedBanner=false; drawCheckpoints(state.nextCp); $('card').classList.remove('show'); saveState(); hostUpdateStatus(); renderBoard(); }
+
+// timer-opdracht (spelleider bedient)
+let tmIv=null, audioEl=null, actx=null, synthIv=null, laughOn=false;
+function stopSound(){ if(audioEl){ audioEl.pause(); audioEl=null; } laughOn=false; try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){}
+  clearInterval(synthIv); synthIv=null; }
+function synthLaugh(){ // laatste noodoplossing: opeenvolgende "ha"-klanken
+  try{ actx=actx||new (window.AudioContext||window.webkitAudioContext)(); let k=0;
+    synthIv=setInterval(()=>{ if(k++%8>=5) return; const o=actx.createOscillator(), f=actx.createBiquadFilter(), g=actx.createGain(), t=actx.currentTime;
+      o.type='sawtooth'; o.frequency.setValueAtTime(330-k%3*25,t); o.frequency.exponentialRampToValueAtTime(210,t+.15);
+      f.type='bandpass'; f.frequency.value=900; f.Q.value=1.5; g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(.35,t+.03); g.gain.exponentialRampToValueAtTime(.001,t+.16);
+      o.connect(f); f.connect(g); g.connect(actx.destination); o.start(t); o.stop(t+.18); },170); }catch(e){} }
+function speechLaugh(){ // de gsm-stem "lacht": hahaha / hihihi met wisselende toon en snelheid
+  if(!('speechSynthesis' in window)){ synthLaugh(); return; }
+  laughOn=true; let started=false;
+  const words=['Hahahaha!','Hihihihi!','Hohohoho!','Hahaha, hihihi!','Ha ha ha ha ha!','Hèhèhèhè!','Hoehoehoehoe!'];
+  const next=()=>{ if(!laughOn) return; const u=new SpeechSynthesisUtterance(words[Math.floor(Math.random()*words.length)]);
+    u.lang='nl-BE'; u.pitch=1+Math.random(); u.rate=1.2+Math.random()*.5; u.volume=1;
+    u.onstart=()=>{ started=true; }; u.onend=next; u.onerror=()=>{ if(laughOn) setTimeout(next,400); };
+    try{ speechSynthesis.speak(u); }catch(e){} };
+  next();
+  setTimeout(()=>{ if(laughOn && !started){ laughOn=false; try{ speechSynthesis.cancel(); }catch(e){} synthLaugh(); } }, 2500);
+}
+function playSound(src){ stopSound(); if(DEMO){ demoToast('🔊 Hier speelt het lachgeluid, op de gsm van de spelleider'); return; } const a=new Audio(src); a.loop=true; audioEl=a;
+  const fallback=()=>{ if(audioEl===a){ audioEl=null; speechLaugh(); } };
+  a.onerror=fallback; a.play().catch(fallback); }
+const tmPoints = (att,max) => Math.max(1, 5 - Math.floor((att-1)/(max/5)));   // snel gelukt = meer punten
+function renderTimer(){
+  if(!cur || !cur.tm) return; const t=cur.task.timer, tm=cur.tm, g=cur.groups[tm.round];
+  const rem = tm.st==='run' ? Math.max(0,tm.end-Date.now()) : t.sec*1000;
+  $('tmGroup').textContent = `Aan de beurt (groep ${tm.round+1}/${cur.groups.length}): ${g.members.map(i=>state.players[i].name).join(', ')}`;
+  $('tmTime').textContent = tm.st==='done' ? (tm.ok?'🎉 Gelukt!':'😅 Mislukt') : (rem===0&&tm.st==='run'?'⏱ Tijd om!':Math.ceil(rem/1000)+'s');
+  $('tmAtt').textContent = `Poging ${tm.att} van ${t.attempts}`;
+  $('tmStart').style.display = tm.st==='idle'?'block':'none';
+  $('tmFail').style.display = tm.st==='run'?'block':'none';
+  $('tmOkBtn').style.display = tm.st==='run'?'block':'none';
+  $('tmNext').style.display = tm.st==='done' && tm.round<cur.groups.length-1 ? 'block':'none';
+}
+function tmTick(){ if(!cur||!cur.tm) return; if(cur.tm.st==='run' && cur.tm.end-Date.now()<=0 && !cur.tm.buzzed){ cur.tm.buzzed=true; stopSound(); if(navigator.vibrate) navigator.vibrate([300,100,300]); }
+  renderTimer(); }
+$('tmStart').onclick=()=>{ cur.tm.st='run'; cur.tm.end=Date.now()+cur.task.timer.sec*1000; cur.tm.buzzed=false; clearInterval(tmIv); tmIv=setInterval(tmTick,250); if(cur.task.sound) playSound(cur.task.sound); saveState(); renderTimer(); };
+$('tmFail').onclick=()=>{ stopSound(); const t=cur.task.timer, tm=cur.tm;
+  if(tm.att>=t.attempts){ tm.st='done'; tm.ok=0; cur.groups[tm.round].pts=0; clearInterval(tmIv); }
+  else { tm.att++; tm.st='idle'; clearInterval(tmIv); }
+  saveState(); renderTimer(); renderGroups(); };
+$('tmOkBtn').onclick=()=>{ stopSound(); const tm=cur.tm; tm.st='done'; tm.ok=1; cur.groups[tm.round].pts=tmPoints(tm.att,cur.task.timer.attempts); clearInterval(tmIv); saveState(); renderTimer(); renderGroups(); };
+$('tmNext').onclick=()=>{ const tm=cur.tm; tm.round++; tm.att=1; tm.st='idle'; tm.ok=0; saveState(); renderTimer(); };
+$('splitSel').onchange = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
+$('reshuffle').onclick = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
+$('cardOk').onclick = ()=>{ state.love += 3*cur.groups.reduce((t,g)=>t+(g.pts||0),0)/cur.groups.length/5; cur.groups.forEach(g=>{ const v=g.pts||0; g.members.forEach(i=>{ const p=state.players[i]; p.pts+=v; award(p, v>=4?2:v>=2?1:0); }); }); closeGroup(); };
+$('cardSkip').onclick = ()=>{ closeGroup(); };
+$('groupBtn').onclick = ()=>{ if(state.nextCp<CHECKPOINTS.length) openGroup(); };
+$('indBtn').onclick = ()=>assignInd(false);
+$('indAllBtn').onclick = ()=>assignInd(true);
+$('activeBtn').onclick = ()=>{ renderActive(); $('active').classList.add('show'); };
+$('activeClose').onclick = ()=>$('active').classList.remove('show');
+
+function renderBoard(){
+  const t=$('boardTbl'); t.innerHTML='';
+  const players = role==='host' ? state.players.map(p=>({n:p.name,pts:p.pts,l:p.letters.join('')})) : snap.pl.map(p=>({n:p[0],pts:p[1],l:p[2]}));
+  players.map((p,i)=>({p,i})).sort((a,b)=>b.p.pts-a.p.pts).forEach(({p,i})=>{
+    const tr=document.createElement('tr');
+    const ctl = role==='host' ? `<button class="sec small" data-i="${i}" data-d="-1">−</button> <b style="display:inline-block;min-width:26px;text-align:center">${p.pts}</b> <button class="sec small" data-i="${i}" data-d="1">+</button>` : `<b>${p.pts} ⭐</b>`;
+    tr.innerHTML=`<td><b>${esc(p.n)}</b>${i===me&&role==='player'?' (jij)':''}<br>${p.l.split('').map(l=>`<span class="ltr">${l}</span>`).join('')||'<span class="hint">geen letters</span>'}</td><td style="text-align:right;white-space:nowrap">${ctl}</td>`;
+    t.appendChild(tr);
+  });
+  t.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const p=state.players[+b.dataset.i]; p.pts=Math.max(0,p.pts+(+b.dataset.d)); saveState(); renderBoard(); hostUpdateStatus(); });
+}
+$('boardBtn').onclick = ()=>{ renderBoard(); $('board').classList.add('show'); };
+$('boardClose').onclick = ()=>$('board').classList.remove('show');
+
+$('finaleBtn').onclick = ()=>{
+  if(state.pool.length && !confirm('De resterende '+state.pool.length+' letters worden nu eerlijk verdeeld. Doorgaan?')) return;
+  while(state.pool.length){ const min=Math.min(...state.players.map(p=>p.letters.length)); const c=state.players.filter(p=>p.letters.length===min); award(c[Math.floor(Math.random()*c.length)],1); }
+  state.fin=1; saveState(); hostUpdateStatus(); $('board').classList.remove('show'); showFinale();
+};
+function finaleView(players, sol){
+  $('finalTiles').innerHTML = players.map((p,i)=>`<div class="tile"><b>${esc(p.n)}${role==='player'&&i===me?' (jij)':''}</b> <span class="hint">(${p.pts} ⭐)</span><div class="big">${p.l.split('').sort().join(' ')||'–'}</div></div>`).join('');
+  $('finalHint').textContent='Zin: '+CONFIG.sentence.split(' ').map(w=>'_ '.repeat(w.length).trim()).join('   /   ')+'  ('+CONFIG.sentence.replace(/\s/g,'').length+' letters)';
+  $('sol').textContent=CONFIG.sentence; $('sol').style.display=sol?'block':'none';
+  $('showSol').style.display = role==='host' && !sol ? 'block':'none';
+  const fs=$('finalStory'); fs.style.display = sol?'block':'none';
+  fs.innerHTML = sol ? STORY.epilogue.map(t=>`<p>${esc(t)}</p>`).join('') + `<div class="formula">${esc(NAMES.linde)} + ${esc(NAMES.partner)} + ${esc(NAMES.baby)} = ∞ ❤️</div>` : '';
+  $('finalMsg').textContent = sol ? CONFIG.finalMessage : ''; $('finale').classList.add('show');
+}
+function showFinale(){ finaleView(state.players.map(p=>({n:p.name,pts:p.pts,l:p.letters.join('')})), state.sol); }
+$('showSol').onclick = ()=>{ state.sol=1; saveState(); showFinale(); };
+$('finalClose').onclick = ()=>$('finale').classList.remove('show');
+
+$('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display=$('mItems').style.display=$('mHeart').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
+$('mClose').onclick = ()=>$('menu').classList.remove('show');
+$('mNext').onclick = ()=>{ $('menu').classList.remove('show'); $('groupBtn').click(); };
+$('mHeart').onclick = ()=>{ state.love += 1.5; saveState(); hostUpdateStatus(); $('menu').classList.remove('show'); };
+$('mItems').onclick = ()=>{ const it=[...new Set(GROUP_TASKS.flatMap(t=>t.items||[]))]; alert('In de rugzak:\n\n'+(it.length?it.map(x=>'• '+x).join('\n'):'niets bijzonders')); };
+$('mLetters').onclick = ()=>{ alert('Letterkaartjes om te maken ('+CONFIG.sentence.replace(/\s/g,'').length+'):\n\n'+CONFIG.sentence.replace(/\s/g,'').split('').sort().join(' ')); };
+$('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ ['state','snap','role','me','code'].forEach(store.del); location.reload(); } };
+
+function bootHost(){
+  role='host'; state.love = state.love||0; $('title').textContent='🕵️ Spelleider'; $('playerPanel').style.display='none';
+  if(state.rt){ curRt=state.rt; setRoute(codeToRoute(state.rt)); }
+  initMap(state.nextCp); hostUpdateStatus(); startGps(hostUpdateStatus); publish();
+  if(state.active.grp){ cur=state.active.grp; showGroupModal(); if(cur.tm && cur.tm.st==='run') tmIv=setInterval(tmTick,250); }
+  keepAwake();
+  setInterval(()=>{ // herinnering (geen levensteken nodig: nieuwe spelers krijgen automatisch het laatste bericht)
+    if(!cur && Date.now()-state.lastTaskAt > state.remindMin*60000 && !state.active.ind.length){ banner('⏰ Tijd voor een individuele opdracht!'); state.lastTaskAt=Date.now(); store.set('state',state); }
+  }, 15000);
+  subscribe(topic(state.code)+'-in', '10m', m=>{ if(m.t==='done'){ const a=state.active.ind.find(x=>x.p===m.p && (m.id==null || x.id===m.id)); if(a && !a.done){ a.done=true; store.set('state',state); banner('✅ '+state.players[m.p].name+' meldt: klaar!'); renderActive(); publish(); hostUpdateStatus(); } } });
+}
+$('gpxIn').onchange = async ()=>{
+  const f=$('gpxIn').files[0]; if(!f){ $('gpxInfo').textContent=''; return; }
+  try{ const pts=parseGpx(await f.text()); if(pts.length<2) throw new Error('leeg');
+    $('gpxInfo').textContent='Route gelezen: '+(routeLength(pts)/1000).toFixed(1)+' km, '+pts.length+' punten.'; }
+  catch(e){ $('gpxInfo').textContent='Dit bestand kon ik niet lezen als GPX.'; }
+};
+$('startBtn').onclick = async ()=>{
+  const names=$('playersIn').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const code=$('codeIn').value.trim();
+  if(names.length<2){ alert('Vul minstens 2 deelnemers in.'); return; }
+  if(!code){ alert('Vul een spelcode in.'); return; }
+  let rt=null; const gf=$('gpxIn').files[0];
+  if(gf){ try{ const pts=parseGpx(await gf.text()); if(pts.length<2) throw new Error('leeg'); rt=routeToCode(simplifyRoute(pts,140)); }
+          catch(e){ alert('Dit GPX-bestand kon ik niet lezen. De demoroute wordt gebruikt.'); } }
+  state={code, rt, love:0, players:names.map(n=>({name:n,pts:0,letters:[],turns:0})), nextCp:0, pool:newPool(), indDeck:[],
+    remindMin:+$('remindMin').value, lastTaskAt:Date.now(), active:{grp:null,ind:[]}, fin:0, sol:0};
+  store.set('role','host'); store.set('state',state); $('setup').classList.remove('show'); bootHost(); showStory();
+};
+
+// =====================================================================
+//                                SPELER
+// =====================================================================
+function pName(){ return snap.pl[me][0]; }
+let finKey='', lastNx=-1;
+function renderPlayer(){
+  if(!snap) return;
+  applyRoute(snap.rt);
+  $('totalPill').textContent='⭐ '+snap.pl[me][1]; renderHeart(snap.lv||0, snap.fin);
+  if(lastNx!==snap.nx){ lastNx=snap.nx; drawCheckpoints(snap.nx); }
+  $('status').textContent = (snap.nx>=CHECKPOINTS.length ? 'Alle checkpoints gehaald!' : `Volgend checkpoint: ${GROUP_TASKS[snap.nx].kind}`+distText(snap.nx));
+  let h='';
+  const myInd = snap.i.find(a=>a[0]===me);
+  if(myInd){ const t=IND_TASKS[myInd[1]];
+    h+=`<div class="tile" style="border-color:var(--accent)"><span class="tag ind">Jouw opdracht</span><h2 style="margin:0">${esc(t.title)}</h2><p>${esc(t.text)}</p>`
+      + (myInd[2] ? '<p>✅ Gemeld! Wacht op de punten van de spelleider.</p>' : '<button class="ok" style="width:100%" id="doneBtn">Klaar! ✓</button>') + '</div>'; }
+  if(snap.g){ const t=GROUP_TASKS[snap.g.t]; const gi=snap.g.gs.findIndex(m=>m.includes(me));
+    // bij een timer-opdracht staat de klok bovenaan, zodat je hem niet hoeft te zoeken
+    h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>`
+      + (snap.g.tm ? playerTimer(t) : '')
+      + `${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}${t.story?`<p class="story">${esc(t.story)}</p>`:''}${t.ref?`<a href="${refUrl(t)}" target="_blank" rel="noopener">🔎 Voorbeeldfoto zoeken</a>`:''}<p>${esc(t.text)}</p>`
+      + (snap.g.tm ? '' : `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div>`) + '</div>'; }
+  if(!myInd && !snap.g) h+='<p class="hint">Wandel mee! Je krijgt hier je opdracht zodra de spelleider er een geeft. 🎒</p>';
+  $('playerPanel').innerHTML=h; $('playerPanel').style.display='block';
+  const d=$('doneBtn'); if(d) d.onclick=()=>{ post(topic(store.get('code'))+'-in',{t:'done',p:me,id:myInd?myInd[3]:null}); d.disabled=true; d.textContent='Verzonden…'; };
+  if(snap.st && store.get('seenStory')!==snap.st){ store.set('seenStory',snap.st); showStory(); }
+  const fk=snap.fin+':'+snap.sol;   // finale-scherm alleen tonen als het verandert (niet bij elke GPS-update)
+  if(snap.fin && fk!==finKey){ finKey=fk; finaleView(snap.pl.map(p=>({n:p[0],pts:p[1],l:p[2]})), snap.sol); }
+}
+let tmRecv=0, tmIv2=null;
+function playerTimer(t){
+  const tm=snap.g.tm, mine=snap.g.gs[tm.r].includes(me);
+  const names=snap.g.gs[tm.r].map(i=>esc(snap.pl[i][0])).join(', ');
+  const head = mine ? '<b style="color:var(--accent)">👉 Jullie zijn aan de beurt!</b>' : `Aan de beurt: ${names}`;
+  const big = tm.s==='done' ? (tm.ok?'🎉 Gelukt!':'😅 Mislukt') : (tm.s==='run' ? '<span id="plTime"></span>' : t.timer.sec+'s');
+  return `<div class="hint">${head}</div><div style="font-size:54px;font-weight:800;text-align:center;color:var(--accent2)">${big}</div><div class="hint" style="text-align:center">Poging ${tm.a} van ${t.timer.attempts}</div>`;
+}
+function plTimerTick(){ const el=$('plTime'); if(!el||!snap||!snap.g||!snap.g.tm) return; const left=Math.max(0,snap.g.tm.rem-(Date.now()-tmRecv)); el.textContent = left===0?'⏱ Tijd om!':Math.ceil(left/1000)+'s'; }
+function onSnap(s){
+  if(snap && s.v<snap.v) return;
+  const hadInd = snap && snap.i.some(a=>a[0]===me), hadGrp = snap && snap.g;
+  snap=s; tmRecv=Date.now(); store.set('snap',snap);
+  if($('join').classList.contains('show')) return showNames();
+  if(me!=null){ renderPlayer();
+    if(!hadInd && snap.i.some(a=>a[0]===me)) banner('🎯 Nieuwe opdracht voor jou!');
+    if(!hadGrp && snap.g) banner('📍 Groepsopdracht gestart!');
+    if(snap.g&&snap.g.tm&&snap.g.tm.s==='run'&&snap.g.gs[snap.g.tm.r].includes(me)&&navigator.vibrate) navigator.vibrate(150); }
+}
+function showNames(){
+  $('joinStatus').textContent='Verbonden. Wie ben jij?';
+  $('joinNames').innerHTML=''; snap.pl.forEach((p,i)=>{ const b=document.createElement('button'); b.className='sec'; b.style.cssText='width:100%;margin-bottom:6px'; b.textContent=p[0];
+    b.onclick=()=>{ me=i; store.set('me',i); $('join').classList.remove('show'); bootPlayer(); }; $('joinNames').appendChild(b); });
+  if(DEMO) setTimeout(()=>{ const b=$('joinNames').querySelector('button'); if(b) b.click(); },400);
+}
+let joinES=null;
+let playerBooted=false;
+function bootPlayer(){
+  if(playerBooted) return; playerBooted=true;
+  role='player'; if(joinES){ joinES.close(); joinES=null; } $('title').textContent='🕵️ '+pName(); $('hostRow').style.display=$('hostRow2').style.display='none';
+  $('finaleBtn').style.display='none'; $('boardHint').textContent='Stand van de groep.';
+  $('boardBtn').onclick=()=>{ renderBoard(); $('board').classList.add('show'); };
+  keepAwake(); applyRoute(snap.rt); initMap(snap.nx); startGps(renderPlayer); renderPlayer();
+  subscribe(topic(store.get('code')), 'latest', onSnap); setInterval(plTimerTick,250);
+}
+$('joinBtn').onclick = ()=>{
+  const c=$('joinCode').value.trim(); if(!c) return; store.set('code',c); store.set('role','player'); role='player';
+  $('joinStatus').textContent='Verbinden…'; joinES=subscribe(topic(c),'latest',onSnap);
+  setTimeout(()=>{ if(!snap) $('joinStatus').textContent='Nog geen verbinding of de spelleider is nog niet gestart. Even geduld…'; }, 6000);
+};
+
+// =====================================================================
+//                              START
+// =====================================================================
+$('playersIn').value = CONFIG.defaultPlayers.join('\n');
+$('codeIn').value = Math.random().toString(36).slice(2,7).toUpperCase();
+$('roleHost').onclick = ()=>{ $('role').classList.remove('show'); $('setup').classList.add('show'); };
+$('rolePlayer').onclick = ()=>{ $('role').classList.remove('show'); $('join').classList.add('show'); };
+if(role==='host' && state) bootHost();
+else if(role==='player' && snap && me!=null) bootPlayer();
+else $('role').classList.add('show');
+if(DEMO){
+  $('role').classList.remove('show');
+  if(DEMO.role==='host'){ $('setup').classList.add('show'); $('codeIn').value='DEMO'; $('playersIn').value=DEMO.names.join('\n'); $('startBtn').click(); }
+  else { $('join').classList.add('show'); $('joinCode').value='DEMO'; $('joinBtn').click(); }
+  parent.postMessage({linde:'ready',role:DEMO.role},'*');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<title>Operatie Linde Demo</title>
+<style>
+  :root { --bg:#fbf7f1; --fg:#2b2233; --muted:#6f6579; --card:#ffffff; --line:#e6dccf; --accent:#7048e8; --hot:#e8590c; --ok:#2f9e44; --phone:#241c2c; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#17121d; --fg:#f2ecf8; --muted:#a79bb5; --card:#251e2e; --line:#3a3046; --accent:#9d83f2; --phone:#0d0a11; color-scheme:dark; } }
+  :root[data-theme="dark"] { --bg:#17121d; --fg:#f2ecf8; --muted:#a79bb5; --card:#251e2e; --line:#3a3046; --accent:#9d83f2; --phone:#0d0a11; color-scheme:dark; }
+  body { background:var(--bg); color:var(--fg); font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; padding-inline:16px; padding-block:20px; }
+  .wrap { max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  h1 { margin:0; font-size:26px; letter-spacing:-.01em; text-wrap:balance; }
+  h2 { margin:0 0 6px; font-size:19px; text-wrap:balance; }
+  p { margin:0; }
+  .muted { color:var(--muted); font-size:15px; }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; }
+  button { font:inherit; font-weight:600; border:1px solid var(--line); background:var(--card); color:var(--fg); border-radius:10px; padding:10px 14px; cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:focus-visible { outline:3px solid var(--hot); outline-offset:2px; }
+  #caption { min-height:3.4em; display:flex; align-items:center; justify-content:center; text-align:center; font-size:18px; font-weight:600; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; text-wrap:balance; }
+  .stage { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; }
+  .col { display:flex; flex-direction:column; gap:8px; width:min(100%,372px); min-width:0; }
+  .col b { text-align:center; font-size:15px; }
+  .phone { border:10px solid var(--phone); border-radius:36px; overflow:hidden; background:#fff; height:700px; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+  .phone iframe { width:100%; height:100%; border:0; display:block; }
+  .box { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .box ul { margin:6px 0 0; padding-left:20px; display:flex; flex-direction:column; gap:4px; }
+  video { width:100%; border-radius:10px; background:#000; display:block; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,380px),1fr)); gap:14px; margin-top:10px; }
+  figure { margin:0; min-width:0; }
+  figure img { width:100%; display:block; border-radius:10px; border:1px solid var(--line); }
+  figcaption { font-size:14px; color:var(--muted); margin-top:4px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Operatie Linde</h1>
+    <p class="muted">Demo van het wandelspel. Links de gsm van de spelleider, rechts de gsm van Linde. Wat links gebeurt, zie je rechts meteen.</p>
+  </header>
+
+  <div class="controls">
+    <button class="primary" id="btnAuto">▶ Autopilot (hele spel, ±3 min)</button>
+    <button id="btnStop" hidden>⏹ Stop</button>
+    <button id="btnReset">↺ Opnieuw beginnen</button>
+  </div>
+  <div id="caption" role="status" aria-live="polite">Druk op Autopilot, of probeer zelf: tik links op een knop van de spelleider.</div>
+
+  <div class="stage">
+    <div class="col"><b>🎒 Spelleider (jij)</b><div class="phone" id="slotH"></div></div>
+    <div class="col"><b>🙋 Speler: Linde</b><div class="phone" id="slotP"></div></div>
+  </div>
+
+  <div class="box" id="tips">
+    <h2>Zelf proberen</h2>
+    <ul>
+      <li>Links: tik op <b>🎯 Iedereen een opdracht</b>. Rechts verschijnt Lindes opdracht met een knop <b>Klaar!</b>.</li>
+      <li>Links: geef punten (0 tot 3) bij de lopende opdrachten. Rechts groeit het hartje.</li>
+      <li>Links: tik op <b>📍 Groepsopdracht</b>. Rechts verschijnt het hoofdstuk van het verhaal.</li>
+      <li>In deze demo is de kaart vereenvoudigd en lopen de stipjes vanzelf. In het echte spel volgt de gsm de GPS.</li>
+    </ul>
+  </div>
+
+  <div class="box" id="fallback" hidden>
+    <h2>Interactieve demo niet beschikbaar</h2>
+    <p class="muted">Deze weergave staat geen ingebouwd scherm toe. Bekijk de opname hieronder.</p>
+  </div>
+
+  <!--MEDIA-->
+</div>
+
+<script>
+const GAME = /*GAME_JSON*/;
+const NAMES = ['Linde','Eva','Tom','Sara','Jonas','Lies','Peter','Anke'];
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let frames = {host:null, player:null}, ready = {host:false, player:false}, last = {}, runId = 0;
+
+function mkFrame(role, slot){
+  const f = document.createElement('iframe');
+  f.title = role==='host' ? 'Spelleider' : 'Speler Linde';
+  f.srcdoc = GAME.replace('<head>', '<head><script>window.LINDE_DEMO=' + JSON.stringify({role, names:NAMES}) + '<\/script>');
+  slot.replaceChildren(f); frames[role] = f;
+}
+function reset(){
+  runId++; ready = {host:false, player:false}; last = {};
+  mkFrame('host', $('slotH')); mkFrame('player', $('slotP'));
+  $('btnStop').hidden = true; $('btnAuto').disabled = false;
+}
+function send(who, msg){ try{ frames[who].contentWindow.postMessage(msg, '*'); }catch(e){} }
+
+window.addEventListener('message', e => {
+  const d = e.data; if(!d || !d.linde) return;
+  const from = frames.host && e.source===frames.host.contentWindow ? 'host' : (frames.player && e.source===frames.player.contentWindow ? 'player' : null);
+  if(!from) return;
+  if(d.linde==='ready'){ ready[from] = true; $('fallback').hidden = true; }
+  else if(d.linde==='pub'){ last[d.t] = d.obj; send(from==='host' ? 'player' : 'host', {linde:'msg', t:d.t, obj:d.obj}); }
+  else if(d.linde==='sub'){ if(d.since==='latest' && last[d.t]) send(from, {linde:'msg', t:d.t, obj:last[d.t]}); }
+});
+
+async function autopilot(){
+  reset(); const my = runId;
+  $('btnStop').hidden = false; $('btnAuto').disabled = true;
+  const say = t => { $('caption').textContent = t; };
+  const wait = async ms => { const end = Date.now()+ms; while(Date.now()<end){ if(my!==runId) throw 'stop'; await sleep(100); } };
+  const H = o => send('host', o), P = o => send('player', o);
+  const click = (who, sel) => send(who, {linde:'click', sel});
+  const group = async (text, pts, hold) => {
+    say(text); click('host','#groupBtn'); await wait(hold);
+    H({linde:'clickAll', sel:'#groupsBox .grp .pts button:nth-child('+(pts+1)+')'}); await wait(1800);
+    click('host','#cardOk'); await wait(2200);
+  };
+  try{
+    while(!(ready.host && ready.player)){ await wait(200); }
+    await wait(1800);
+    say('Links: de gsm van de spelleider. Rechts: de gsm van Linde. Wat links gebeurt, zie je rechts.'); await wait(4500);
+    say('De spelleider heeft het verhaal van de missie klaar…'); await wait(3000);
+    say('…en toont het op alle gsm\'s tegelijk.'); click('host','#storySend'); await wait(4000);
+    H({linde:'scroll', sel:'#story .modal', top:420}); P({linde:'scroll', sel:'#story .modal', top:420}); await wait(3500);
+    H({linde:'scroll', sel:'#story .modal', top:900}); P({linde:'scroll', sel:'#story .modal', top:900}); await wait(3500);
+    say('Zo weet iedereen waarom ze wandelen: een geheime Formule en het Hart van Linde.'); await wait(1500);
+    click('host','#storyClose'); click('player','#storyClose'); await wait(1500);
+
+    say('Individuele opdracht: iedereen krijgt tegelijk een eigen opdracht.'); click('host','#indAllBtn'); await wait(4500);
+    say('Linde meldt op haar gsm dat ze klaar is…'); click('player','#doneBtn'); await wait(3500);
+    say('…de spelleider ziet de melding en geeft punten (0 tot 3).');
+    H({linde:'clickText', within:'#activeBox .grp', text:'Linde', then:'.pts button:nth-child(4)'}); await wait(2500);
+    H({linde:'clickWhile', sel:'#activeBox .grp .pts button:nth-child(3)', max:20}); await wait(1500);
+    click('host','#activeClose'); say('Elke goede opdracht laat het hartje van Linde groeien, op alle gsm\'s.'); await wait(5000);
+
+    await group('Groepsopdracht 1: de letters L-I-N-D-E vormen met jullie lichamen.', 4, 5000);
+    await group('Hoofdstuk 2: De Schreeuw. Een schilderij van Munch nabootsen op het pad.', 4, 5000);
+    await group('Hoofdstuk 3: The Lion King. Linde houdt de rugzak omhoog als Arthur.', 5, 5000);
+    await group('Hoofdstuk 4: The Sound of Music. Linde draait op haar heuvel.', 4, 5000);
+
+    say('Een opdracht met timer: met vier tegelijk, ogen dicht, op één been, 10 seconden. Er zijn 10 pogingen.');
+    click('host','#groupBtn'); await wait(4500);
+    say('Poging 1: de timer loopt, op beide gsm\'s…'); click('host','#tmStart'); await wait(4500);
+    say('Er valt iemand: de spelleider drukt op "Mislukt, opnieuw".'); click('host','#tmFail'); await wait(2500);
+    say('Poging 2: nu lukt het!'); click('host','#tmStart'); await wait(11500);
+    click('host','#tmOkBtn'); say('Gelukt op poging 2: maximaal aantal punten. Daarna is de volgende groep aan de beurt.'); await wait(3500);
+    click('host','#tmNext'); await wait(800); click('host','#tmStart'); await wait(3000); click('host','#tmOkBtn'); await wait(2500);
+    click('host','#cardOk'); await wait(2500);
+
+    say('Stil kijken: twee personen kijken elkaar aan, terwijl er aanstekelijk gelach klinkt op de gsm van de spelleider.');
+    click('host','#groupBtn'); await wait(4500); click('host','#tmStart'); await wait(4000);
+    click('host','#tmOkBtn'); await wait(2000); click('host','#cardOk'); await wait(2500);
+
+    await group('Hoofdstuk 7: het vertrouwen. Linde wordt opgevangen: de vertrouwensval.', 4, 5000);
+    await group('Hoofdstuk 8: Titanic. De slotfoto, met kroontje!', 5, 5000);
+
+    say('Alle hoofdstukken zijn klaar. Het scorebord laat zien wie wat verdiende, en welke letters erbij horen.');
+    click('host','#boardBtn'); await wait(5000);
+    say('Letterfinale: iedereen krijgt letters en samen leggen ze de zin.'); click('host','#finaleBtn'); await wait(6000);
+    say('De spelleider toont de oplossing…'); click('host','#showSol'); await wait(3500);
+    P({linde:'scroll', sel:'#finale .modal', top:2000}); H({linde:'scroll', sel:'#finale .modal', top:2000}); await wait(9000);
+    say('Linde + Thibau + Arthur = ∞. Dat was de demo: tik nu zelf links op de gsm van de spelleider.');
+    window.__demoDone = true;
+  }catch(e){ if(e!=='stop') throw e; }
+  $('btnStop').hidden = true; $('btnAuto').disabled = false;
+}
+
+$('btnAuto').onclick = () => { autopilot(); };
+$('btnStop').onclick = () => { runId++; $('btnStop').hidden = true; $('btnAuto').disabled = false; $('caption').textContent = 'Autopilot gestopt. Je kunt nu zelf verder spelen.'; };
+$('btnReset').onclick = () => { reset(); $('caption').textContent = 'Opnieuw begonnen. Tik links op een knop van de spelleider.'; };
+reset();
+setTimeout(() => { if(!(ready.host && ready.player)) $('fallback').hidden = false; }, 7000);
+</script>
