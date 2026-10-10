@@ -313,7 +313,13 @@ const IND_TASKS = [
 // ===========================================================================
 // ---------- helpers ----------
 const $ = id => document.getElementById(id);
-const store = {
+const DEMO = window.LINDE_DEMO || null;       // alleen gezet door demo.html (twee gsm's naast elkaar); normaal null
+const mem = {};
+const store = DEMO ? {
+  get(k,d){ return k in mem ? mem[k] : d; },
+  set(k,v){ mem[k]=JSON.parse(JSON.stringify(v)); },
+  del(k){ delete mem[k]; },
+} : {
   get(k,d){ try{ const v=localStorage.getItem('linde3_'+k); return v?JSON.parse(v):d; }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem('linde3_'+k, JSON.stringify(v)); }catch(e){} },
   del(k){ try{ localStorage.removeItem('linde3_'+k); }catch(e){} },
@@ -328,8 +334,24 @@ const topic = c => 'linde-' + String(c).toLowerCase().replace(/[^a-z0-9]/g,'');
 
 // ---------- relay (ntfy): spelleider zendt toestand uit, spelers melden 'klaar' terug ----------
 function setConn(ok){ const p=$('connPill'); p.textContent = ok?'● online':'● offline'; p.style.color = ok?'#2f9e44':'#e03131'; }
-async function post(t, obj){ try{ const r=await fetch(`${RELAY}/${t}`,{method:'POST',body:JSON.stringify(obj)}); setConn(r.ok); }catch(e){ setConn(false); } }
+const demoSubs = {};
+function demoToast(msg){ const d=document.createElement('div'); d.textContent=msg;
+  d.style.cssText='position:fixed;left:12px;right:12px;bottom:96px;z-index:5000;background:#2b2233;color:#fff;padding:10px 14px;border-radius:12px;white-space:pre-line;font-size:14px';
+  document.body.appendChild(d); setTimeout(()=>d.remove(),5000); }
+if(DEMO){
+  window.confirm = ()=>true; window.alert = demoToast;
+  window.addEventListener('message', e=>{ const d=e.data; if(!d || !d.linde) return;
+    if(d.linde==='msg'){ const cb=demoSubs[d.t]; if(cb) cb(JSON.parse(JSON.stringify(d.obj))); }
+    else if(d.linde==='click'){ const el=document.querySelector(d.sel); if(el) el.click(); }
+    else if(d.linde==='clickAll'){ const n=document.querySelectorAll(d.sel).length; for(let i=0;i<n;i++){ const el=document.querySelectorAll(d.sel)[i]; if(el) el.click(); } }
+    else if(d.linde==='clickWhile'){ for(let c=0;c<(d.max||20);c++){ const el=document.querySelector(d.sel); if(!el) break; el.click(); } }
+    else if(d.linde==='clickText'){ const g=[...document.querySelectorAll(d.within)].find(x=>{ const b=x.querySelector('b'); return b && b.textContent.trim().startsWith(d.text); }); const el=g&&g.querySelector(d.then); if(el) el.click(); }
+    else if(d.linde==='scroll'){ const el=document.querySelector(d.sel); if(el) el.scrollTo({top:d.top,behavior:'smooth'}); }
+  });
+}
+async function post(t, obj){ if(DEMO){ parent.postMessage({linde:'pub',t,obj},'*'); setConn(true); return; } try{ const r=await fetch(`${RELAY}/${t}`,{method:'POST',body:JSON.stringify(obj)}); setConn(r.ok); }catch(e){ setConn(false); } }
 function subscribe(t, since, cb){
+  if(DEMO){ demoSubs[t]=cb; parent.postMessage({linde:'sub',t,since},'*'); setConn(true); return {close(){}}; }
   const es = new EventSource(`${RELAY}/${t}/sse`+(since?`?since=${since}`:''));
   es.addEventListener('open',()=>setConn(true));
   es.addEventListener('message',e=>{ try{ cb(JSON.parse(JSON.parse(e.data).message)); }catch(_){} });
@@ -401,7 +423,8 @@ $('heartBigClose').onclick = ()=>$('heartBig').classList.remove('show');
 // ---------- map / gps (gedeeld) ----------
 function initMap(nextCp){
   map = L.map('map');
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  if(DEMO){ $('map').style.cssText+=';background-color:#e9f0e2;background-image:linear-gradient(#d7e3cc 1px,transparent 1px),linear-gradient(90deg,#d7e3cc 1px,transparent 1px);background-size:32px 32px'; }
+  else L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
   const line = L.polyline(ROUTE,{color:'#7048e8',weight:5,opacity:.8}).addTo(map);
   map.fitBounds(line.getBounds(),{padding:[30,30]});
   posMarker = L.circleMarker([0,0],{radius:9,color:'#fff',weight:3,fillColor:'#e8590c',fillOpacity:1});
@@ -417,6 +440,7 @@ function drawCheckpoints(nextCp){
   });
 }
 function startGps(onMove){
+  if(DEMO){ let i=0; setInterval(()=>{ i=(i+1)%ROUTE.length; userPos=ROUTE[i]; posMarker.setLatLng(userPos); if(!map.hasLayer(posMarker)) posMarker.addTo(map); onMove(); }, 1800); return; }
   if(!navigator.geolocation) return;
   navigator.geolocation.watchPosition(pos=>{
     userPos=[pos.coords.latitude,pos.coords.longitude];
@@ -540,7 +564,7 @@ function speechLaugh(){ // de gsm-stem "lacht": hahaha / hihihi met wisselende t
   next();
   setTimeout(()=>{ if(laughOn && !started){ laughOn=false; try{ speechSynthesis.cancel(); }catch(e){} synthLaugh(); } }, 2500);
 }
-function playSound(src){ stopSound(); const a=new Audio(src); a.loop=true; audioEl=a;
+function playSound(src){ stopSound(); if(DEMO){ demoToast('🔊 Hier speelt het lachgeluid, op de gsm van de spelleider'); return; } const a=new Audio(src); a.loop=true; audioEl=a;
   const fallback=()=>{ if(audioEl===a){ audioEl=null; speechLaugh(); } };
   a.onerror=fallback; a.play().catch(fallback); }
 const tmPoints = (att,max) => Math.max(1, 5 - Math.floor((att-1)/(max/5)));   // snel gelukt = meer punten
@@ -638,10 +662,11 @@ $('startBtn').onclick = ()=>{
 //                                SPELER
 // =====================================================================
 function pName(){ return snap.pl[me][0]; }
+let finKey='', lastNx=-1;
 function renderPlayer(){
   if(!snap) return;
   $('totalPill').textContent='⭐ '+snap.pl[me][1]; renderHeart(snap.lv||0, snap.fin);
-  drawCheckpoints(snap.nx);
+  if(lastNx!==snap.nx){ lastNx=snap.nx; drawCheckpoints(snap.nx); }
   $('status').textContent = (snap.nx>=CHECKPOINTS.length ? 'Alle checkpoints gehaald!' : `Volgend checkpoint: ${GROUP_TASKS[snap.nx].kind}`+distText(snap.nx));
   let h='';
   const myInd = snap.i.find(a=>a[0]===me);
@@ -655,7 +680,8 @@ function renderPlayer(){
   $('playerPanel').innerHTML=h; $('playerPanel').style.display='block';
   const d=$('doneBtn'); if(d) d.onclick=()=>{ post(topic(store.get('code'))+'-in',{t:'done',p:me}); d.disabled=true; d.textContent='Verzonden…'; };
   if(snap.st && store.get('seenStory')!==snap.st){ store.set('seenStory',snap.st); showStory(); }
-  if(snap.fin) finaleView(snap.pl.map(p=>({n:p[0],pts:p[1],l:p[2]})), snap.sol);
+  const fk=snap.fin+':'+snap.sol;   // finale-scherm alleen tonen als het verandert (niet bij elke GPS-update)
+  if(snap.fin && fk!==finKey){ finKey=fk; finaleView(snap.pl.map(p=>({n:p[0],pts:p[1],l:p[2]})), snap.sol); }
 }
 let tmRecv=0, tmIv2=null;
 function playerTimer(t){
@@ -680,9 +706,13 @@ function showNames(){
   $('joinStatus').textContent='Verbonden. Wie ben jij?';
   $('joinNames').innerHTML=''; snap.pl.forEach((p,i)=>{ const b=document.createElement('button'); b.className='sec'; b.style.cssText='width:100%;margin-bottom:6px'; b.textContent=p[0];
     b.onclick=()=>{ me=i; store.set('me',i); $('join').classList.remove('show'); bootPlayer(); }; $('joinNames').appendChild(b); });
+  if(DEMO) setTimeout(()=>{ const b=$('joinNames').querySelector('button'); if(b) b.click(); },400);
 }
+let joinES=null;
+let playerBooted=false;
 function bootPlayer(){
-  role='player'; $('title').textContent='🕵️ '+pName(); $('hostRow').style.display=$('hostRow2').style.display='none';
+  if(playerBooted) return; playerBooted=true;
+  role='player'; if(joinES){ joinES.close(); joinES=null; } $('title').textContent='🕵️ '+pName(); $('hostRow').style.display=$('hostRow2').style.display='none';
   $('finaleBtn').style.display='none'; $('boardHint').textContent='Stand van de groep.';
   $('boardBtn').onclick=()=>{ renderBoard(); $('board').classList.add('show'); };
   initMap(snap.nx); startGps(renderPlayer); renderPlayer();
@@ -690,7 +720,7 @@ function bootPlayer(){
 }
 $('joinBtn').onclick = ()=>{
   const c=$('joinCode').value.trim(); if(!c) return; store.set('code',c); store.set('role','player'); role='player';
-  $('joinStatus').textContent='Verbinden…'; subscribe(topic(c),'latest',onSnap);
+  $('joinStatus').textContent='Verbinden…'; joinES=subscribe(topic(c),'latest',onSnap);
   setTimeout(()=>{ if(!snap) $('joinStatus').textContent='Nog geen verbinding of de spelleider is nog niet gestart. Even geduld…'; }, 6000);
 };
 
@@ -704,6 +734,12 @@ $('rolePlayer').onclick = ()=>{ $('role').classList.remove('show'); $('join').cl
 if(role==='host' && state) bootHost();
 else if(role==='player' && snap && me!=null) bootPlayer();
 else $('role').classList.add('show');
+if(DEMO){
+  $('role').classList.remove('show');
+  if(DEMO.role==='host'){ $('setup').classList.add('show'); $('codeIn').value='DEMO'; $('playersIn').value=DEMO.names.join('\n'); $('startBtn').click(); }
+  else { $('join').classList.add('show'); $('joinCode').value='DEMO'; $('joinBtn').click(); }
+  parent.postMessage({linde:'ready',role:DEMO.role},'*');
+}
 </script>
 </body>
 </html>
