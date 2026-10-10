@@ -333,7 +333,7 @@ logboek telkens de **tijd** die rechtsboven in het dashboard staat.
 | 1 | **Rust** | 30 s niets: CanSat stil op tafel | Alle grafieken ongeveer vlak. Dit is je **nulmeting**. |
 | 2 | **Schudden** | 15 s stevig schudden met de hand | Scherm 1: ACCELERATION, GYROSCOPE en VIBRATION PER BAND. Scherm 2: het blikje kleurt oranje/rood. |
 | 2b | **Schok** | zet de CanSat met een stevige tik op de tafel | Scherm 1: ACCELERATION. De witte stippellijn springt omhoog. Linksboven staat `largest shock` met de grootte en het tijdstip. |
-| 3 | **Klap** | één keer hard in de handen klappen naast de CanSat | Scherm 1: AUDIO RMS |
+| 3 | **Klap** | één keer hard in de handen klappen naast de CanSat | Scherm 1: AUDIO RMS. Let op de getallen naast de grafiek: de schaal past zich aan. In een stil lokaal is de lijn ongeveer 0,003. Na een klap gaat de schaal omhoog. |
 | 4 | **Draaien** | CanSat langzaam een kwartslag draaien rond de verticale as | Scherm 2: het blik rechts draait mee, *Heading* verandert |
 | 5 | **Kantelen** | CanSat schuin houden, naar voren en opzij | Scherm 2: *Roll* en *Pitch* |
 | 6 | **Hoogte** | trap op en weer af, laptop mee | Scherm 1: ALTITUDE |

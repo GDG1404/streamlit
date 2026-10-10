@@ -53,6 +53,7 @@ from matplotlib.patches import Rectangle
 # ── Settings ─────────────────────────────────────────────────
 SIM_SPEED = 1.0      # 1.0 = realtime, 2.0 = double speed
 UPDATE_MS = 100      # GUI update interval (ms)
+AUDIO_MIN_TOP = 0.01  # audio chart: smallest top of the y-axis
 WINDOW_S  = 30       # time window for the small charts (s)
 F_NYQUIST = 208      # LSM6DSO: 416 Hz ODR → usable spectrum 0–208 Hz
 
@@ -852,16 +853,19 @@ class Dashboard:
         self.ax_aud = self.fig.add_subplot(gs[1, 4:])
         self._style_axes(self.ax_aud, "● AUDIO RMS", C["orange"])
         self.ln_aud, = self.ax_aud.plot([], [], color=C["orange"], lw=1.5)
-        self.ax_aud.set_ylim(0, 0.5)
+        # y-axis scales with the sound (real values are small: ~0.003
+        # in a quiet room, a clap averaged over 1 s maybe 0.02)
+        self.ax_aud.set_ylim(0, AUDIO_MIN_TOP)
         self.txt_aud = self.ax_aud.text(0.5, 0.85, "", fontsize=13,
                                         fontweight="bold", color=C["orange"],
                                         ha="center",
                                         transform=self.ax_aud.transAxes)
         self.ln_chute = self.ax_aud.axvline(np.nan, color=C["amber"], lw=1,
                                             ls="--", alpha=0.8)
-        self.txt_chute = self.ax_aud.text(0, 0.45, "", fontsize=6,
+        self.txt_chute = self.ax_aud.text(0, 0.9, "", fontsize=6,
                                           color=C["amber"], rotation=90,
-                                          va="top")
+                                          va="top",
+                                          transform=self.ax_aud.get_xaxis_transform())
 
         # Row 3: flight phase timeline (the bar nobody else shows)
         self.ax_phase = self.fig.add_subplot(gs[2, :])
@@ -1094,10 +1098,12 @@ class Dashboard:
         self.ln_gy.set_data(ts, h["gy"])
         self.ln_gz.set_data(ts, h["gz"])
         self.ln_aud.set_data(ts, h["audio"])
-        self.txt_aud.set_text(f"{row['audio_rms']:.3f}")
+        vis = [a for tt, a in zip(ts, h["audio"]) if tt >= t0 and a == a]
+        self.ax_aud.set_ylim(0, max([AUDIO_MIN_TOP] + vis) * 1.25)
+        self.txt_aud.set_text(f"{row['audio_rms']:.4f}")
         if self.t_chute is not None:
             self.ln_chute.set_xdata([self.t_chute, self.t_chute])
-            self.txt_chute.set_position((self.t_chute + 0.4, 0.45))
+            self.txt_chute.set_position((self.t_chute + 0.4, 0.9))
             self.txt_chute.set_text("CHUTE")
 
         # ── vibration bands: measured values only ──
