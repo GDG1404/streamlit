@@ -21,3 +21,11 @@ Zet een bestand `audio/lach.mp3` (of .ogg, pas dan het pad aan in `GROUP_TASKS`)
 - https://bigsoundbank.com/rires-d-enfants-s1660.html
 
 Zonder bestand laat de app de stem van de gsm "hahaha/hihihi" zeggen, met als laatste noodoplossing een elektronische lach.
+
+## Demo
+`demo.html` toont de spelleider en een speler naast elkaar (de verbinding wordt in de pagina nagebootst, geen internet nodig)
+met een autopilot die het hele spel doorloopt. Opnieuw bouwen na een wijziging in `index.html`:
+
+    python3 linde-game/build-demo.py
+
+`make-media.py` maakt van een autopilot-opname een video + beelden voor een gepubliceerde versie (vereist ffmpeg).

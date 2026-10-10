@@ -8,8 +8,13 @@ import base64, pathlib, subprocess, sys, html
 
 video_in, shots_dir, out = map(pathlib.Path, sys.argv[1:4])
 tmp = out.with_suffix('.mp4')
-subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(video_in), '-vf', 'scale=720:-2,fps=15',
+if not tmp.exists():   # al omgezet? dan niet opnieuw (duurt een paar minuten)
+  subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(video_in), '-vf', 'scale=720:-2,fps=15',
                 '-c:v', 'libx264', '-preset', 'slow', '-crf', '30', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-an', str(tmp)], check=True)
+tmpw = out.with_suffix('.webm')
+if not tmpw.exists():
+  subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', str(video_in), '-vf', 'scale=720:-2,fps=15',
+                '-c:v', 'libvpx-vp9', '-crf', '40', '-b:v', '0', '-deadline', 'good', '-cpu-used', '5', '-row-mt', '1', '-an', str(tmpw)], check=True)
 b64 = lambda path, mime: 'data:%s;base64,%s' % (mime, base64.b64encode(pathlib.Path(path).read_bytes()).decode())
 
 caps = {}
@@ -36,8 +41,8 @@ for n, cap in picks:
 
 poster = b64(shots_dir / '09.jpg', 'image/jpeg') if (shots_dir / '09.jpg').exists() else ''
 media = ('<div class="box" id="opname"><h2>Opname van de hele demo</h2>'
-         '<video controls playsinline preload="metadata" poster="%s" src="%s"></video>'
+         '<video controls playsinline preload="metadata" poster="%s"><source src="%s" type=\'video/webm; codecs="vp9"\'><source src="%s" type=\'video/mp4; codecs="avc1.64001F"\'></video>'
          '<p class="muted" style="margin-top:8px">Zo loopt het spel van begin tot einde. In het echte spel doet de spelleider deze stappen zelf.</p></div>\n'
-         '<div class="box"><h2>Beelden uit de demo</h2><div class="grid">\n%s</div></div>\n') % (poster, b64(tmp, 'video/mp4'), figs)
+         '<div class="box"><h2>Beelden uit de demo</h2><div class="grid">\n%s</div></div>\n') % (poster, b64(tmpw, 'video/webm'), b64(tmp, 'video/mp4'), figs)
 out.write_text(media, encoding='utf-8')
-print('media', len(media) // 1024, 'KB; mp4', tmp.stat().st_size // 1024, 'KB')
+print('media', len(media) // 1024, 'KB; mp4', tmp.stat().st_size // 1024, 'KB; webm', tmpw.stat().st_size // 1024, 'KB')
