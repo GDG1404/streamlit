@@ -674,8 +674,11 @@ function renderPlayer(){
     h+=`<div class="tile" style="border-color:var(--accent)"><span class="tag ind">Jouw opdracht</span><h2 style="margin:0">${esc(t.title)}</h2><p>${esc(t.text)}</p>`
       + (myInd[2] ? '<p>✅ Gemeld! Wacht op de punten van de spelleider.</p>' : '<button class="ok" style="width:100%" id="doneBtn">Klaar! ✓</button>') + '</div>'; }
   if(snap.g){ const t=GROUP_TASKS[snap.g.t]; const gi=snap.g.gs.findIndex(m=>m.includes(me));
-    h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}${t.story?`<p class="story">${esc(t.story)}</p>`:''}${t.ref?`<a href="${refUrl(t)}" target="_blank" rel="noopener">🔎 Voorbeeldfoto zoeken</a>`:''}<p>${esc(t.text)}</p>`
-      + (snap.g.tm ? playerTimer(t) : `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div>`) + '</div>'; }
+    // bij een timer-opdracht staat de klok bovenaan, zodat je hem niet hoeft te zoeken
+    h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>`
+      + (snap.g.tm ? playerTimer(t) : '')
+      + `${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}${t.story?`<p class="story">${esc(t.story)}</p>`:''}${t.ref?`<a href="${refUrl(t)}" target="_blank" rel="noopener">🔎 Voorbeeldfoto zoeken</a>`:''}<p>${esc(t.text)}</p>`
+      + (snap.g.tm ? '' : `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div>`) + '</div>'; }
   if(!myInd && !snap.g) h+='<p class="hint">Wandel mee! Je krijgt hier je opdracht zodra de spelleider er een geeft. 🎒</p>';
   $('playerPanel').innerHTML=h; $('playerPanel').style.display='block';
   const d=$('doneBtn'); if(d) d.onclick=()=>{ post(topic(store.get('code'))+'-in',{t:'done',p:me}); d.disabled=true; d.textContent='Verzonden…'; };
