@@ -276,24 +276,36 @@ Werk je liever in **Thonny**, of wil je niet drie vensters openen? Dan doet
 
 **Elke meting:**
 1. Zet de sketch op de Teensy (B1) en **sluit de Arduino IDE helemaal**.
-2. Open `C:\CanSat\start_meting.py` in Thonny.
-3. Pas bovenaan de naam van je meting aan:
-   ```python
-   COM_POORT = "auto"     # zoekt zelf de Teensy
-   BESTAND   = "test_01"  # naam van je meting
+2. Open `C:\CanSat\start_meting.py` in Thonny en druk op de groene **Run**-knop (F5).
+3. Beantwoord de drie vragen onderaan in de Shell. Druk je gewoon op **Enter**, dan
+   neemt het programma het voorstel tussen [haakjes].
    ```
-4. Druk op de groene **Run**-knop (F5).
+   1) Op welke poort zit de Teensy?
+      1. COM3     Intel(R) Active Management Technology
+      2. COM9     USB Serial Device (COM9)   ← Teensy
+      Poort [COM9]:                          ← Enter, of typ 2, of COM9
 
-Het programma zoekt de Teensy, bewaart de metingen in `C:\CanSat\metingen\test_01.csv`
-en opent scherm 1 en scherm 2 met LIVE data. Bestaat `test_01.csv` al, dan maakt het
-`test_01_2.csv`: een oude meting wordt nooit overschreven.
+   2) Hoe heet je meting? Bv. schudtest, buiten_gps, test_03
+      Naam [test_02]: schudtest
+
+   3) Welk dashboard wil je zien?
+      1 = scherm 1 (grafieken)
+      2 = scherm 2 (3D-baan, kaart en oriëntatie)
+      3 = allebei
+      0 = geen (alleen opslaan)
+      Keuze [3]:
+   ```
+
+Het programma bewaart de metingen in `C:\CanSat\metingen\schudtest.csv` en opent de
+dashboards die je koos, met LIVE data. Bestaat de naam al, dan vraagt het een andere
+naam: een oude meting wordt nooit overschreven. Spaties in de naam worden `_`.
 
 **Stoppen:** klik op de rode **Stop**-knop in Thonny. De dashboards blijven open; sluit
 ze zelf.
 
 > **Lukt het niet?**
-> - *"geen Teensy gevonden"*: kijk de USB-kabel na, of vul de poort zelf in, bv.
->   `COM_POORT = "COM9"`.
+> - *Geen "← Teensy" in de lijst*: kijk de USB-kabel na (een datakabel, geen
+>   laadkabel). Steek hem in en typ `r` om opnieuw te zoeken.
 > - *"is gestopt met een fout"*: open het `.log`-bestand dat erbij staat (in
 >   `metingen\`). Daar staat wat er misliep.
 > - Wil je het liever met de opdrachtprompt doen? Volg dan gewoon B3 en B4 hieronder.

@@ -2,12 +2,17 @@ r"""
 CanSat 2027 — Meting starten met één knop (handig in Thonny)
 =============================================================
 
-Pas hieronder de twee instellingen aan en druk op Run (F5).
-Dit programma doet dan alles in één keer:
+Druk op Run (F5). Het programma stelt drie vragen:
 
-  1. het zoekt de Teensy (of gebruikt de COM-poort die je opgeeft),
-  2. het start de logger: de metingen gaan naar C:\CanSat\metingen\<naam>.csv,
-  3. het opent scherm 1 en scherm 2 met LIVE data uit datzelfde bestand.
+  1. Op welke poort zit de Teensy?
+  2. Hoe heet je meting?
+  3. Welk dashboard wil je zien?
+
+Daarna start de logger (de metingen gaan naar C:\CanSat\metingen\<naam>.csv)
+en opent het de dashboards met LIVE data uit datzelfde bestand.
+
+Op elke vraag mag je gewoon op Enter drukken: dan neemt het programma
+het voorstel tussen [haakjes].
 
 Stoppen: klik in Thonny op de rode Stop-knop (of Ctrl+C).
 De dashboards blijven openstaan; sluit ze zelf als je klaar bent.
@@ -15,13 +20,8 @@ De dashboards blijven openstaan; sluit ze zelf als je klaar bent.
 Vooraf: de sketch staat op de Teensy en de Arduino IDE is helemaal dicht.
 """
 
-# ═══════════════ PAS DIT AAN ═══════════════
-COM_POORT = "auto"     # "auto" = zelf de Teensy zoeken, of bv. "COM9"
-BESTAND   = "test_01"  # naam van je meting (zonder .csv)
-SCHERM_2  = True       # False = alleen scherm 1 (sneller op een trage laptop)
-# ═══════════════════════════════════════════
-
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -30,40 +30,91 @@ import time
 MAP = os.path.dirname(os.path.abspath(__file__))       # C:\CanSat
 METINGEN = os.path.join(MAP, "metingen")
 TEENSY_VID = 0x16C0                                     # USB-code van PJRC
+DASHBOARDS = {"1": ["dashboard_scherm1.py"],
+              "2": ["dashboard_scherm2.py"],
+              "3": ["dashboard_scherm1.py", "dashboard_scherm2.py"],
+              "0": []}
 
 
-def zoek_teensy(list_ports):
-    """Geeft de COM-poort van de Teensy, of None als het niet lukt."""
-    poorten = list(list_ports.comports())
-    teensys = [p for p in poorten if p.vid == TEENSY_VID]
-    if len(teensys) == 1:
-        return teensys[0].device
-    if not teensys:
-        print("FOUT: geen Teensy gevonden.")
-        print("  - Zit de USB-kabel goed? Is het een datakabel (geen laadkabel)?")
-    else:
-        print("FOUT: meer dan één Teensy gevonden.")
-    print("  Gevonden poorten:")
-    for p in poorten:
-        print(f"    {p.device:<8} {p.description}")
-    print('  Vul de juiste poort zelf in bovenaan, bv. COM_POORT = "COM9"')
-    return None
+def vraag(tekst, voorstel=""):
+    """input() met een voorstel: Enter = het voorstel nemen."""
+    extra = f" [{voorstel}]" if voorstel else ""
+    antwoord = input(f"{tekst}{extra}: ").strip()
+    return antwoord or voorstel
 
 
-def vrije_naam(naam):
-    """test_01 bestaat al? Dan test_01_2, test_01_3, ... (nooit overschrijven)."""
-    naam = naam.strip()
-    if naam.lower().endswith(".csv"):
-        naam = naam[:-4]
-    pad = os.path.join(METINGEN, naam + ".csv")
-    i = 2
-    while os.path.exists(pad):
-        pad = os.path.join(METINGEN, f"{naam}_{i}.csv")
+# ── vraag 1: de poort ──
+def kies_poort(list_ports):
+    while True:
+        poorten = sorted(list_ports.comports(), key=lambda p: p.device)
+        teensys = [p.device for p in poorten if p.vid == TEENSY_VID]
+        print("\n1) Op welke poort zit de Teensy?")
+        if not poorten:
+            print("   Geen enkele poort gevonden. Zit de USB-kabel goed?")
+            print("   Is het een datakabel (geen laadkabel)?")
+        for i, p in enumerate(poorten, 1):
+            merk = "   ← Teensy" if p.device in teensys else ""
+            print(f"   {i}. {p.device:<8} {p.description}{merk}")
+        print("   Typ het nummer uit de lijst, of de naam (bv. COM9).")
+        print("   Typ 'r' om de lijst opnieuw te zoeken (bv. na het insteken).")
+        voorstel = teensys[0] if len(teensys) == 1 else ""
+        antwoord = vraag("   Poort", voorstel)
+        if antwoord.lower() == "r" or not antwoord:
+            continue
+        if antwoord.isdigit():
+            nr = int(antwoord)
+            if 1 <= nr <= len(poorten):
+                return poorten[nr - 1].device
+            print(f"   Nummer {nr} staat niet in de lijst.")
+            continue
+        if antwoord.upper().startswith("COM"):
+            antwoord = antwoord.upper()
+        return antwoord
+
+
+# ── vraag 2: de naam ──
+def volgende_testnaam():
+    """test_01, test_02, ...: het eerste nummer dat nog vrij is."""
+    i = 1
+    while os.path.exists(os.path.join(METINGEN, f"test_{i:02d}.csv")):
         i += 1
-    return pad
+    return f"test_{i:02d}"
 
 
-def start_dashboards(csv, logger_klaar):
+def kies_naam():
+    print("\n2) Hoe heet je meting? Bv. schudtest, buiten_gps, test_03")
+    while True:
+        naam = vraag("   Naam", volgende_testnaam())
+        if naam.lower().endswith(".csv"):
+            naam = naam[:-4]
+        # spaties en vreemde tekens worden _ (veilig als bestandsnaam)
+        naam = re.sub(r"[^A-Za-z0-9_-]+", "_", naam).strip("_")
+        if not naam:
+            print("   Gebruik letters, cijfers, - of _.")
+            continue
+        pad = os.path.join(METINGEN, naam + ".csv")
+        if os.path.exists(pad):
+            print(f"   {naam}.csv bestaat al. Kies een andere naam "
+                  "(een oude meting overschrijven we nooit).")
+            continue
+        return pad
+
+
+# ── vraag 3: de dashboards ──
+def kies_dashboards():
+    print("\n3) Welk dashboard wil je zien?")
+    print("   1 = scherm 1 (grafieken)")
+    print("   2 = scherm 2 (3D-baan, kaart en oriëntatie)")
+    print("   3 = allebei")
+    print("   0 = geen (alleen opslaan)")
+    while True:
+        keuze = vraag("   Keuze", "3")
+        if keuze in DASHBOARDS:
+            return DASHBOARDS[keuze]
+        print("   Typ 0, 1, 2 of 3.")
+
+
+def start_dashboards(csv, schermen, logger_klaar):
     """Wacht tot de logger het bestand gemaakt heeft, open dan de schermen."""
     for _ in range(100):                    # max. 10 s wachten
         if logger_klaar.is_set():           # logger is al gestopt (fout)
@@ -73,7 +124,6 @@ def start_dashboards(csv, logger_klaar):
         time.sleep(0.1)
     else:
         return
-    schermen = ["dashboard_scherm1.py"] + (["dashboard_scherm2.py"] if SCHERM_2 else [])
     gestart = []
     for scherm in schermen:
         # fouten van een dashboard komen in een logbestand naast de meting
@@ -103,16 +153,20 @@ def main():
         print("  pyserial, matplotlib, numpy en pillow")
         return 1
 
-    poort = COM_POORT.strip()
-    if poort.lower() == "auto":
-        poort = zoek_teensy(list_ports)
-        if poort is None:
-            return 1
-        print(f"Teensy gevonden op {poort}")
-
+    print("CanSat 2027 — meting starten")
+    print("Druk op Enter om het voorstel tussen [haakjes] te nemen.")
     os.makedirs(METINGEN, exist_ok=True)
-    csv = vrije_naam(BESTAND)
-    print(f"Meting wordt bewaard in: {csv}")
+    try:
+        poort = kies_poort(list_ports)
+        csv = kies_naam()
+        schermen = kies_dashboards()
+    except (KeyboardInterrupt, EOFError):
+        print("\nGestopt. Er is niets opgeslagen.")
+        return 1
+
+    print(f"\nPoort     : {poort}")
+    print(f"Bestand   : {csv}")
+    print(f"Dashboard : {', '.join(schermen) if schermen else 'geen'}")
     print(f"Later opnieuw bekijken: dashboard_scherm1.py --replay {csv}\n")
 
     # De logger draait hier in dit programma (zo zie je hem in Thonny);
@@ -120,8 +174,9 @@ def main():
     sys.path.insert(0, os.path.join(MAP, "tools"))
     import serial_logger
     logger_klaar = threading.Event()
-    threading.Thread(target=start_dashboards, args=(csv, logger_klaar),
-                     daemon=True).start()
+    if schermen:
+        threading.Thread(target=start_dashboards,
+                         args=(csv, schermen, logger_klaar), daemon=True).start()
     sys.argv = ["serial_logger.py", poort, csv]
     try:
         return serial_logger.main()
