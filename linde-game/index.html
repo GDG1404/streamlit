@@ -103,8 +103,22 @@
   <div id="storyBody"></div>
   <div class="row" style="margin-top:10px">
     <button class="flex" id="storySend">📣 Toon op alle gsm's</button>
+    <button class="sec flex" id="storyInvite">📲 Uitnodigen</button>
     <button class="sec" id="storyClose">Sluiten</button>
   </div>
+</div></div>
+
+<!-- uitnodiging -->
+<div class="overlay" id="invite"><div class="modal">
+  <h2>📲 Spelers uitnodigen</h2>
+  <p class="hint">Stuur deze link naar alle spelers (bv. via WhatsApp). Ze openen hem en vullen alleen hun naam in. De jarige vult Linde in.</p>
+  <input type="text" id="inviteUrl" readonly>
+  <div class="row" style="margin-top:10px">
+    <button class="flex" id="inviteShare">📤 Delen</button>
+    <button class="sec flex" id="inviteCopy">📋 Kopieer link</button>
+  </div>
+  <p class="hint" id="inviteInfo" style="margin-top:8px"></p>
+  <button class="sec" id="inviteClose" style="width:100%;margin-top:8px">Sluiten</button>
 </div></div>
 
 <!-- groot hart -->
@@ -225,6 +239,7 @@
   <div class="row" style="flex-direction:column">
     <button class="sec" id="mNext">Volgend checkpoint nu starten (test)</button>
     <button class="sec" id="mStory">📜 Verhaal herlezen</button>
+    <button class="sec" id="mInvite">📲 Spelers uitnodigen (link)</button>
     <button class="sec" id="mHeart">💖 Extra liefde (mooi moment!)</button>
     <button class="sec" id="mItems">🎒 Rugzaklijst</button>
     <button class="sec" id="mLetters">Letterkaartjes (afdruklijst)</button>
@@ -437,7 +452,7 @@ function storyHtml(upTo){
 function showStory(){
   $('storyTitle').textContent = STORY.title;
   $('storyBody').innerHTML = storyHtml(role==='host' ? state.nextCp : (snap ? snap.nx : 0));
-  $('storySend').style.display = role==='host' ? 'block' : 'none';
+  $('storySend').style.display = $('storyInvite').style.display = role==='host' ? 'block' : 'none';
   $('storySend').textContent = '📣 Toon op alle gsm\'s';
   $('story').classList.add('show');
 }
@@ -688,9 +703,18 @@ function showFinale(){ finaleView(state.players.map(p=>({n:p.name,pts:p.pts,l:p.
 $('showSol').onclick = ()=>{ state.sol=1; saveState(); showFinale(); };
 $('finalClose').onclick = ()=>$('finale').classList.remove('show');
 
-$('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display=$('mItems').style.display=$('mHeart').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
+$('menuBtn').onclick = ()=>{ $('mNext').style.display=$('mLetters').style.display=$('mItems').style.display=$('mHeart').style.display=$('mInvite').style.display = role==='host'?'block':'none'; $('menu').classList.add('show'); };
 $('mClose').onclick = ()=>$('menu').classList.remove('show');
 $('mNext').onclick = ()=>{ $('menu').classList.remove('show'); $('groupBtn').click(); };
+function inviteUrl(){ const u=new URL(location.href); u.search=''; u.hash=''; u.searchParams.set('code', state.code); return u.toString(); }
+function showInvite(){ $('inviteUrl').value=inviteUrl(); $('inviteInfo').textContent=''; $('inviteShare').style.display = navigator.share ? 'block' : 'none'; $('invite').classList.add('show'); }
+$('inviteShare').onclick = async ()=>{ try{ await navigator.share({title:'Operatie Linde', text:'Doe mee met Operatie Linde! Open de link en vul je naam in.', url:inviteUrl()}); }catch(e){} };
+$('inviteCopy').onclick = async ()=>{ const el=$('inviteUrl'); el.select(); el.setSelectionRange(0,9999);
+  try{ await navigator.clipboard.writeText(el.value); $('inviteInfo').textContent='✅ Link gekopieerd.'; }
+  catch(e){ try{ if(document.execCommand('copy')) $('inviteInfo').textContent='✅ Link gekopieerd.'; else throw e; }catch(_){ $('inviteInfo').textContent='Houd de link ingedrukt en kies Kopieer.'; } } };
+$('inviteClose').onclick = ()=>$('invite').classList.remove('show');
+$('mInvite').onclick = ()=>{ $('menu').classList.remove('show'); showInvite(); };
+$('storyInvite').onclick = ()=>{ $('story').classList.remove('show'); showInvite(); };
 $('mHeart').onclick = ()=>{ state.love += 1.5; saveState(); hostUpdateStatus(); $('menu').classList.remove('show'); };
 $('mItems').onclick = ()=>{ const it=[...new Set(GROUP_TASKS.flatMap(t=>t.items||[]))]; alert('In de rugzak:\n\n'+(it.length?it.map(x=>'• '+x).join('\n'):'niets bijzonders')); };
 $('mLetters').onclick = ()=>{ alert('Letterkaartjes om te maken ('+CONFIG.sentence.replace(/\s/g,'').length+'):\n\n'+CONFIG.sentence.replace(/\s/g,'').split('').sort().join(' ')); };
@@ -812,8 +836,12 @@ $('joinBtn').onclick = ()=>{
 $('codeIn').value = Math.random().toString(36).slice(2,7).toUpperCase();
 $('roleHost').onclick = ()=>{ $('role').classList.remove('show'); $('setup').classList.add('show'); };
 $('rolePlayer').onclick = ()=>{ $('role').classList.remove('show'); $('join').classList.add('show'); };
+const urlCode = (new URLSearchParams(location.search).get('code')||'').trim();
+if(urlCode && role==='player' && String(store.get('code','')).toLowerCase()!==urlCode.toLowerCase()){   // oude (test)sessie op dit toestel wissen
+  ['snap','me','role','code'].forEach(store.del); role=null; snap=null; me=null; }
 if(role==='host' && state) bootHost();
 else if(role==='player' && snap && snap.pl.some(p=>p[3]===myPid)){ me=snap.pl.findIndex(p=>p[3]===myPid); bootPlayer(); }
+else if(urlCode){ $('join').classList.add('show'); $('joinCode').value=urlCode; $('joinName').value=store.get('myname','')||''; }
 else $('role').classList.add('show');
 if(DEMO){
   $('role').classList.remove('show');

@@ -36,3 +36,17 @@ met een autopilot die het hele spel doorloopt. Opnieuw bouwen na een wijziging i
     python3 linde-game/build-demo.py
 
 `make-media.py` maakt van een autopilot-opname een video + beelden voor een gepubliceerde versie (vereist ffmpeg).
+
+## Online zetten (GitHub Pages)
+1. GitHub, de fork `GDG1404/streamlit` > **Settings** > **Pages**.
+2. Onder *Build and deployment*: Source = **Deploy from a branch**.
+3. Branch = `claude/linde-interactive-walk-game-26lyqv`, map = **/docs**, dan **Save**.
+4. Na 1 tot 2 minuten staat bovenaan de link (verwacht: https://gdg1404.github.io/streamlit/).
+5. Na elke wijziging in `index.html`: `python3 linde-game/build-docs.py`, committen en pushen (`docs/` is een kopie).
+
+## Op de dag zelf (spelleider)
+- Mee: gsm met data, **powerbank**, rugzak, kroontje voor Linde.
+- Op de parking: open de link > "Ik ben de spelleider" > Start. (Eerder getest? Eerst ☰ > Alles resetten.)
+- Tik op **📲 Uitnodigen** en deel de link in de WhatsApp-groep. Spelers vullen enkel hun naam in.
+- Wacht tot iedereen in de lijst staat (🏆 toont het aantal), toon dan het verhaal en vertrek.
+- Valt het bereik weg? Het spel gaat gewoon door op jouw gsm; de spelers sluiten vanzelf weer aan.
