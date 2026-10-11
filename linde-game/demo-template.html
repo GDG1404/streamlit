@@ -123,12 +123,10 @@ async function autopilot(){
     H({linde:'clickWhile', sel:'#activeBox .grp .pts button:nth-child(3)', max:20}); await wait(1500);
     click('host','#activeClose'); say('Elke goede opdracht laat het hartje van Linde groeien, op alle gsm\'s.'); await wait(5000);
 
-    await group('Groepsopdracht 1: de letters L-I-N-D-E vormen met jullie lichamen.', 4, 5000);
+    await group('Hoofdstuk 1: de letters L-I-N-D-E vormen met jullie lichamen.', 4, 5000);
     await group('Hoofdstuk 2: De Schreeuw. Een schilderij van Munch nabootsen op het pad.', 4, 5000);
-    await group('Hoofdstuk 3: The Lion King. Linde houdt de rugzak omhoog als Arthur.', 5, 5000);
-    await group('Hoofdstuk 4: The Sound of Music. Linde draait op haar heuvel.', 4, 5000);
 
-    say('Een opdracht met timer: met vier tegelijk, ogen dicht, op één been, 10 seconden. Er zijn 10 pogingen.');
+    say('Hoofdstuk 3: een opdracht met timer. Met vier tegelijk, ogen dicht, op één been, 10 seconden. Er zijn 10 pogingen.');
     click('host','#groupBtn'); await wait(4500);
     say('Poging 1: de timer loopt, op beide gsm\'s…'); click('host','#tmStart'); await wait(4500);
     say('Er valt iemand: de spelleider drukt op "Mislukt, opnieuw".'); click('host','#tmFail'); await wait(2500);
@@ -137,12 +135,15 @@ async function autopilot(){
     click('host','#tmNext'); await wait(800); click('host','#tmStart'); await wait(3000); click('host','#tmOkBtn'); await wait(2500);
     click('host','#cardOk'); await wait(2500);
 
-    say('Stil kijken: twee personen kijken elkaar aan, terwijl er aanstekelijk gelach klinkt op de gsm van de spelleider.');
+    await group('Hoofdstuk 4: het vertrouwen. Linde wordt opgevangen: de vertrouwensval.', 4, 5000);
+
+    say('Hoofdstuk 5: stil kijken. Twee personen kijken elkaar aan, terwijl er aanstekelijk gelach klinkt op de gsm van de spelleider.');
     click('host','#groupBtn'); await wait(4500); click('host','#tmStart'); await wait(4000);
     click('host','#tmOkBtn'); await wait(2000); click('host','#cardOk'); await wait(2500);
 
-    await group('Hoofdstuk 7: het vertrouwen. Linde wordt opgevangen: de vertrouwensval.', 4, 5000);
-    await group('Hoofdstuk 8: Titanic. De slotfoto, met kroontje!', 5, 5000);
+    await group('Hoofdstuk 6: De Cirkel des Levens, bij het hoogste punt. Linde houdt de rugzak omhoog als Arthur.', 5, 5000);
+    await group('Hoofdstuk 7: The Sound of Music. Linde draait op haar heuvel.', 4, 5000);
+    await group('Hoofdstuk 8: Titanic. De slotfoto op de parking, met kroontje!', 5, 5000);
 
     say('Alle hoofdstukken zijn klaar. Het scorebord laat zien wie wat verdiende, en welke letters erbij horen.');
     click('host','#boardBtn'); await wait(5000);

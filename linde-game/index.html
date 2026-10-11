@@ -24,7 +24,7 @@
   @keyframes floatUp { 0%{opacity:1; transform:translate(-50%,0) scale(.6)} 100%{opacity:0; transform:translate(calc(-50% + var(--dx)),-120px) scale(1.3)} }
   @media (prefers-reduced-motion: reduce) { #heartSvg, #heartBigSvg { animation:none; } .fl { display:none; } }
   #bar { padding:10px 16px calc(10px + env(safe-area-inset-bottom)); background:var(--card); border-top:1px solid var(--line); display:flex; flex-direction:column; gap:8px; }
-  #status { font-size:14px; color:var(--muted); }
+  #status { font-size:14px; color:var(--muted); white-space:pre-line; }
   #banner { display:none; background:var(--accent); color:#fff; padding:8px 12px; border-radius:10px; font-weight:600; }
   .row { display:flex; gap:8px; flex-wrap:wrap; }
   button { font:inherit; border:0; border-radius:12px; padding:12px 14px; cursor:pointer; background:var(--accent); color:#fff; font-weight:600; }
@@ -132,8 +132,8 @@
   <h2>Spelleider instellen</h2>
   <label>Spelcode (de spelers vullen deze in op hun gsm)</label>
   <input type="text" id="codeIn">
-  <label>Deelnemers (één per regel, Linde doet ook mee)</label>
-  <textarea id="playersIn" rows="9"></textarea>
+  <label>Deelnemers vooraf invullen (optioneel, één per regel). De spelers vullen anders zelf hun naam in op hun gsm.</label>
+  <textarea id="playersIn" rows="4" placeholder="Leeg laten is prima"></textarea>
   <label>Herinnering voor een individuele opdracht om de … minuten</label>
   <select id="remindMin"><option value="5">5</option><option value="8" selected>8</option><option value="12">12</option></select>
   <label>GPX van de wandeling (bv. uit Garmin Connect). De spelers krijgen de route automatisch.</label>
@@ -147,8 +147,9 @@
   <h2>Meedoen</h2>
   <label>Spelcode (krijg je van de spelleider)</label>
   <input type="text" id="joinCode">
-  <button id="joinBtn" style="width:100%;margin-top:12px">Verbinden</button>
-  <div id="joinNames" style="margin-top:12px"></div>
+  <label>Jouw naam</label>
+  <input type="text" id="joinName" placeholder="Bv. Eva (de jarige vult Linde in)">
+  <button id="joinBtn" style="width:100%;margin-top:12px">Meedoen</button>
   <p class="hint" id="joinStatus"></p>
 </div></div>
 
@@ -242,23 +243,23 @@ const CONFIG = {
   unlockRadiusM: 40,
   heartMax: 36,                      // zoveel 'liefde' vult het hartje; op de finale loopt het altijd vol. Lager = sneller vol.
   relay: "https://ntfy.sh",           // gratis berichtendienst om alle gsm's te koppelen
-  gpx: "",                           // plak hier de inhoud van je GPX-bestand (tussen backticks)
-  defaultPlayers: ["Linde","Speler 2","Speler 3","Speler 4","Speler 5","Speler 6","Speler 7","Speler 8"],
+  gpx: "",
+  route: "onvwHaexWEi@?K?cAF}AD{AC_AIkAGiAFgAAgAAeAKw@W{@Uy@Wy@SaAUcASeASeAUeAScA[sA[sAC}AE_BEaB[eA[eABU`@UBYEsAGuAEuAEsAGsAK]m@c@k@e@QY?OBe@VkAVkABq@QsAOsAQsAOsAs@k@s@m@GS?YTyARyAQuAQsASsA_@}@a@}@a@_A_@{@]}@_@{@]{@_@{@CKU]Qt@Ot@c@r@a@t@a@t@a@t@q@z@q@z@q@z@k@x@i@x@k@x@i@v@k@x@i@x@i@x@m@p@m@p@m@p@a@`@]TY\\Y\\HZNj@\\z@VhAVjAVhA`@l@^n@VbATzATvABr@At@At@Jr@DNTxATzATxAVvAJzALzAJxAJzALxAJxAFzADzAFxA@hABfA@hABv@VAVCd@r@f@FNl@Pl@NEj@\\?n@BFTLBbAd@Pn@Dl@Dl@Zj@Z\\T\\`@\\`@^Jd@DX]BY?MJGLa@`@]`@]PTl@NTTTh@NlA`@d@z@Jx@Jx@Hz@Jx@Jx@J?bA?J",   // wandeling verjaardag Linde (Garmin cursus 522994433, lus van 4,1 km). De spelleider kan in de setup ook een ander GPX-bestand kiezen.                           // plak hier de inhoud van je GPX-bestand (tussen backticks)
 };
 
 // ----- Het verhaal. Pas gerust namen en teksten aan. -----
-const NAMES = {linde:"Linde", partner:"Thibau", baby:"Arthur", dorp:"Doorslaar", plek:"Hulst"};
+const NAMES = {linde:"Linde", partner:"Thibau", baby:"Arthur", dorp:"Doorslaar", plek:"Hulst", host:"Geert"};
 const STORY = {
   title: "Het Geheim van Meester Linde",
   intro: [
     `Er was eens een rustig dorp, ${NAMES.dorp}, waar het leven vredig voorbijtikte… tot Meester ${NAMES.linde} er kwam wonen.`,
-    `${NAMES.linde} is geen gewone leerkracht. Ze heeft een Master in de Wiskunde en kan elk kind in drie minuten laten snappen waarom min maal min plus is. Samen met ${NAMES.partner} woonde ze er gelukkig, tot er onlangs het grootste wiskundige wonder aller tijden gebeurde: 1 + 1 werd 3. ${NAMES.baby} was geboren.`,
+    `${NAMES.linde} is geen gewone leerkracht. Ze heeft een Master in de Wiskunde en kan elk kind in drie minuten laten snappen waarom min maal min plus is. Samen met ${NAMES.partner} woonde ze er gelukkig, tot er onlangs het grootste wiskundige wonder aller tijden gebeurde: 1 + 1 werd 3. ${NAMES.baby} was geboren, ongeveer drie maanden geleden.`,
     `Maar wiskunde kent ook mysteries. ${NAMES.linde} is 25 geworden, en volgens de oeroude regels van het Geheime Genootschap van de Gulden Snede krijgt elke Meester op haar 25e verjaardag een geheime Formule.`,
     `Het Genootschap, dat zijn jullie: de familie en vrienden van ${NAMES.linde}. De Formule is in stukjes (letters) verstopt langs deze wandeling, verdeeld over acht hoofdstukken. Elk geslaagd hoofdstuk levert letters op. Op het einde leggen jullie ze samen tot de zin die de Formule ontsluit.`,
     `Maar let op: de Formule werkt alleen als het Hart van ${NAMES.linde} vol is. En dat Hart groeit niet door te rekenen. Het groeit door samen te lachen, elkaar op te vangen en af en toe iets geks te doen (niemand moet, iedereen mag 'Pas' zeggen). Het is de enige som ter wereld waarbij delen vermenigvuldigen is.`,
-    `${NAMES.linde} is vandaag geen toeschouwer maar Agent L. Zonder haar wiskundig brein lukt het nooit, maar wat de Formule onthult, weet ze nog niet… ${NAMES.partner} en ${NAMES.baby} zijn de geheime opdrachtgevers van deze missie.`,
+    `${NAMES.linde} is vandaag geen toeschouwer maar Agent L. Zonder haar wiskundig brein lukt het nooit, maar wat de Formule onthult, weet ze nog niet… ${NAMES.partner} en ${NAMES.baby} zijn de geheime opdrachtgevers van deze missie en houden vanuit de geheime voiture een oogje in het zeil.`,
     `Elk jaar komt het Genootschap samen op een geheime plek. Dit jaar is dat het Speelbos van ${NAMES.plek}. De missie begint op de parking en eindigt op dezelfde parking, na één grote lus. Wie daar terug aankomt met een gekraakte Formule, heeft gewonnen.`,
-    `Jullie opdracht: wandel, speel, werk samen en vul het Hart van ${NAMES.linde}. Succes, agenten!`,
+    `Jullie opdracht: wandel, speel, werk samen en vul het Hart van ${NAMES.linde}. Jullie missieleider is ${NAMES.host}. Succes, agenten!`,
   ],
   epilogue: [
     `De Formule is gekraakt! 🎉 Ze luidt: “${CONFIG.sentence}”.`,
@@ -274,11 +275,11 @@ const SCREAM_IMG = "https://commons.wikimedia.org/wiki/Special:FilePath/Edvard_M
 const GROUP_TASKS = [
   {kind:"Letters", title:"Vorm de letters L-I-N-D-E", story:"Hoofdstuk 1 – De Handtekening. Elke Formule begint met een handtekening. Bewijs aan het Genootschap dat jullie echte vrienden zijn door de naam van de Meester te schrijven met jullie lichamen.", text:"Vorm met jullie lichamen de letters L, I, N, D, E op de grond (of rechtop). Samenwerken en overleggen! Foto bij succes.", split:1},
   {kind:"Schilderij", title:"Munch: De Schreeuw", story:"Hoofdstuk 2 – De Schreeuw. Elke leerkracht kent hem: de ochtend na het nakijken van honderd examens. Roep het er samen uit… en poseer.", text:"Bootst het schilderij 'De Schreeuw' na op het pad (dat is de brug). Eén persoon vooraan met de handen op de wangen en open mond, twee anderen wandelen rustig erachter. De rest is de golvende lucht: wiegende armen. Foto!", img:SCREAM_IMG, ref:"Munch De Schreeuw schilderij", split:1},
-  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", story:"Hoofdstuk 3 – De Cirkel des Levens. In Doorslaar werd een welpje geboren, klein maar al heel geliefd. De rugzak is vandaag Arthur. Tijd om hem plechtig aan het dorp te tonen.", text:"Linde is Rafiki en houdt de rugzak van de spelleider omhoog alsof het Simba is. De rest is de dierenschare eromheen met gebogen hoofd en handen omhoog. Foto!", items:["De rugzak (Simba!)"], ref:"Lion King circle of life Rafiki holds up Simba", split:1},
-  {kind:"Musical", title:"The Sound of Music: The hills are alive", story:"Hoofdstuk 4 – De Heuvel. Ook Maria uit The Sound of Music had een hart voor kinderen en zong ze in slaap. Linde mag even Maria zijn, op haar eigen heuvel.", text:"Linde is Maria op de heuvel: armen wijd open en draaiend op de plaats. De rest zingt 'The hills are alive…' als koor. Maak er een video van 10 seconden van.", ref:"Sound of Music hills are alive Maria scene", split:1},
-  {kind:"Evenwicht", title:"Ogen dicht, op één been", story:"Hoofdstuk 5 – Het Evenwicht. Lesgeven, een baby, een huishouden en nog tijd voor jezelf: nieuwe ouders zijn de beste acrobaten ter wereld. Toon dat jullie het ook kunnen.", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", timer:{sec:10, attempts:10, size:4}},
-  {kind:"Niet lachen", title:"Stil kijken", story:"Hoofdstuk 6 – De Lachtest. Niets is moeilijker dan ernstig blijven als iemand je recht in de ogen kijkt en het gelach in de lucht hangt. Het Genootschap test jullie zelfbeheersing.", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", note:"Zet het volume van jouw gsm luid.", sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
-  {kind:"Groepsfoto", title:"De vertrouwensval", story:"Hoofdstuk 7 – Het Vertrouwen. Er is een heel dorp nodig om een kind groot te brengen. Linde mag vallen, want het dorp vangt haar op.", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde bepaalt zelf hoe ver ze gaat (vlakke, zachte ondergrond, eerst oefenen!). Foto bij succes.", split:1},
+  {kind:"Evenwicht", title:"Ogen dicht, op één been", story:"Hoofdstuk 3 – Het Evenwicht. Lesgeven, een baby, een huishouden en nog tijd voor jezelf: nieuwe ouders zijn de beste acrobaten ter wereld. Toon dat jullie het ook kunnen.", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", timer:{sec:10, attempts:10, size:4}},
+  {kind:"Groepsfoto", title:"De vertrouwensval", story:"Hoofdstuk 4 – Het Vertrouwen. Er is een heel dorp nodig om een kind groot te brengen. Linde mag vallen, want het dorp vangt haar op.", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde bepaalt zelf hoe ver ze gaat (vlakke, zachte ondergrond, eerst oefenen!). Foto bij succes.", split:1},
+  {kind:"Niet lachen", title:"Stil kijken", story:"Hoofdstuk 5 – De Lachtest. Niets is moeilijker dan ernstig blijven als iemand je recht in de ogen kijkt en het gelach in de lucht hangt. Het Genootschap test jullie zelfbeheersing.", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", note:"Zet het volume van jouw gsm luid.", sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
+  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", story:"Hoofdstuk 6 – De Cirkel des Levens. Jullie staan op of vlak bij het hoogste punt van de wandeling: onze Pride Rock. In Doorslaar werd een welpje geboren, klein maar al heel geliefd. De rugzak is vandaag Arthur. Tijd om hem plechtig aan het dorp te tonen.", text:"Linde is Rafiki en houdt de rugzak van de spelleider omhoog alsof het Simba is. De rest is de dierenschare eromheen met gebogen hoofd en handen omhoog. Foto!", items:["De rugzak (Simba!)"], ref:"Lion King circle of life Rafiki holds up Simba", split:1},
+  {kind:"Musical", title:"The Sound of Music: The hills are alive", story:"Hoofdstuk 7 – De Heuvel. Ook Maria uit The Sound of Music had een hart voor kinderen en zong ze in slaap. Linde mag even Maria zijn, op haar eigen heuvel.", text:"Linde is Maria op de heuvel: armen wijd open en draaiend op de plaats. De rest zingt 'The hills are alive…' als koor. Maak er een video van 10 seconden van.", ref:"Sound of Music hills are alive Maria scene", split:1},
   {kind:"Filmscène", title:"Titanic: ik vlieg!", story:"Hoofdstuk 8 – Ik vlieg! De laatste proef: Linde, 25 jaar en op haar hoogtepunt, aan de boeg van haar leven. Tijd voor de slotfoto.", text:"Beeld de scène aan de boeg uit. Linde is Rose met gespreide armen, de rest is de boeg, de golven of Jack achter haar. Slotfoto voor Linde, met kroontje!", items:["Kroontje voor Linde"], ref:"Titanic Rose Jack bow scene flying", split:1},
 ];
 
@@ -393,7 +394,8 @@ document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==
 // ---------- route: GPX laden, vereenvoudigen en delen met de spelers ----------
 let ROUTE = [], CHECKPOINTS = [], routeLine = null, curRt = null;
 function setRoute(pts){ ROUTE = pts; CHECKPOINTS = placeCheckpoints(pts, GROUP_TASKS.length); }
-setRoute((()=>{ if(CONFIG.gpx && CONFIG.gpx.trim()){ const r=parseGpx(CONFIG.gpx); if(r.length>1) return r; } return DEMO_ROUTE; })());
+setRoute((()=>{ if(CONFIG.route){ const r=codeToRoute(CONFIG.route); if(r.length>1) return r; }
+  if(CONFIG.gpx && CONFIG.gpx.trim()){ const r=parseGpx(CONFIG.gpx); if(r.length>1) return r; } return DEMO_ROUTE; })());
 const encInt = d => { d = d<0 ? ~(d<<1) : (d<<1); let s=''; while(d>=0x20){ s+=String.fromCharCode((0x20|(d&0x1f))+63); d>>=5; } return s+String.fromCharCode(d+63); };
 function routeToCode(pts){ let la=0, lo=0, out=''; for(const [a,b] of pts){ const ra=Math.round(a*1e5), rb=Math.round(b*1e5); out+=encInt(ra-la)+encInt(rb-lo); la=ra; lo=rb; } return out; }
 function codeToRoute(str){ const pts=[]; let i=0, la=0, lo=0;
@@ -422,6 +424,7 @@ let role = store.get('role', null);
 let state = store.get('state', null);          // host
 let snap  = store.get('snap', null);           // speler: {v, pl:[[naam,pts,letters]], nx, g:{t,gs:[[idx..]]}|null, i:[[p,t,done]], fin, sol, tot}
 let me = store.get('me', null);                // speler: index in pl
+const myPid = (()=>{ let v=store.get('pid',null); if(!v){ v=Math.random().toString(36).slice(2,8)+Math.random().toString(36).slice(2,5); store.set('pid',v); } return v; })();
 let map, posMarker, cpMarkers=[], userPos=null, cur=null, reachedBanner=false;
 const saveState = () => { store.set('state', state); publish(); };
 const total = () => state.players.reduce((s,p)=>s+p.pts,0);
@@ -511,7 +514,7 @@ function publish(){   // meerdere wijzigingen kort na elkaar worden één berich
 function publishNow(){
   if(role!=='host' || !state) return;
   const g = state.active.grp;
-  const payload = {v:Date.now(), pl:state.players.map(p=>[p.name,p.pts,p.letters.join('')]), nx:state.nextCp,
+  const payload = {v:Date.now(), pl:state.players.map(p=>[p.name,p.pts,p.letters.join(''),p.pid||'']), nx:state.nextCp,
     g: g?{t:state.nextCp, gs:g.groups.map(x=>x.members), tm:g.tm?{r:g.tm.round,a:g.tm.att,s:g.tm.st,rem:g.tm.st==='run'?Math.max(0,g.tm.end-Date.now()):0,ok:g.tm.ok?1:0}:null}:null,
     i: state.active.ind.map(a=>[a.p,a.t,a.done?1:0,a.id||0]), fin:state.fin?1:0, sol:state.sol?1:0, lv:Math.round(state.love*100)/100, st:state.storyAt||0};
   if(state.rt) payload.rt=state.rt;
@@ -522,11 +525,13 @@ function award(p,n){ for(let i=0;i<n && state.pool.length;i++) p.letters.push(st
 
 function hostUpdateStatus(){
   $('totalPill').textContent='⭐ '+total(); renderHeart(state.love, state.fin);
+  $('boardBtn').textContent='🏆 Scorebord & letters ('+state.players.length+')';
+  const head='🔑 Spelcode: '+state.code+' · '+state.players.length+(state.players.length===1?' deelnemer':' deelnemers')+'\n';
   $('activeBtn').textContent=`📋 Lopend (${state.active.ind.length})`;
   const n=CHECKPOINTS.length;
-  if(state.nextCp>=n){ $('status').textContent='Alle groepsopdrachten gedaan! Tijd voor de letterfinale (🏆).'; $('groupBtn').textContent='📍 Klaar'; return; }
+  if(state.nextCp>=n){ $('status').textContent=head+'Alle groepsopdrachten gedaan! Tijd voor de letterfinale (🏆).'; $('groupBtn').textContent='📍 Klaar'; return; }
   $('groupBtn').textContent=`📍 Groepsopdracht ${state.nextCp+1}/${n}`;
-  $('status').textContent=`Volgend checkpoint: ${GROUP_TASKS[state.nextCp].kind}`+distText(state.nextCp);
+  $('status').textContent=head+`Volgend checkpoint: ${GROUP_TASKS[state.nextCp].kind}`+distText(state.nextCp);
   if(userPos && !reachedBanner && haversine(userPos,CHECKPOINTS[state.nextCp])<=CONFIG.unlockRadiusM){ reachedBanner=true; banner('📍 Checkpoint bereikt! Start de groepsopdracht.'); }
 }
 function pickPlayers(count){ // eerlijk: spelers zonder lopende opdracht en met minste beurten
@@ -560,7 +565,7 @@ function validateInd(k,v){
 
 // groepsopdracht
 function makeGroups(k){ const ps=shuffle(state.players.map((_,i)=>i)); const gs=[]; for(let g=0;g<k;g++) gs.push({members:[],pts:null});
-  ps.forEach((p,i)=>gs[i%k].members.push(p)); return gs; }
+  ps.forEach((p,i)=>gs[i%k].members.push(p)); return gs.filter(g=>g.members.length); }
 function makeGroupsBySize(size){ const ps=shuffle(state.players.map((_,i)=>i)); const gs=[];
   for(let i=0;i<ps.length;i+=size) gs.push({members:ps.slice(i,i+size),pts:null});
   if(gs.length>1 && gs[gs.length-1].members.length<size){ // rest aanvullen met spelers uit eerste groep
@@ -644,9 +649,10 @@ $('splitSel').onchange = ()=>{ cur.groups=makeGroups(+$('splitSel').value); rend
 $('reshuffle').onclick = ()=>{ cur.groups=makeGroups(+$('splitSel').value); renderGroups(); saveState(); };
 $('cardOk').onclick = ()=>{ state.love += 3*cur.groups.reduce((t,g)=>t+(g.pts||0),0)/cur.groups.length/5; cur.groups.forEach(g=>{ const v=g.pts||0; g.members.forEach(i=>{ const p=state.players[i]; p.pts+=v; award(p, v>=4?2:v>=2?1:0); }); }); closeGroup(); };
 $('cardSkip').onclick = ()=>{ closeGroup(); };
-$('groupBtn').onclick = ()=>{ if(state.nextCp<CHECKPOINTS.length) openGroup(); };
-$('indBtn').onclick = ()=>assignInd(false);
-$('indAllBtn').onclick = ()=>assignInd(true);
+const needPlayers = ()=>{ if(state.players.length<1){ alert('Nog geen deelnemers. Laat de spelers de spelcode '+state.code+' invullen op hun gsm.'); return true; } return false; };
+$('groupBtn').onclick = ()=>{ if(needPlayers()) return; if(state.nextCp<CHECKPOINTS.length) openGroup(); };
+$('indBtn').onclick = ()=>{ if(!needPlayers()) assignInd(false); };
+$('indAllBtn').onclick = ()=>{ if(!needPlayers()) assignInd(true); };
 $('activeBtn').onclick = ()=>{ renderActive(); $('active').classList.add('show'); };
 $('activeClose').onclick = ()=>$('active').classList.remove('show');
 
@@ -690,8 +696,18 @@ $('mItems').onclick = ()=>{ const it=[...new Set(GROUP_TASKS.flatMap(t=>t.items|
 $('mLetters').onclick = ()=>{ alert('Letterkaartjes om te maken ('+CONFIG.sentence.replace(/\s/g,'').length+'):\n\n'+CONFIG.sentence.replace(/\s/g,'').split('').sort().join(' ')); };
 $('mReset').onclick = ()=>{ if(confirm('Alles wissen en opnieuw beginnen?')){ ['state','snap','role','me','code'].forEach(store.del); location.reload(); } };
 
+function addPlayer(pid, name){
+  name=String(name||'').trim().slice(0,20); if(!pid || !name) return;
+  if(state.players.some(x=>x.pid===pid)) return;                       // staat er al (opnieuw verbonden)
+  const low=n=>n.toLowerCase();
+  let p=state.players.find(x=>!x.pid && low(x.name)===low(name));      // vooraf ingevulde naam: overnemen
+  if(p) p.pid=pid;
+  else{ let n=name, k=2; while(state.players.some(x=>low(x.name)===low(n))) n=name+' '+(k++);
+        p={name:n,pts:0,letters:[],turns:0,pid}; state.players.push(p); }
+  banner('👋 '+p.name+' doet mee ('+state.players.length+')'); saveState(); hostUpdateStatus(); if($('board').classList.contains('show')) renderBoard();
+}
 function bootHost(){
-  role='host'; state.love = state.love||0; $('title').textContent='🕵️ Spelleider'; $('playerPanel').style.display='none';
+  role='host'; state.love = state.love||0; $('title').textContent='🕵️ Spelleider '+NAMES.host; $('playerPanel').style.display='none';
   if(state.rt){ curRt=state.rt; setRoute(codeToRoute(state.rt)); }
   initMap(state.nextCp); hostUpdateStatus(); startGps(hostUpdateStatus); publish();
   if(state.active.grp){ cur=state.active.grp; showGroupModal(); if(cur.tm && cur.tm.st==='run') tmIv=setInterval(tmTick,250); }
@@ -699,7 +715,7 @@ function bootHost(){
   setInterval(()=>{ // herinnering (geen levensteken nodig: nieuwe spelers krijgen automatisch het laatste bericht)
     if(!cur && Date.now()-state.lastTaskAt > state.remindMin*60000 && !state.active.ind.length){ banner('⏰ Tijd voor een individuele opdracht!'); state.lastTaskAt=Date.now(); store.set('state',state); }
   }, 15000);
-  subscribe(topic(state.code)+'-in', '10m', m=>{ if(m.t==='done'){ const a=state.active.ind.find(x=>x.p===m.p && (m.id==null || x.id===m.id)); if(a && !a.done){ a.done=true; store.set('state',state); banner('✅ '+state.players[m.p].name+' meldt: klaar!'); renderActive(); publish(); hostUpdateStatus(); } } });
+  subscribe(topic(state.code)+'-in', '10m', m=>{ if(m.t==='join'){ addPlayer(m.pid, m.name); return; } if(m.t==='done'){ const a=state.active.ind.find(x=>x.p===m.p && (m.id==null || x.id===m.id)); if(a && !a.done){ a.done=true; store.set('state',state); banner('✅ '+state.players[m.p].name+' meldt: klaar!'); renderActive(); publish(); hostUpdateStatus(); } } });
 }
 $('gpxIn').onchange = async ()=>{
   const f=$('gpxIn').files[0]; if(!f){ $('gpxInfo').textContent=''; return; }
@@ -710,12 +726,11 @@ $('gpxIn').onchange = async ()=>{
 $('startBtn').onclick = async ()=>{
   const names=$('playersIn').value.split('\n').map(s=>s.trim()).filter(Boolean);
   const code=$('codeIn').value.trim();
-  if(names.length<2){ alert('Vul minstens 2 deelnemers in.'); return; }
   if(!code){ alert('Vul een spelcode in.'); return; }
   let rt=null; const gf=$('gpxIn').files[0];
   if(gf){ try{ const pts=parseGpx(await gf.text()); if(pts.length<2) throw new Error('leeg'); rt=routeToCode(simplifyRoute(pts,140)); }
           catch(e){ alert('Dit GPX-bestand kon ik niet lezen. De demoroute wordt gebruikt.'); } }
-  state={code, rt, love:0, players:names.map(n=>({name:n,pts:0,letters:[],turns:0})), nextCp:0, pool:newPool(), indDeck:[],
+  state={code, rt, love:0, players:names.map(n=>({name:n,pts:0,letters:[],turns:0,pid:null})), nextCp:0, pool:newPool(), indDeck:[],
     remindMin:+$('remindMin').value, lastTaskAt:Date.now(), active:{grp:null,ind:[]}, fin:0, sol:0};
   store.set('role','host'); store.set('state',state); $('setup').classList.remove('show'); bootHost(); showStory();
 };
@@ -741,7 +756,7 @@ function renderPlayer(){
     h+=`<div class="tile"><span class="tag">Groepsopdracht · ${esc(t.kind)}</span><h2 style="margin:0">${esc(t.title)}</h2>`
       + (snap.g.tm ? playerTimer(t) : '')
       + `${t.img?`<img src="${t.img}" alt="" style="width:100%;max-height:200px;object-fit:contain;margin-top:6px" onerror="this.style.display='none'">`:''}${t.story?`<p class="story">${esc(t.story)}</p>`:''}${t.ref?`<a href="${refUrl(t)}" target="_blank" rel="noopener">🔎 Voorbeeldfoto zoeken</a>`:''}<p>${esc(t.text)}</p>`
-      + (snap.g.tm ? '' : `<div class="hint">Jouw groep: ${snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', ')}</div>`) + '</div>'; }
+      + (snap.g.tm ? '' : `<div class="hint">${(gi<0 ? 'Je doet mee vanaf de volgende opdracht.' : 'Jouw groep: '+snap.g.gs[gi].map(i=>esc(snap.pl[i][0])).join(', '))}</div>`) + '</div>'; }
   if(!myInd && !snap.g) h+='<p class="hint">Wandel mee! Je krijgt hier je opdracht zodra de spelleider er een geeft. 🎒</p>';
   $('playerPanel').innerHTML=h; $('playerPanel').style.display='block';
   const d=$('doneBtn'); if(d) d.onclick=()=>{ post(topic(store.get('code'))+'-in',{t:'done',p:me,id:myInd?myInd[3]:null}); d.disabled=true; d.textContent='Verzonden…'; };
@@ -758,21 +773,20 @@ function playerTimer(t){
   return `<div class="hint">${head}</div><div style="font-size:54px;font-weight:800;text-align:center;color:var(--accent2)">${big}</div><div class="hint" style="text-align:center">Poging ${tm.a} van ${t.timer.attempts}</div>`;
 }
 function plTimerTick(){ const el=$('plTime'); if(!el||!snap||!snap.g||!snap.g.tm) return; const left=Math.max(0,snap.g.tm.rem-(Date.now()-tmRecv)); el.textContent = left===0?'⏱ Tijd om!':Math.ceil(left/1000)+'s'; }
+let lastJoinAt=0;
+function sendJoin(){ if(Date.now()-lastJoinAt<3000) return; lastJoinAt=Date.now(); post(topic(store.get('code'))+'-in',{t:'join',pid:myPid,name:store.get('myname')}); }
 function onSnap(s){
   if(snap && s.v<snap.v) return;
-  const hadInd = snap && snap.i.some(a=>a[0]===me), hadGrp = snap && snap.g;
+  const hadInd = snap && me!=null && snap.i.some(a=>a[0]===me), hadGrp = snap && snap.g;
   snap=s; tmRecv=Date.now(); store.set('snap',snap);
-  if($('join').classList.contains('show')) return showNames();
-  if(me!=null){ renderPlayer();
-    if(!hadInd && snap.i.some(a=>a[0]===me)) banner('🎯 Nieuwe opdracht voor jou!');
-    if(!hadGrp && snap.g) banner('📍 Groepsopdracht gestart!');
-    if(snap.g&&snap.g.tm&&snap.g.tm.s==='run'&&snap.g.gs[snap.g.tm.r].includes(me)&&navigator.vibrate) navigator.vibrate(150); }
-}
-function showNames(){
-  $('joinStatus').textContent='Verbonden. Wie ben jij?';
-  $('joinNames').innerHTML=''; snap.pl.forEach((p,i)=>{ const b=document.createElement('button'); b.className='sec'; b.style.cssText='width:100%;margin-bottom:6px'; b.textContent=p[0];
-    b.onclick=()=>{ me=i; store.set('me',i); $('join').classList.remove('show'); bootPlayer(); }; $('joinNames').appendChild(b); });
-  if(DEMO) setTimeout(()=>{ const b=$('joinNames').querySelector('button'); if(b) b.click(); },400);
+  const idx = snap.pl.findIndex(p=>p[3]===myPid);
+  if(idx<0){ if(!playerBooted){ $('joinStatus').textContent='Verbonden. De spelleider ziet je zo…'; } sendJoin(); return; }   // nog niet aangemeld bij de spelleider
+  me=idx; store.set('me',idx);
+  if(!playerBooted){ $('join').classList.remove('show'); bootPlayer(); return; }
+  renderPlayer();
+  if(!hadInd && snap.i.some(a=>a[0]===me)) banner('🎯 Nieuwe opdracht voor jou!');
+  if(!hadGrp && snap.g) banner('📍 Groepsopdracht gestart!');
+  if(snap.g&&snap.g.tm&&snap.g.tm.s==='run'&&snap.g.gs[snap.g.tm.r].includes(me)&&navigator.vibrate) navigator.vibrate(150);
 }
 let joinES=null;
 let playerBooted=false;
@@ -785,25 +799,26 @@ function bootPlayer(){
   subscribe(topic(store.get('code')), 'latest', onSnap); setInterval(plTimerTick,250);
 }
 $('joinBtn').onclick = ()=>{
-  const c=$('joinCode').value.trim(); if(!c) return; store.set('code',c); store.set('role','player'); role='player';
-  $('joinStatus').textContent='Verbinden…'; joinES=subscribe(topic(c),'latest',onSnap);
+  const c=$('joinCode').value.trim(), n=$('joinName').value.trim();
+  if(!c || !n){ $('joinStatus').textContent='Vul de spelcode en je naam in.'; return; }
+  store.set('code',c); store.set('myname',n); store.set('role','player'); role='player';
+  $('joinStatus').textContent='Verbinden…'; joinES=subscribe(topic(c),'latest',onSnap); sendJoin();
   setTimeout(()=>{ if(!snap) $('joinStatus').textContent='Nog geen verbinding of de spelleider is nog niet gestart. Even geduld…'; }, 6000);
 };
 
 // =====================================================================
 //                              START
 // =====================================================================
-$('playersIn').value = CONFIG.defaultPlayers.join('\n');
 $('codeIn').value = Math.random().toString(36).slice(2,7).toUpperCase();
 $('roleHost').onclick = ()=>{ $('role').classList.remove('show'); $('setup').classList.add('show'); };
 $('rolePlayer').onclick = ()=>{ $('role').classList.remove('show'); $('join').classList.add('show'); };
 if(role==='host' && state) bootHost();
-else if(role==='player' && snap && me!=null) bootPlayer();
+else if(role==='player' && snap && snap.pl.some(p=>p[3]===myPid)){ me=snap.pl.findIndex(p=>p[3]===myPid); bootPlayer(); }
 else $('role').classList.add('show');
 if(DEMO){
   $('role').classList.remove('show');
   if(DEMO.role==='host'){ $('setup').classList.add('show'); $('codeIn').value='DEMO'; $('playersIn').value=DEMO.names.join('\n'); $('startBtn').click(); }
-  else { $('join').classList.add('show'); $('joinCode').value='DEMO'; $('joinBtn').click(); }
+  else { $('join').classList.add('show'); $('joinCode').value='DEMO'; $('joinName').value=DEMO.playerName||'Linde'; $('joinBtn').click(); }
   parent.postMessage({linde:'ready',role:DEMO.role},'*');
 }
 </script>
