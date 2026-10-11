@@ -56,6 +56,7 @@ Kijk nu in `C:\CanSat`. Je moet dit zien:
 ```
 C:\CanSat\
 ├── README.md                    ← deze handleiding
+├── start_meting.py              ← meting starten met één knop (bv. in Thonny)
 ├── sensortest_fft\
 │   └── sensortest_fft.ino       ← het programma voor de Teensy
 ├── dashboard\
@@ -261,6 +262,41 @@ millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,...
 > **Waarom sluiten?** De USB-poort kan maar door **één** programma tegelijk gebruikt
 > worden. In de volgende stap heeft `serial_logger` hem nodig. De Arduino IDE houdt de
 > poort soms vast, ook als de Serial Monitor dicht is.
+
+### Snelle weg: alles met één knop (`start_meting.py`, bv. in Thonny)
+
+Werk je liever in **Thonny**, of wil je niet drie vensters openen? Dan doet
+`start_meting.py` stap B3 en B4 in één keer.
+
+**Eén keer klaarzetten in Thonny:**
+1. **Run → Configure interpreter** → kies **"The same interpreter that runs Thonny"**
+   (of "Local Python 3"). **Niet** MicroPython: dan houdt Thonny zelf de USB-poort bezet.
+2. **Tools → Manage packages** → installeer `pyserial`, `matplotlib`, `numpy` en `pillow`.
+   (Thonny heeft zijn eigen Python. Wat je in A6 installeerde, kent Thonny niet.)
+
+**Elke meting:**
+1. Zet de sketch op de Teensy (B1) en **sluit de Arduino IDE helemaal**.
+2. Open `C:\CanSat\start_meting.py` in Thonny.
+3. Pas bovenaan de naam van je meting aan:
+   ```python
+   COM_POORT = "auto"     # zoekt zelf de Teensy
+   BESTAND   = "test_01"  # naam van je meting
+   ```
+4. Druk op de groene **Run**-knop (F5).
+
+Het programma zoekt de Teensy, bewaart de metingen in `C:\CanSat\metingen\test_01.csv`
+en opent scherm 1 en scherm 2 met LIVE data. Bestaat `test_01.csv` al, dan maakt het
+`test_01_2.csv`: een oude meting wordt nooit overschreven.
+
+**Stoppen:** klik op de rode **Stop**-knop in Thonny. De dashboards blijven open; sluit
+ze zelf.
+
+> **Lukt het niet?**
+> - *"geen Teensy gevonden"*: kijk de USB-kabel na, of vul de poort zelf in, bv.
+>   `COM_POORT = "COM9"`.
+> - *"is gestopt met een fout"*: open het `.log`-bestand dat erbij staat (in
+>   `metingen\`). Daar staat wat er misliep.
+> - Wil je het liever met de opdrachtprompt doen? Volg dan gewoon B3 en B4 hieronder.
 
 ### B3. De metingen opslaan op de laptop
 
@@ -777,6 +813,7 @@ py dashboard\dashboard_scherm1.py --sim                   vluchtsimulator
 py tools\check_csv.py metingen\test_01.csv                meting controleren
 py tools\gen_test_csv.py metingen\oefen.csv               nep-metingen maken
 py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per seconde
+py start_meting.py                                         logger + 2 dashboards in één keer
 ```
 
 ---
