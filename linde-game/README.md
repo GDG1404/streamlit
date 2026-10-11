@@ -2,13 +2,15 @@
 
 Eén bestand: `index.html`. Zet het online (bv. GitHub Pages) en open de link op alle gsm's.
 
-- **Spelleider** kiest "Ik ben de spelleider", vult namen in en deelt de spelcode.
-- **Spelers** kiezen "Ik ben een speler", vullen de code in en kiezen hun naam.
+- **Spelleider** kiest "Ik ben de spelleider", start het spel en deelt de spelcode (staat bovenaan op het scherm).
+- **Spelers** kiezen "Ik ben een speler" en vullen de spelcode en hun eigen naam in (de jarige vult Linde in). De spelleider ziet wie zich aanmeldt.
+  Namen vooraf invullen mag, maar hoeft niet. Wie later binnenkomt doet mee vanaf de volgende opdracht.
 - Alles loopt via ntfy.sh (gratis, geen account). De spelcode is dus het enige "wachtwoord".
 - Opdrachten, de zin voor de letterfinale en je GPX pas je bovenaan in `index.html` aan (`CONFIG`, `GROUP_TASKS`, `IND_TASKS`).
 
 ## De route (GPX)
-De spelleider kiest bij het instellen zelf het GPX-bestand van de wandeling. De app vereenvoudigt de route tot ±100 punten en
+De route van de verjaardagswandeling (Garmin cursus 522994433, `route/COURSE_522994433.gpx`, een lus van 4,1 km) zit al in de app (`CONFIG.route`).
+Wil je een andere route, dan kiest de spelleider bij het instellen een ander GPX-bestand. De app vereenvoudigt de route tot ±100 punten en
 stuurt ze mee naar alle spelers, die dus niets hoeven te laden. Uit Garmin Connect (website): open de cursus, tik op het tandwiel
 en kies "Exporteren naar GPX". De 8 checkpoints worden gelijkmatig over de route verdeeld.
 
