@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
 <title>Operatie Linde</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
@@ -263,11 +264,11 @@ const CONFIG = {
 };
 
 // ----- Het verhaal. Pas gerust namen en teksten aan. -----
-const NAMES = {linde:"Linde", partner:"Thibau", baby:"Arthur", dorp:"Doorslaar", plek:"Hulst", host:"Geert"};
+const NAMES = {linde:"Linde", partner:"Thibau", baby:"Arthur", dorp:"een pittoresk dorpje", plek:"Hulst", host:"Geert"};
 const STORY = {
   title: "Het Geheim van Meester Linde",
   intro: [
-    `Er was eens een rustig dorp, ${NAMES.dorp}, waar het leven vredig voorbijtikte… tot Meester ${NAMES.linde} er kwam wonen.`,
+    `Er was eens ${NAMES.dorp} waar het leven vredig voorbijtikte… tot Meester ${NAMES.linde} er kwam wonen.`,
     `${NAMES.linde} is geen gewone leerkracht. Ze heeft een Master in de Wiskunde en kan elk kind in drie minuten laten snappen waarom min maal min plus is. Samen met ${NAMES.partner} woonde ze er gelukkig, tot er onlangs het grootste wiskundige wonder aller tijden gebeurde: 1 + 1 werd 3. ${NAMES.baby} was geboren, ongeveer drie maanden geleden.`,
     `Maar wiskunde kent ook mysteries. ${NAMES.linde} is 25 geworden, en volgens de oeroude regels van het Geheime Genootschap van de Gulden Snede krijgt elke Meester op haar 25e verjaardag een geheime Formule.`,
     `Het Genootschap, dat zijn jullie: de familie en vrienden van ${NAMES.linde}. De Formule is in stukjes (letters) verstopt langs deze wandeling, verdeeld over acht hoofdstukken. Elk geslaagd hoofdstuk levert letters op. Op het einde leggen jullie ze samen tot de zin die de Formule ontsluit.`,
@@ -293,7 +294,7 @@ const GROUP_TASKS = [
   {kind:"Evenwicht", title:"Ogen dicht, op één been", story:"Hoofdstuk 3 – Het Evenwicht. Lesgeven, een baby, een huishouden en nog tijd voor jezelf: nieuwe ouders zijn de beste acrobaten ter wereld. Toon dat jullie het ook kunnen.", text:"Met vier tegelijk: ogen dicht, armen gespreid, op één been. Hou 10 seconden vol! Valt of beweegt er iemand, dan begint het opnieuw. Jullie hebben 10 pogingen.", timer:{sec:10, attempts:10, size:4}},
   {kind:"Groepsfoto", title:"De vertrouwensval", story:"Hoofdstuk 4 – Het Vertrouwen. Er is een heel dorp nodig om een kind groot te brengen. Linde mag vallen, want het dorp vangt haar op.", text:"Maak een groepsfoto waarin Linde door de groep wordt opgevangen en gedragen, alsof ze net een vertrouwensval heeft gemaakt. Linde bepaalt zelf hoe ver ze gaat (vlakke, zachte ondergrond, eerst oefenen!). Foto bij succes.", split:1},
   {kind:"Niet lachen", title:"Stil kijken", story:"Hoofdstuk 5 – De Lachtest. Niets is moeilijker dan ernstig blijven als iemand je recht in de ogen kijkt en het gelach in de lucht hangt. Het Genootschap test jullie zelfbeheersing.", text:"Twee personen kijken elkaar 20 seconden recht in de ogen, zonder te lachen of te praten. Op de achtergrond klinkt aanstekelijk gelach… Lachen = opnieuw. Jullie hebben 5 pogingen.", note:"Zet het volume van jouw gsm luid.", sound:"audio/lach.mp3", timer:{sec:20, attempts:5, size:2}},
-  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", story:"Hoofdstuk 6 – De Cirkel des Levens. Jullie staan op of vlak bij het hoogste punt van de wandeling: onze Pride Rock. In Doorslaar werd een welpje geboren, klein maar al heel geliefd. De rugzak speelt vandaag de rol van Arthur. Tijd om hem plechtig aan het dorp te tonen.", text:"Linde is Rafiki en houdt de rugzak van de spelleider omhoog alsof het Simba is. De rest is de dierenschare eromheen met gebogen hoofd en handen omhoog. Foto!", items:["De rugzak (Simba!)"], ref:"Lion King circle of life Rafiki holds up Simba", split:1},
+  {kind:"Filmscène", title:"The Lion King: de cirkel des levens", story:"Hoofdstuk 6 – De Cirkel des Levens. Jullie staan op of vlak bij het hoogste punt van de wandeling: onze Pride Rock. In het dorp werd een welpje geboren, klein maar al heel geliefd. De rugzak speelt vandaag de rol van Arthur. Tijd om hem plechtig aan het dorp te tonen.", text:"Linde is Rafiki en houdt de rugzak van de spelleider omhoog alsof het Simba is. De rest is de dierenschare eromheen met gebogen hoofd en handen omhoog. Foto!", items:["De rugzak (Simba!)"], ref:"Lion King circle of life Rafiki holds up Simba", split:1},
   {kind:"Musical", title:"The Sound of Music: The hills are alive", story:"Hoofdstuk 7 – De Heuvel. Ook Maria uit The Sound of Music had een hart voor kinderen en zong ze in slaap. Linde mag even Maria zijn, op haar eigen heuvel.", text:"Linde is Maria op de heuvel: armen wijd open en draaiend op de plaats. De rest zingt 'The hills are alive…' als koor. Maak er een video van 10 seconden van.", ref:"Sound of Music hills are alive Maria scene", split:1},
   {kind:"Filmscène", title:"Titanic: ik vlieg!", story:"Hoofdstuk 8 – Ik vlieg! De laatste proef: Linde, 25 jaar en op haar hoogtepunt, aan de boeg van haar leven. Tijd voor de slotfoto.", text:"Beeld de scène aan de boeg uit. Linde is Rose met gespreide armen, de rest is de boeg, de golven of Jack achter haar. Slotfoto voor Linde, met kroontje!", items:["Kroontje voor Linde"], ref:"Titanic Rose Jack bow scene flying", split:1},
 ];
