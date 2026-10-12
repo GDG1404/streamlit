@@ -269,13 +269,16 @@ Werk je liever in **Thonny**, of wil je niet drie vensters openen? Dan doet
 `start_meting.py` stap B3 en B4 in één keer.
 
 **Eén keer klaarzetten in Thonny:**
-1. **Run → Configure interpreter** → kies **"The same interpreter that runs Thonny"**
-   (of "Local Python 3"). **Niet** MicroPython: dan houdt Thonny zelf de USB-poort bezet.
+1. Kijk **rechtsonder** in Thonny: daar moet **Local Python 3** staan. Staat er
+   *MicroPython*? Klik erop en kies *Local Python 3*. Anders houdt Thonny zelf de
+   USB-poort bezet.
 2. **Tools → Manage packages** → installeer `pyserial`, `matplotlib`, `numpy` en `pillow`.
    (Thonny heeft zijn eigen Python. Wat je in A6 installeerde, kent Thonny niet.)
 
 **Elke meting:**
-1. Zet de sketch op de Teensy (B1) en **sluit de Arduino IDE helemaal**.
+1. Steek de Teensy met de USB-kabel in de laptop. Staat de sketch er al op (B1)?
+   Dan heb je de Arduino IDE niet nodig. Staat ze toch open? Sluit **alle**
+   Arduino-vensters met het kruisje rechtsboven.
 2. Open `C:\CanSat\start_meting.py` in Thonny en druk op de groene **Run**-knop (F5).
 3. Beantwoord de drie vragen onderaan in de Shell. Druk je gewoon op **Enter**, dan
    neemt het programma het voorstel tussen [haakjes].
@@ -300,8 +303,8 @@ Het programma bewaart de metingen in `C:\CanSat\metingen\schudtest.csv` en opent
 dashboards die je koos, met LIVE data. Bestaat de naam al, dan vraagt het een andere
 naam: een oude meting wordt nooit overschreven. Spaties in de naam worden `_`.
 
-**Stoppen:** klik op de rode **Stop**-knop in Thonny. De dashboards blijven open; sluit
-ze zelf.
+**Stoppen:** klik op de rode **Stop**-knop in Thonny. Staan de dashboards daarna nog
+open? Sluit ze dan zelf.
 
 > **Lukt het niet?**
 > - *Geen "← Teensy" in de lijst*: kijk de USB-kabel na (een datakabel, geen

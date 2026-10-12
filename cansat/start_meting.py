@@ -15,9 +15,13 @@ Op elke vraag mag je gewoon op Enter drukken: dan neemt het programma
 het voorstel tussen [haakjes].
 
 Stoppen: klik in Thonny op de rode Stop-knop (of Ctrl+C).
-De dashboards blijven openstaan; sluit ze zelf als je klaar bent.
+Staan de dashboards daarna nog open? Sluit ze dan zelf.
 
-Vooraf: de sketch staat op de Teensy en de Arduino IDE is helemaal dicht.
+Vooraf: de sketch staat al op de Teensy. Sluit alle vensters van de
+Arduino IDE (kruisje rechtsboven). Alleen de Serial Monitor sluiten is
+niet genoeg: dan blijft de USB-poort bezet.
+
+Dit bestand hoort in de map CanSat, naast de mappen 'dashboard' en 'tools'.
 """
 
 import os
@@ -124,6 +128,9 @@ def start_dashboards(csv, schermen, logger_klaar):
         time.sleep(0.1)
     else:
         return
+    # Windows: geen leeg zwart venster per dashboard. Zo sluit Ctrl+C in
+    # dit venster de dashboards ook niet mee af.
+    vlag = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     gestart = []
     for scherm in schermen:
         # fouten van een dashboard komen in een logbestand naast de meting
@@ -131,7 +138,8 @@ def start_dashboards(csv, schermen, logger_klaar):
         proc = subprocess.Popen([sys.executable, os.path.join(MAP, "dashboard", scherm),
                                  "--live", csv],
                                 cwd=os.path.join(MAP, "dashboard"),
-                                stdout=open(log, "w"), stderr=subprocess.STDOUT)
+                                stdout=open(log, "w"), stderr=subprocess.STDOUT,
+                                creationflags=vlag)
         gestart.append((scherm, proc, log))
     print(f"Dashboards geopend ({len(schermen)}). Het kan even duren voor ze verschijnen.\n")
 
@@ -144,13 +152,21 @@ def start_dashboards(csv, schermen, logger_klaar):
 
 
 def main():
+    if not (os.path.isfile(os.path.join(MAP, "tools", "serial_logger.py"))
+            and os.path.isdir(os.path.join(MAP, "dashboard"))):
+        print("FOUT: start_meting.py staat in de verkeerde map.")
+        print(f"  Nu staat het in: {MAP}")
+        print("  Zet het in de map CanSat, naast de mappen 'dashboard' en 'tools'.")
+        return 1
     try:
         from serial.tools import list_ports
         import matplotlib, numpy, PIL  # noqa: F401  (nodig voor de dashboards)
     except ImportError as e:
-        print(f"FOUT: het pakket '{e.name}' ontbreekt.")
+        naam = {"serial": "pyserial", "PIL": "pillow"}.get(e.name, e.name)
+        print(f"FOUT: het pakket '{naam}' ontbreekt.")
         print("  In Thonny: Tools → Manage packages → zoek en installeer:")
         print("  pyserial, matplotlib, numpy en pillow")
+        print("  In de opdrachtprompt: py -m pip install pyserial matplotlib numpy pillow")
         return 1
 
     print("CanSat 2027 — meting starten")
@@ -185,4 +201,13 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    code = main()
+    # Dubbelgeklikt in de Verkenner? Dan sluit Windows het venster meteen,
+    # ook na een foutmelding. Wacht dus op Enter. (In Thonny niet nodig.)
+    if ("thonny" not in sys.modules and sys.stdin is not None
+            and sys.stdin.isatty()):
+        try:
+            input("\nDruk op Enter om dit venster te sluiten.")
+        except (EOFError, KeyboardInterrupt):
+            pass
+    sys.exit(code)
