@@ -263,7 +263,7 @@ millis,temp_C,press_hPa,alt_m,lat,lon,time_utc,...
 > worden. In de volgende stap heeft `serial_logger` hem nodig. De Arduino IDE houdt de
 > poort soms vast, ook als de Serial Monitor dicht is.
 
-### Snelle weg: alles met één knop (`start_meting.py`, bv. in Thonny)
+### Snelle weg: alles met één knop (`start_meting.py`, met of zonder Thonny)
 
 Werk je liever in **Thonny**, of wil je niet drie vensters openen? Dan doet
 `start_meting.py` stap B3 en B4 in één keer.
@@ -305,6 +305,17 @@ naam: een oude meting wordt nooit overschreven. Spaties in de naam worden `_`.
 
 **Stoppen:** klik op de rode **Stop**-knop in Thonny. Staan de dashboards daarna nog
 open? Sluit ze dan zelf.
+
+**Geen Thonny?** Dan gebruik je de Python uit A5. De pakketten uit A6 zijn genoeg:
+je hoeft niets extra te installeren.
+1. Open een opdrachtprompt in `C:\CanSat` (adresbalk → `cmd` → Enter).
+2. Typ `py start_meting.py` en druk op Enter.
+3. Beantwoord de drie vragen, net zoals hierboven.
+4. Stoppen: druk op **Ctrl + C** in het zwarte venster en daarna op **Enter**.
+
+Je kan ook dubbelklikken op `start_meting.py` in de Verkenner. Opent het bestand in
+Kladblok of in een ander programma in plaats van een zwart venster? Gebruik dan de
+opdrachtprompt.
 
 > **Lukt het niet?**
 > - *Geen "← Teensy" in de lijst*: kijk de USB-kabel na (een datakabel, geen
