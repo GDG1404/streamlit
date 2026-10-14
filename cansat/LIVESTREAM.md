@@ -63,9 +63,18 @@ De camera hangt aan de **laptop van de stream**, niet aan de CanSat. Kies één 
 | Camera | Hoe | Goed om te weten |
 |---|---|---|
 | **USB-webcam** (± €30) | insteken in de laptop | het eenvoudigst en het betrouwbaarst |
-| **Gsm** | gratis webcam-app (bv. DroidCam of Iriun), via wifi of USB-kabel | mooier beeld en zoom; hou de gsm aan een lader |
+| **Gsm** (aanrader) | gratis webcam-app (bv. DroidCam of Iriun), via wifi of USB-kabel | mooi beeld en zoom; gratis versies beperken soms de resolutie |
+| **GoPro** (HERO8 of nieuwer) | USB-kabel + de gratis app *GoPro Webcam* | robuust en waterdicht, brede hoek; alleen als je er al een hebt |
 
 Zet de camera op een klein statief, gericht op de lanceerplaats of op het team.
+
+**Tips voor een gsm als camera:**
+- Neem een **tweede** gsm: de eerste is de hotspot.
+- Hang hem aan een lader of powerbank, en zet **Niet storen** aan: geen meldingen of
+  oproepen in beeld.
+- Via wifi is het eenvoudigst: laptop en gsm op dezelfde hotspot. Dat beeld gaat niet
+  over het mobiele internet, dus het kost geen data.
+- Hou hem uit de zon: een gsm kan te warm worden. Test vooraf 15 minuten.
 
 > Een camera **in** de CanSat kan geen live beeld sturen: de LoRa-radio is daarvoor
 > veel te traag. Een camera die opneemt op een SD-kaart kan wel; die beelden toon je
