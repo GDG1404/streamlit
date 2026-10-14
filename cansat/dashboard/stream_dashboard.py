@@ -12,8 +12,9 @@ Gebruik:
   py dashboard\stream_dashboard.py COM7      ontvanger op COM7
   py dashboard\stream_dashboard.py --demo    nagebootste vlucht, zonder hardware
 
-In OBS Studio zet je dit venster in je stream (bron: Window Capture).
-Druk op F voor volledig scherm. Zie LIVESTREAM.md.
+In OBS Studio zet je dit venster in je stream (bron: Window Capture). Het vak
+'Camera' rechtsboven is voor het camerabeeld. Laat het venster op zijn gewone
+grootte (niet volledig scherm): dan klopt de plaats van het vak. Zie LIVESTREAM.md.
 
 De hoogte telt vanaf de startplaats: de eerste 5 pakketten zijn het nulpunt.
 Start dit dashboard dus vóór de lancering, als de CanSat nog op de grond staat.
@@ -48,6 +49,10 @@ GROUND_PACKETS = 5        # nulpunt = mediaan van de eerste 5 pakketten
 SIGNAL_WARN_S = 3         # zolang geen pakket: oranje
 SIGNAL_LOST_S = 10        # zolang geen pakket: rood
 UPDATE_MS = 250           # zo vaak kijken of er iets nieuws is
+
+# Vak voor het camerabeeld: in OBS leg je de camera precies hierop.
+# Op een OBS-canvas van 1920×1080 is dat positie (1200, 150), grootte 672×378.
+CAMERA_SLOT = (0.625, 0.51111, 0.35, 0.35)   # x, y (onderkant), breedte, hoogte
 
 # Het LoRa-pakket van de vluchtcode (13 waarden, in deze volgorde)
 FIELDS = ["temp_C", "press_hPa", "alt_m", "lat", "lon",
@@ -286,41 +291,55 @@ class StreamDashboard:
         f.text(0.530, 0.905, "Radio signal", fontsize=11, color=C["muted"],
                va="center")
 
-        self.txt_phase = f.text(0.97, 0.952, "", fontsize=15, fontweight="bold",
+        # x = 0.968: de rand van het kader valt dan op 0.975, zoals het cameravak
+        self.txt_phase = f.text(0.968, 0.952, "", fontsize=15, fontweight="bold",
                                 color=C["ink"], ha="right", va="center",
                                 bbox=dict(boxstyle="round,pad=0.45",
                                           fc=C["surface"], ec=C["border"]))
-        f.text(0.97, 0.905, "Flight phase", fontsize=11, color=C["muted"],
+        f.text(0.975, 0.905, "Flight phase", fontsize=11, color=C["muted"],
                ha="right", va="center")
 
-        # ── grote cijfers ──
-        top, height = 0.60, 0.25
-        hero = self._card(0.03, top, 0.33, height)
-        hero.text(0.06, 0.80, "Altitude above launch site", fontsize=13,
+        # ── grote cijfers (links) en het cameravak (rechts) ──
+        cx, cy, cw, ch = CAMERA_SLOT
+        hero = self._card(0.03, cy, 0.285, ch)
+        hero.text(0.07, 0.86, "Altitude above launch site", fontsize=13,
                   color=C["muted"], transform=hero.transAxes, va="center")
-        self.txt_alt = hero.text(0.06, 0.45, "—", fontsize=54, fontweight="bold",
+        self.txt_alt = hero.text(0.07, 0.50, "—", fontsize=48, fontweight="bold",
                                  color=C["muted"], transform=hero.transAxes,
                                  va="center")
-        self.txt_alt_sub = hero.text(0.06, 0.13, "", fontsize=13, color=C["ink2"],
+        self.txt_alt_sub = hero.text(0.07, 0.14, "", fontsize=13, color=C["ink2"],
                                      transform=hero.transAxes, va="center")
 
+        det = self._card(0.335, cy, 0.265, ch)
         self.tiles = []
         labels = ["Vertical speed", "Temperature", "Air pressure"]
-        w, gap, x = 0.1833, 0.02, 0.38
         for i, label in enumerate(labels):
-            ax = self._card(x + i * (w + gap), top, w, height)
-            ax.text(0.09, 0.80, label, fontsize=13, color=C["muted"],
-                    transform=ax.transAxes, va="center")
-            val = ax.text(0.09, 0.45, "—", fontsize=30, fontweight="bold",
-                          color=C["muted"], transform=ax.transAxes, va="center")
-            sub = ax.text(0.09, 0.13, "", fontsize=12, color=C["ink2"],
-                          transform=ax.transAxes, va="center")
+            y = 1 - (i + 0.5) / 3                    # midden van de rij
+            det.text(0.08, y + 0.075, label, fontsize=12, color=C["muted"],
+                     transform=det.transAxes, va="center")
+            val = det.text(0.08, y - 0.06, "—", fontsize=22, fontweight="bold",
+                           color=C["muted"], transform=det.transAxes,
+                           va="center")
+            sub = det.text(0.93, y + 0.075, "", fontsize=11, color=C["ink2"],
+                           transform=det.transAxes, va="center", ha="right")
             self.tiles.append((val, sub))
+            if i:
+                det.axhline(1 - i / 3, xmin=0.05, xmax=0.95,
+                            color=C["border"], linewidth=1)
+
+        cam = self._card(cx, cy, cw, ch)
+        for y, text, size, color in (
+                (0.58, "Camera", 18, C["ink2"]),
+                (0.42, "Put the camera on this box in OBS", 11, C["muted"]),
+                (0.30, "1920×1080 canvas: position 1200, 150 · size 672 × 378",
+                 10, C["muted"])):
+            cam.text(0.5, y, text, fontsize=size, color=color, ha="center",
+                     va="center", transform=cam.transAxes)
 
         # ── grafiek: hoogte ──
-        f.text(0.03, 0.535, "Altitude (m)", fontsize=13, color=C["ink2"],
+        f.text(0.03, 0.455, "Altitude (m)", fontsize=13, color=C["ink2"],
                va="center")
-        ax = f.add_axes([0.07, 0.09, 0.90, 0.40])
+        ax = f.add_axes([0.07, 0.085, 0.905, 0.33])
         ax.set_facecolor(C["page"])
         for side in ("top", "right", "left"):
             ax.spines[side].set_visible(False)
@@ -401,7 +420,7 @@ class StreamDashboard:
         v_sub.set_text("↓ falling" if v < -0.5 else "↑ rising" if v > 0.5
                        else "steady")
         t_val.set_text(f"{fl.last['temp_C']:.1f} °C")
-        t_sub.set_text("measured in the CanSat")
+        t_sub.set_text("inside the CanSat")
         p_val.set_text(f"{fl.last['press_hPa']:.0f} hPa")
         p_sub.set_text("sea level ≈ 1013 hPa")
 

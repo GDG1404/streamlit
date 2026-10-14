@@ -53,23 +53,46 @@ py dashboard\stream_dashboard.py
 Kies de poort van de ontvanger in de lijst. Start het dashboard **vóór de lancering**,
 als de CanSat nog op de grond staat: de eerste 5 pakketten zijn het nulpunt van de
 hoogte. Elk pakket wordt ook bewaard in `metingen\stream_<datum>_<uur>.csv`.
-Druk op **F** voor volledig scherm.
+Rechtsboven in het dashboard staat een leeg vak **Camera**: daar komt in OBS
+het camerabeeld (stap 5).
 
-## Stap 4 — OBS en YouTube
+## Stap 4 — De camera aansluiten
+
+De camera hangt aan de **laptop van de stream**, niet aan de CanSat. Kies één van deze:
+
+| Camera | Hoe | Goed om te weten |
+|---|---|---|
+| **USB-webcam** (± €30) | insteken in de laptop | het eenvoudigst en het betrouwbaarst |
+| **Gsm** | gratis webcam-app (bv. DroidCam of Iriun), via wifi of USB-kabel | mooier beeld en zoom; hou de gsm aan een lader |
+
+Zet de camera op een klein statief, gericht op de lanceerplaats of op het team.
+
+> Een camera **in** de CanSat kan geen live beeld sturen: de LoRa-radio is daarvoor
+> veel te traag. Een camera die opneemt op een SD-kaart kan wel; die beelden toon je
+> achteraf.
+
+## Stap 5 — OBS en YouTube
 
 1. **YouTube:** zet livestreamen aan voor je kanaal, minstens **een dag vooraf**
    (de eerste keer duurt het tot 24 uur).
-2. Installeer **OBS Studio** en maak een scène met:
-   - **Window Capture** → het venster *CanSat 2027 — Stream*
-   - **Video Capture Device** → de camera
-3. **Settings → Stream** → kies YouTube en koppel je account.
-4. **Settings → Output** → kies een hardware-encoder als die er is
+2. Installeer **OBS Studio**. Zet bij **Settings → Video** de *Base (Canvas)
+   Resolution* op **1920×1080**.
+3. Voeg bij **Sources** het dashboard toe:
+   **+ → Window Capture** → kies het venster *CanSat 2027 — Stream*.
+   Klik er met de rechtermuisknop op → **Transform → Fit to screen**.
+4. Voeg de camera toe: **+ → Video Capture Device** → kies je camera.
+   Kies bij *Resolution* een 16:9-formaat, bv. **1280×720**.
+5. Leg de camera op het vak **Camera** van het dashboard. Sleep hem erop, of
+   klik er met de rechtermuisknop op → **Transform → Edit Transform** en vul in:
+   **Position 1200, 150** en **Size 672 × 378**.
+6. **Settings → Stream** → kies YouTube en koppel je account.
+7. **Settings → Output** → kies een hardware-encoder als die er is
    (QuickSync, NVENC of AMF). Dat spaart de laptop.
-5. Klik op **Start Streaming** én **Start Recording**. Zo heb je ook een opname
+8. Klik op **Start Streaming** én **Start Recording**. Zo heb je ook een opname
    als het internet even wegvalt.
 
-> **Tip:** maak in OBS twee scènes, *Camera* en *Dashboard*. Tijdens de vlucht toon
-> je het dashboard, daarvoor en daarna de camera. Wisselen is één klik.
+> **Tip:** maak in OBS een tweede scène met alleen de camera, groot in beeld. Toon
+> die voor en na de vlucht, en het dashboard tijdens de vlucht. Wisselen is één klik.
 
 ## Let op
 
