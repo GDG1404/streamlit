@@ -56,12 +56,16 @@ Kijk nu in `C:\CanSat`. Je moet dit zien:
 ```
 C:\CanSat\
 ├── README.md                    ← deze handleiding
+├── LIVESTREAM.md                ← de vlucht live op YouTube (voor later)
 ├── start_meting.py              ← meting starten met één knop (bv. in Thonny)
 ├── sensortest_fft\
 │   └── sensortest_fft.ino       ← het programma voor de Teensy
+├── ontvanger_stream\
+│   └── ontvanger_stream.ino     ← extra LoRa-ontvanger voor de livestream
 ├── dashboard\
 │   ├── dashboard_scherm1.py     ← dashboard: grafieken
 │   ├── dashboard_scherm2.py     ← dashboard: 3D-baan, kaart en oriëntatie
+│   ├── stream_dashboard.py      ← eenvoudig dashboard voor de livestream
 │   └── requirements.txt         ← lijst met Python-pakketten
 └── tools\
     ├── serial_logger.py         ← schrijft de metingen van de Teensy naar een bestand
@@ -840,6 +844,7 @@ py tools\check_csv.py metingen\test_01.csv                meting controleren
 py tools\gen_test_csv.py metingen\oefen.csv               nep-metingen maken
 py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per seconde
 py start_meting.py                                         logger + 2 dashboards in één keer
+py dashboard\stream_dashboard.py --demo                    streamdashboard (zie LIVESTREAM.md)
 ```
 
 ---
