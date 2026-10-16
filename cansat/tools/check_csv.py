@@ -3,7 +3,8 @@ CanSat 2027 — CSV-controle
 ==========================
 
 Controleert of een CSV van de Teensy (bv. test_000.csv van de SD-kaart)
-door het dashboard gelezen kan worden, en vat de metingen samen.
+of van de logger (USB of radio) door het dashboard gelezen kan worden,
+en vat de metingen samen.
 
 Gebruik:
   python check_csv.py test_000.csv
@@ -23,6 +24,7 @@ COLUMNS = [  # identiek aan CSV_COLUMNS in dashboard_scherm1.py
     "vib_0_10_g", "vib_10_30_g", "vib_30_60_g", "vib_60_120_g", "vib_120_208_g",
 ]
 OLD_FORMATS = (COLUMNS[:26], COLUMNS[:27], COLUMNS[:29])  # oudere sketches
+LOGGER_COLUMNS = COLUMNS + ["rssi", "snr"]   # serial_logger.py (USB of radio)
 NO_FIX_TIME = "00:00:00"
 MAX_ERRORS_SHOWN = 10
 
@@ -42,7 +44,9 @@ def main():
     errors = []
     header = lines[0].split(",")
     cols = COLUMNS
-    if header in OLD_FORMATS:
+    if header == LOGGER_COLUMNS:
+        cols = header
+    elif header in OLD_FORMATS:
         cols = header
         print(f"Let op  : oud formaat ({len(header)} kolommen i.p.v. "
               f"{len(COLUMNS)}). Het dashboard leest dit nog, maar zonder "
@@ -84,15 +88,27 @@ def main():
         print(f"GPS-fix : {len(fix)}/{len(rows)} rijen"
               + (f", eerste fix na {(fix[0]['millis'] - rows[0]['millis']) / 1000:.0f} s"
                  if fix else "  (geen fix: buiten testen, antenne vrij zicht)"))
+        # radio: de logger zet 'nan' in kolommen die niet in het pakket zitten
+        radio = "rssi" in cols and any(r["rssi"] == r["rssi"] for r in rows)
+        if radio:
+            print("Bron    : radio (Pico-ontvanger). Kolommen met '—' zitten "
+                  "niet in het radiopakket.")
         print("\nKolom          min        max      (controleer of dit logisch is)")
         for k in ("temp_C", "press_hPa", "alt_m", "lacc_z", "gyro_z",
                   "grav_z", "fft_peak_hz", "fft_peak_amp", "audio_rms",
-                  "acc_peak_g", "gps_speed_ms", *COLUMNS[29:]):
+                  "acc_peak_g", "gps_speed_ms", *COLUMNS[29:], "rssi", "snr"):
             if k not in cols:
                 continue
-            vals = [r[k] for r in rows]
+            vals = [r[k] for r in rows if r[k] == r[k]]      # zonder nan
+            if not vals:
+                if radio or k in ("rssi", "snr"):
+                    print(f"  {k:<12} {'—':>9}  {'—':>9}")
+                continue
             print(f"  {k:<12} {min(vals):>9.3f}  {max(vals):>9.3f}")
-        flat = [k for k in cols if k not in ("millis", "time_utc")
+        # radio: temperatuur met 1 decimaal kan 2 minuten gelijk blijven
+        skip = ("millis", "time_utc", "rssi", "snr") + (("temp_C",) if radio else ())
+        flat = [k for k in cols if k not in skip
+                and all(r[k] == r[k] for r in rows)
                 and len({r[k] for r in rows}) == 1]
         if flat:
             print(f"\nLET OP: deze kolommen veranderen nooit (sensor niet "

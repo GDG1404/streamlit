@@ -44,7 +44,8 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dashboard_scherm1 as s1  # SIM_SPEED read via s1 (CLI)
 from dashboard_scherm1 import (C, PhaseDetector, TelemetrySimulator,
-                               has_gps_fix, make_source)
+                               WindowFit, add_unit, from_radio, has_gps_fix,
+                               is_number, make_source)
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -258,8 +259,9 @@ class Dashboard2:
         bm = self.ax_gps.imshow(img, extent=(x_w, x_e, y_s, y_n),
                            origin="upper", zorder=0,
                            interpolation="bilinear")
+        f = self.fit.f if hasattr(self, "fit") else 1.0
         cp = self.ax_gps.text(0.99, 0.01, "© OpenStreetMap contributors",
-                         transform=self.ax_gps.transAxes, fontsize=6,
+                         transform=self.ax_gps.transAxes, fontsize=6 * f,
                          color=C["dim"], ha="right")
         self._basemap_artists = [bm, cp]
 
@@ -300,10 +302,10 @@ class Dashboard2:
         self.fig.text(0.02, 0.965, "CanSat 2027", fontsize=14,
                       fontweight="bold", color=C["text"])
         self.fig.text(0.115, 0.965, "● ", fontsize=10, color=C["cyan"])
-        self.fig.text(0.13, 0.965,
-                      "Screen 2 — 3D Flight Path & Orientation "
-                      f"({self.sim.label})",
-                      fontsize=9, color=C["muted"])
+        self.txt_title = self.fig.text(
+            0.13, 0.965,
+            f"Screen 2 — 3D Flight Path & Orientation ({self.sim.label})",
+            fontsize=9, color=C["muted"])
         self.txt_rssi = self.fig.text(0.66, 0.965, "RSSI —", fontsize=9,
                                       color=C["green"], ha="right")
         self.txt_pkt = self.fig.text(0.79, 0.965, "packet #0", fontsize=8,
@@ -328,9 +330,7 @@ class Dashboard2:
             size = 18 if i < 3 else 13
             v = self.fig.text(x, 0.885, "—", fontsize=size,
                               fontweight="bold", color=col)
-            if unit:
-                self.fig.text(x + 0.135, 0.885, unit, fontsize=8,
-                              color=C["muted"])
+            add_unit(self.fig, v, unit, C["muted"])    # right after the value
             sub = self.fig.text(x, 0.862, "", fontsize=7, color=C["dim"])
             self.txt_kpi.append(v)
             self.txt_kpi_sub.append(sub)
@@ -400,7 +400,7 @@ class Dashboard2:
         self.ax_flight.set_xlim(-self._span3d, self._span3d)
         self.ax_flight.set_ylim(-self._span3d, self._span3d)
         self.ax_flight.set_zlim(0, self.sim.h_max * 1.1)
-        self.ax_flight.text2D(0.0, 0.02,
+        self.ax_flight.text2D(0.0, 0.95,         # top: clear of the axis labels
                               "▲ apogee · ● start · colour = altitude",
                               transform=self.ax_flight.transAxes,
                               fontsize=7, color=C["dim"],
@@ -448,8 +448,10 @@ class Dashboard2:
         self.ax_prof.set_yticks([])
         self.ax_prof.set_xlim(0, self.sim.h_max)
         self.ln_prof = self.ax_prof.axvline(0, color=C["text"], lw=2.5)
-        self.txt_prof = self.ax_prof.text(0, 1.15, "", fontsize=8,
-                                          color=C["cyan"], ha="center")
+        self.txt_prof = self.ax_prof.text(
+            0, 0.5, "", fontsize=8, color=C["text"], va="center",
+            bbox=dict(boxstyle="round,pad=0.2", fc=C["bg"], ec="none",
+                      alpha=0.75))
         self.ax_prof.set_xlabel("altitude (m)", fontsize=7)
 
         # Big 3D orientation + load heatmap (right, rows 0–1)
@@ -476,12 +478,12 @@ class Dashboard2:
             fontsize=9, color=C["amber"], family="monospace",
             va="top", ha="right")
         self.txt_load = self.ax_ori.text2D(
-            0.0, 0.02, "", transform=self.ax_ori.transAxes,
+            0.0, 0.07, "", transform=self.ax_ori.transAxes,
             fontsize=8, color=C["red"], family="monospace", va="bottom")
         self.ax_ori.text2D(
-            1.0, 0.02, "estimate · green = low · red = high (peak hold)",
+            0.0, 0.01, "estimate · green = low · red = high (peak hold)",
             transform=self.ax_ori.transAxes, fontsize=7,
-            color=C["dim"], family="monospace", va="bottom", ha="right")
+            color=C["dim"], family="monospace", va="bottom")
 
         # Radio link status (right, bottom)
         self.ax_link = self.fig.add_subplot(gs[2, 3:])
@@ -505,6 +507,9 @@ class Dashboard2:
             self.txt_link_sub.append(s)
         self.txt_link_val[3].set_text("868.0")
         self.txt_link_sub[3].set_text("MHz · SF7")
+
+        # text and markers scale with the window (13-inch laptop, ...)
+        self.fit = WindowFit(self.fig)
 
     # ── 3D can with peak-hold load heatmap, raster and caps ──
     def _draw_cylinder(self, row):
@@ -752,17 +757,21 @@ class Dashboard2:
         # ── header: real RSSI/SNR when the logger records them; only
         # the simulator shows simulated values (labelled) ──
         sim_mode = isinstance(self.sim, TelemetrySimulator)
+        radio = from_radio(row)
+        title = f"Screen 2 — 3D Flight Path & Orientation ({self.sim.label})"
+        if self.txt_title.get_text() != title:      # LIVE: USB or radio
+            self.txt_title.set_text(title)
         rssi = row.get("rssi")
         snr = row.get("snr")
-        if rssi is not None:
+        if is_number(rssi):
             self.txt_rssi.set_text(f"RSSI {rssi:.0f} dBm")
         elif sim_mode:
             rssi_sim = -70 - 0.045 * alt + random.gauss(0, 1.5)
             self.txt_rssi.set_text(f"RSSI {rssi_sim:.0f} dBm (sim)")
         else:
             self.txt_rssi.set_text("RSSI —")
-        if snr is None and sim_mode:
-            snr = 9.5 - 0.004 * alt + random.gauss(0, 0.4)
+        if not is_number(snr):
+            snr = (9.5 - 0.004 * alt + random.gauss(0, 0.4)) if sim_mode else None
         self.txt_pkt.set_text(f"packet #{self.pkt_rx}")
         self.txt_phase.set_text(det)
         self.txt_clock.set_text(f"{int(t // 60):02d}:{int(t % 60):02d}")
@@ -772,9 +781,10 @@ class Dashboard2:
         # drift: speed and direction over the ground, measured by the GPS
         spd = row.get("gps_speed_ms", float("nan"))
         crs = row.get("gps_course_deg", float("nan"))
-        if spd != spd:                                  # nan: older file
+        if spd != spd:                       # nan: radio packet / older file
             self.txt_kpi[0].set_text("—")
-            self.txt_kpi_sub[0].set_text("not in this file")
+            self.txt_kpi_sub[0].set_text("not in radio packet" if radio
+                                         else "not in this file")
         elif not has_gps_fix(row):
             self.txt_kpi[0].set_text("—")
             self.txt_kpi_sub[0].set_text("no GPS fix")
@@ -805,9 +815,12 @@ class Dashboard2:
 
         # ── 3D orientation + heatmap ──
         self._draw_cylinder(row)
-        self.txt_quat.set_text(
-            f"qw {row['qw']:+.4f}\nqx {row['qx']:+.4f}\n"
-            f"qy {row['qy']:+.4f}\nqz {row['qz']:+.4f}")
+        if is_number(row["qw"]):
+            self.txt_quat.set_text(
+                f"qw {row['qw']:+.4f}\nqx {row['qx']:+.4f}\n"
+                f"qy {row['qy']:+.4f}\nqz {row['qz']:+.4f}")
+        else:                                # radio: Euler angles only
+            self.txt_quat.set_text("quaternion:\nnot in radio packet")
         self.txt_euler.set_text(
             f"Heading {row['heading']:5.0f}°\n"
             f"Roll    {row['roll']:+5.1f}°\n"
@@ -815,8 +828,11 @@ class Dashboard2:
 
         # ── altitude profile ──
         self.ln_prof.set_xdata([alt, alt])
-        self.txt_prof.set_position((alt, 1.15))
-        self.txt_prof.set_text(f"{alt:.0f}m ▲")
+        right = alt > 0.8 * self.sim.h_max       # label stays in the bar
+        self.txt_prof.set_position(
+            (alt + (-0.015 if right else 0.015) * self.sim.h_max, 0.5))
+        self.txt_prof.set_horizontalalignment("right" if right else "left")
+        self.txt_prof.set_text(f"{alt:.0f} m")
 
         # ── radio link ──
         tot = self.pkt_rx + self.pkt_lost
@@ -838,6 +854,7 @@ class Dashboard2:
         # A timer instead of FuncAnimation: FuncAnimation redraws the whole
         # figure on every tick, also without new data. Drawing is the slow
         # part (~0.1 s on a fast PC, more on a school laptop).
+        self.fit.fit_screen()
         self.timer = self.fig.canvas.new_timer(interval=UPDATE_MS)
         self.timer.add_callback(self._tick)
         self.timer.start()

@@ -4,12 +4,13 @@ CanSat 2027 — Meting starten met één knop (handig in Thonny)
 
 Druk op Run (F5). Het programma stelt drie vragen:
 
-  1. Op welke poort zit de Teensy?
+  1. Op welke poort zit de Teensy (USB-kabel) of de Pico-ontvanger (radio)?
   2. Hoe heet je meting?
   3. Welk dashboard wil je zien?
 
-Daarna start de logger (de metingen gaan naar C:\CanSat\metingen\<naam>.csv)
-en opent het de dashboards met LIVE data uit datzelfde bestand.
+Daarna start de logger (de metingen gaan naar de map 'metingen' naast dit
+bestand, bv. metingen\test_01.csv) en opent het de dashboards met LIVE
+data uit datzelfde bestand.
 
 Op elke vraag mag je gewoon op Enter drukken: dan neemt het programma
 het voorstel tussen [haakjes].
@@ -17,9 +18,13 @@ het voorstel tussen [haakjes].
 Stoppen: klik in Thonny op de rode Stop-knop (of Ctrl+C).
 Staan de dashboards daarna nog open? Sluit ze dan zelf.
 
-Vooraf: de sketch staat al op de Teensy. Sluit alle vensters van de
-Arduino IDE (kruisje rechtsboven). Alleen de Serial Monitor sluiten is
-niet genoeg: dan blijft de USB-poort bezet.
+Vooraf:
+  - Teensy: de sketch staat al op de Teensy. Sluit alle vensters van de
+    Arduino IDE (kruisje rechtsboven). Alleen de Serial Monitor sluiten
+    is niet genoeg: dan blijft de USB-poort bezet.
+  - Pico-ontvanger: main.py staat op de Pico. Thonny mag niet met de Pico
+    verbonden zijn: kies rechtsonder in Thonny 'Local Python 3'. Trek
+    daarna de USB-kabel van de Pico uit en steek hem terug.
 
 Dit bestand hoort in de map CanSat, naast de mappen 'dashboard' en 'tools'.
 """
@@ -34,6 +39,7 @@ import time
 MAP = os.path.dirname(os.path.abspath(__file__))       # C:\CanSat
 METINGEN = os.path.join(MAP, "metingen")
 TEENSY_VID = 0x16C0                                     # USB-code van PJRC
+PICO_VID = 0x2E8A                                       # USB-code van Raspberry Pi
 DASHBOARDS = {"1": ["dashboard_scherm1.py"],
               "2": ["dashboard_scherm2.py"],
               "3": ["dashboard_scherm1.py", "dashboard_scherm2.py"],
@@ -52,16 +58,20 @@ def kies_poort(list_ports):
     while True:
         poorten = sorted(list_ports.comports(), key=lambda p: p.device)
         teensys = [p.device for p in poorten if p.vid == TEENSY_VID]
-        print("\n1) Op welke poort zit de Teensy?")
+        picos = [p.device for p in poorten if p.vid == PICO_VID]
+        print("\n1) Op welke poort zit de Teensy (USB-kabel) of de Pico (radio)?")
         if not poorten:
             print("   Geen enkele poort gevonden. Zit de USB-kabel goed?")
             print("   Is het een datakabel (geen laadkabel)?")
         for i, p in enumerate(poorten, 1):
-            merk = "   ← Teensy" if p.device in teensys else ""
+            merk = ("   ← Teensy" if p.device in teensys else
+                    "   ← Pico (ontvanger)" if p.device in picos else "")
             print(f"   {i}. {p.device:<8} {p.description}{merk}")
         print("   Typ het nummer uit de lijst, of de naam (bv. COM9).")
         print("   Typ 'r' om de lijst opnieuw te zoeken (bv. na het insteken).")
-        voorstel = teensys[0] if len(teensys) == 1 else ""
+        # één Pico: die (radiotest); anders één Teensy: die (USB-test)
+        voorstel = (picos[0] if len(picos) == 1 else
+                    teensys[0] if len(teensys) == 1 else "")
         antwoord = vraag("   Poort", voorstel)
         if antwoord.lower() == "r" or not antwoord:
             continue

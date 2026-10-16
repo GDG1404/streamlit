@@ -77,6 +77,11 @@
 #define LORA_SF             7       // Spreading Factor 7-12 — SF7: ~130ms on-air (SF9 was ~800ms en blokkeerde de sensorloop)
 #define LORA_CR             7       // Coding Rate 5-8
 #define LORA_SYNC_WORD      0x12    // Privé netwerk
+// Zendvermogen in dBm. 14 dBm = 25 mW: het maximum dat in Europa mag op
+// 868,0-868,6 MHz. Ruim genoeg voor de test op 100 m. (Was 20 = 100 mW.)
+// De ontvanger (Pico: pico/main.py) moet dezelfde frequentie, BW, SF, CR
+// en sync word gebruiken; het zendvermogen mag verschillen.
+#define LORA_POWER_DBM      14
 
 // Pins
 #define RFM95_CS            10
@@ -433,7 +438,7 @@ void initLoRa() {
     int state = radio.begin(LORA_FREQUENCY, LORA_BANDWIDTH,
                             LORA_SF, LORA_CR, LORA_SYNC_WORD);
     if (state == RADIOLIB_ERR_NONE) {
-        radio.setOutputPower(20); // Maximaal zendvermogen
+        radio.setOutputPower(LORA_POWER_DBM);   // zie LORA_POWER_DBM
         ok_lora = true;
         Serial.println("OK");
     } else {

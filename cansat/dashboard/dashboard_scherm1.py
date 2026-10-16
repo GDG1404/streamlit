@@ -26,6 +26,12 @@ Panels:
   - FLIGHT PHASE TIMELINE: horizontal bar showing the phases over time
   - Cd & descent rate on a twin axis
 
+Radio data (Pico receiver, see pico/main.py): only the 13 values of the
+radio packet arrive, plus RSSI and SNR. Panels whose data is not in the
+packet (gyroscope, vibration bands, peak g) say "not in radio packet".
+Text and markers scale with the window, so the layout stays the same on a
+small laptop screen.
+
 Requirements:  pip install numpy matplotlib
 Run:           python dashboard_scherm1.py                      (settings below)
                python dashboard_scherm1.py --replay test_000.csv
@@ -46,13 +52,16 @@ import matplotlib
 
 matplotlib.use("TkAgg")  # default on Windows; change if needed
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
 from matplotlib.gridspec import GridSpec
+from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
+from matplotlib.text import Annotation, Text
 
 # ── Settings ─────────────────────────────────────────────────
 SIM_SPEED = 1.0      # 1.0 = realtime, 2.0 = double speed
-UPDATE_MS = 100      # GUI update interval (ms)
+UPDATE_MS = 100      # check for new data every UPDATE_MS (ms); the screen
+                     # is only redrawn when a new row came in
+DESIGN_SIZE = (15.0, 8.5)   # window size (inches) the layout was drawn for
 AUDIO_MIN_TOP = 0.01  # audio chart: smallest top of the y-axis
 WINDOW_S  = 30       # time window for the small charts (s)
 F_NYQUIST = 208      # LSM6DSO: 416 Hz ODR → usable spectrum 0–208 Hz
@@ -148,6 +157,99 @@ V_KEY = "_v_desc"
 def row_speed(source, row):
     """Descent speed (m/s, + = descending) belonging to this row."""
     return row.get(V_KEY, source.v)
+
+
+def is_number(v):
+    return v is not None and v == v          # nan != nan
+
+
+def fmt(v, spec):
+    """Value for a label; nan (not measured, not in the radio packet) → —."""
+    return format(v, spec) if is_number(v) else "—"
+
+
+def from_radio(row):
+    """Row that came in via the radio (Pico receiver): serial_logger then
+    records the RSSI. Columns that are not in the radio packet are nan."""
+    return is_number(row.get("rssi"))
+
+
+def add_unit(fig, value_text, unit, color, size=8):
+    """Unit right after the value, however wide the value is ('6' or
+    '1013'). A fixed position put °C next to the pressure instead."""
+    if not unit:
+        return None
+    ann = Annotation(unit, xy=(1, 0), xycoords=value_text, xytext=(4, 0),
+                     textcoords="offset points", fontsize=size, color=color,
+                     va="bottom")
+    fig.add_artist(ann)
+    return ann
+
+
+class WindowFit:
+    """Keeps the designed layout at every window size.
+
+    Font sizes are in points, so in a smaller window (a 13-inch laptop,
+    Windows scaling 125-150 %, a maximised window) the text used to be
+    relatively bigger and ran into other text. Here every text, tick label
+    and marker scales with the window instead, and the window starts
+    inside the screen."""
+
+    def __init__(self, fig):
+        self.fig = fig
+        self.f = 1.0
+        ticks = {}
+        for ax in fig.axes:
+            for axis in (ax.xaxis, ax.yaxis, getattr(ax, "zaxis", None)):
+                if axis is None:
+                    continue
+                labels = axis.get_ticklabels()
+                ticks[axis] = labels[0].get_fontsize() if labels else 7
+        tick_ids = {id(t) for axis in ticks for t in
+                    axis.get_ticklabels() + axis.get_ticklabels(minor=True)}
+        self.ticks = ticks
+        self.fonts = [(t, t.get_fontsize()) for t in fig.findobj(Text)
+                      if id(t) not in tick_ids]
+        self.marks = [(m, m.get_markersize()) for m in fig.findobj(Line2D)
+                      if m.get_marker() not in (None, "None", "", " ")]
+        fig.canvas.mpl_connect("resize_event", self.rescale)
+
+    def rescale(self, _event=None):
+        w, h = self.fig.get_size_inches()
+        f = max(0.4, min(2.0, w / DESIGN_SIZE[0], h / DESIGN_SIZE[1]))
+        if abs(f - self.f) < 0.005:
+            return
+        self.f = f
+        for t, size in self.fonts:
+            t.set_fontsize(size * f)
+        for axis, size in self.ticks.items():
+            axis.set_tick_params(labelsize=size * f)
+        for m, size in self.marks:
+            m.set_markersize(size * f)
+
+    def fit_screen(self):
+        """Make the window fit on the screen (Tk only). Runs a moment after
+        the window appears: only then does Tk know the real size (with
+        Windows scaling 125-150 % the window grows when it is shown)."""
+        try:
+            top = self.fig.canvas.get_tk_widget().winfo_toplevel()
+        except AttributeError:
+            return
+
+        def fit():
+            top.update_idletasks()
+            w, h = top.winfo_width(), top.winfo_height()   # incl. toolbar
+            if w < 50 or h < 50:                           # not shown yet
+                return
+            # width and height each as much as the screen allows; the
+            # text scales with the smaller of the two (rescale)
+            new_w = int(min(w, 0.95 * top.winfo_screenwidth()))
+            new_h = int(min(h, 0.88 * top.winfo_screenheight()))
+            if new_w < w - 2 or new_h < h - 2:   # the figure follows the window
+                top.geometry("%dx%d+0+0" % (new_w, new_h))
+
+        for ms in (300, 1500):
+            top.after(ms, fit)
 
 
 # ═════════════════════════════════════════════════════════════
@@ -401,7 +503,8 @@ class CsvReplay:
             xs.append(abs((r["lon"] - self.lon0) * 111_320.0 * coslat))
             ys.append(abs((r["lat"] - self.lat0) * 111_320.0))
         self.xy_span = max(150.0, 1.15 * max(max(xs), max(ys)))
-        self.label = "REPLAY: real flight data"
+        self.label = ("REPLAY: radio data (LoRa)" if from_radio(self.rows[0])
+                      else "REPLAY: real flight data")
 
         self.t = 0.0
         self.i = 0
@@ -504,6 +607,9 @@ class CsvLive:
         return row
 
     def _ingest_row(self, row):
+        if not self.rows:            # now we know where the data comes from
+            self.label = ("LIVE: radio (LoRa via Pico)" if from_radio(row)
+                          else "LIVE: USB (Teensy)")
         # ground reference from the first 10 rows
         if len(self._gnd) < 10:
             self._gnd.append(row["alt_m"])
@@ -706,6 +812,7 @@ class Dashboard:
         self.t_chute = None
         self.pkt_rx = 0
         self._wall = None        # wall-clock pacing for real-time replay
+        self._changed = False    # new data since the last frame?
         self._build_figure()
 
     # ── construction ──
@@ -735,9 +842,9 @@ class Dashboard:
         self.fig.text(0.02, 0.965, "CanSat 2027", fontsize=14,
                       fontweight="bold", color=C["text"])
         self.fig.text(0.115, 0.965, "● ", fontsize=10, color=C["green"])
-        self.fig.text(0.13, 0.965,
-                      f"Screen 1 — Flight Data & Sensors ({self.sim.label})",
-                      fontsize=9, color=C["muted"])
+        self.txt_title = self.fig.text(
+            0.13, 0.965, f"Screen 1 — Flight Data & Sensors ({self.sim.label})",
+            fontsize=9, color=C["muted"])
         self.txt_rssi = self.fig.text(0.66, 0.965, "RSSI —", fontsize=9,
                                       color=C["green"], ha="right")
         self.txt_pkt = self.fig.text(0.79, 0.965, "packet #0", fontsize=8,
@@ -758,14 +865,14 @@ class Dashboard:
                 ("TEMPERATURE", "°C", C["amber"]),
                 ("PRESSURE", "hPa", C["text"]),
                 ("DESCENT RATE", "m/s", C["blue"]),
-                ("CD DRAG COEFFICIENT", "—", C["green"])]
+                ("CD DRAG COEFFICIENT", "", C["green"])]     # no unit
         self.txt_kpi, self.txt_kpi_sub = [], []
         for i, (label, unit, col) in enumerate(kpis):
             x = 0.02 + i * 0.196
             self.fig.text(x, 0.928, label, fontsize=7, color=C["dim"])
             v = self.fig.text(x, 0.888, "—", fontsize=18, fontweight="bold",
                               color=col)
-            self.fig.text(x + 0.135, 0.888, unit, fontsize=8, color=C["muted"])
+            add_unit(self.fig, v, unit, C["muted"])
             sub = self.fig.text(x, 0.866, "", fontsize=7, color=C["dim"])
             self.txt_kpi.append(v)
             self.txt_kpi_sub.append(sub)
@@ -820,6 +927,10 @@ class Dashboard:
         self.ax_gyro.set_ylim(-50, 150)
         self.ax_gyro.legend(loc="upper right", fontsize=6, frameon=False,
                             labelcolor=C["muted"])
+        # shown when there is nothing to draw (radio: not in the packet)
+        self.txt_gyro_note = self.ax_gyro.text(
+            0.5, 0.5, "", fontsize=8, color=C["muted"], ha="center",
+            va="center", transform=self.ax_gyro.transAxes)
 
         self.ax_fft = self.fig.add_subplot(gs[1, 2:4])
         self._style_axes(self.ax_fft,
@@ -898,6 +1009,9 @@ class Dashboard:
                           loc="upper right", fontsize=7, frameon=False,
                           labelcolor=C["muted"])
 
+        # text and markers scale with the window (13-inch laptop, ...)
+        self.fit = WindowFit(self.fig)
+
     # ── phase timeline ──
     def _track_phase(self, t, ph):
         if not self.segments or self.segments[-1][0] != ph:
@@ -920,7 +1034,8 @@ class Dashboard:
             self.seg_artists.append(rect)
             if (t1 - t0) / xspan > 0.07:        # label only if wide enough
                 tx = self.ax_phase.text(0.5 * (t0 + t1), 0.5, ph,
-                                        fontsize=6.5, color=C["text"],
+                                        fontsize=6.5 * self.fit.f,
+                                        color=C["text"],
                                         ha="center", va="center")
                 self.seg_artists.append(tx)
         self.ax_phase.set_xlim(0, xspan)
@@ -1013,22 +1128,28 @@ class Dashboard:
         # fetch all new rows (a live catch-up can deliver hundreds at
         # once); ingest each of them, render once from the last
         rows = self.sim.fetch(dt)
+        self._changed = bool(rows)
         if not rows:
             return []
         for r in rows[:-1]:
             self._ingest(r)
         row = rows[-1]
         cd, det, t = self._ingest(row)
+        radio = from_radio(row)
 
         h = self.hist
         ts = np.array(h["t"])
 
         # ── header ──
-        # real RSSI when the logger records it (column 27); only the
+        title = f"Screen 1 — Flight Data & Sensors ({self.sim.label})"
+        if self.txt_title.get_text() != title:      # LIVE: USB or radio
+            self.txt_title.set_text(title)
+        # real RSSI/SNR when the data came in via the radio; only the
         # simulator shows a simulated value, explicitly labelled
-        rssi = row.get("rssi")
-        if rssi is not None:
-            self.txt_rssi.set_text(f"RSSI {rssi:.0f} dBm")
+        rssi, snr = row.get("rssi"), row.get("snr")
+        if is_number(rssi):
+            self.txt_rssi.set_text(f"RSSI {rssi:.0f} dBm" + (
+                f" · SNR {snr:+.1f} dB" if is_number(snr) else ""))
         elif isinstance(self.sim, TelemetrySimulator):
             rssi_sim = -70 - 0.045 * row["alt_m"] + random.gauss(0, 1.5)
             self.txt_rssi.set_text(f"RSSI {rssi_sim:.0f} dBm (sim)")
@@ -1048,11 +1169,12 @@ class Dashboard:
             self.txt_truth.set_color(C["dim"])
 
         # ── KPIs ──
-        vals = (f"{int(round(row['alt_m']))}",       # int(): no "-0"
-                f"{row['temp_C']:.1f}",
-                f"{row['press_hPa']:.0f}",
-                f"{row_speed(self.sim, row):.1f}" if det == "DESCENT" else "0.0",
-                f"{cd:.2f}" if not math.isnan(cd) else "—")
+        alt = row["alt_m"]
+        vals = (f"{int(round(alt))}" if is_number(alt) else "—",  # no "-0"
+                fmt(row["temp_C"], ".1f"),
+                fmt(row["press_hPa"], ".0f"),
+                fmt(row_speed(self.sim, row), ".1f") if det == "DESCENT" else "0.0",
+                fmt(cd, ".2f"))
         subs = (f"apogee: {self.apogee:.0f} m" if self.apogee > 10 else "",
                 "",
                 "",
@@ -1094,13 +1216,20 @@ class Dashboard:
             self.txt_shock.set_text(
                 f"largest shock {self.shock_g:.1f} g at "
                 f"{int(self.t_shock // 60):02d}:{int(self.t_shock % 60):02d}")
+        elif radio:
+            self.txt_shock.set_text("peak g: not in radio packet")
         self.ln_gx.set_data(ts, h["gx"])
         self.ln_gy.set_data(ts, h["gy"])
         self.ln_gz.set_data(ts, h["gz"])
+        if any(is_number(g) for g in list(h["gz"])[-50:]):
+            self.txt_gyro_note.set_text("")
+        else:
+            self.txt_gyro_note.set_text("not in radio packet" if radio
+                                        else "no gyroscope data")
         self.ln_aud.set_data(ts, h["audio"])
         vis = [a for tt, a in zip(ts, h["audio"]) if tt >= t0 and a == a]
         self.ax_aud.set_ylim(0, max([AUDIO_MIN_TOP] + vis) * 1.25)
-        self.txt_aud.set_text(f"{row['audio_rms']:.4f}")
+        self.txt_aud.set_text(fmt(row["audio_rms"], ".4f"))
         if self.t_chute is not None:
             self.ln_chute.set_xdata([self.t_chute, self.t_chute])
             self.txt_chute.set_position((self.t_chute + 0.4, 0.9))
@@ -1108,12 +1237,13 @@ class Dashboard:
 
         # ── vibration bands: measured values only ──
         bands = np.array([row.get(c, np.nan) for c in BAND_COLUMNS])
-        if np.isnan(bands).any():                       # older file
+        if np.isnan(bands).any():               # radio packet or older file
             for bar, tx in zip(self.band_bars, self.band_texts):
                 bar.set_height(1e-4)
                 tx.set_text("")
             self.band_max_marks.set_ydata(np.full(len(bands), np.nan))
-            band_note = "no band data in this file · "
+            band_note = ("bands not in radio packet · " if radio
+                         else "no band data in this file · ")
         else:
             for bar, tx, v in zip(self.band_bars, self.band_texts, bands):
                 bar.set_height(max(v, 1e-4))
@@ -1124,10 +1254,14 @@ class Dashboard:
                 np.where(self.band_max > 0, self.band_max, np.nan))
             band_note = ""
         peak_hz, peak_amp = row["fft_peak_hz"], row["fft_peak_amp"]
-        self.txt_fftpeak.set_text(
-            band_note + (f"strongest {peak_hz:.0f} Hz · {peak_amp:.2f} g"
-                         if peak_amp > FFT_STRONG_G
-                         else "no strong vibration"))
+        if not is_number(peak_amp):     # radio: frequency yes, strength no
+            peak = (f"strongest {peak_hz:.0f} Hz" if is_number(peak_hz)
+                    else "no vibration data")
+        elif peak_amp > FFT_STRONG_G:
+            peak = f"strongest {peak_hz:.0f} Hz · {peak_amp:.2f} g"
+        else:
+            peak = "no strong vibration"
+        self.txt_fftpeak.set_text(band_note + peak)
         self._update_top_freqs()
 
         # ── flight phase timeline ──
@@ -1141,9 +1275,19 @@ class Dashboard:
         return []
 
     def run(self):
-        self.anim = FuncAnimation(self.fig, self.update,
-                                  interval=UPDATE_MS, cache_frame_data=False)
+        # A timer instead of FuncAnimation: FuncAnimation redraws the whole
+        # figure on every tick, also without new data (heavy on a laptop
+        # that also runs screen 2). Now: redraw only when a row came in.
+        self.fit.fit_screen()
+        self.timer = self.fig.canvas.new_timer(interval=UPDATE_MS)
+        self.timer.add_callback(self._tick)
+        self.timer.start()
         plt.show()
+
+    def _tick(self):
+        self.update(0)
+        if self._changed:
+            self.fig.canvas.draw_idle()
 
 
 def parse_args(description=__doc__.splitlines()[1]):

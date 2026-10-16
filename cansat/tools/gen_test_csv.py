@@ -12,16 +12,27 @@ van 2 minuten:
      60 s  handklap (piek in audio_rms)
   70–90 s  trap op gelopen (~6 m hoger), GPS ziet 1,2 m/s richting oost
 
+Met --radio komt er een bestand zoals de logger het maakt als de gegevens
+via de Pico-ontvanger (radio) binnenkomen: alleen de 13 waarden van het
+radiopakket (de rest is 'nan'), met RSSI en SNR. Het scenario is dan een
+afstandstest: de CanSat gaat van 1 m tot 100 m ver, een paar pakketten
+gaan verloren.
+
 Gebruik:
   python gen_test_csv.py test_000.csv            # in één keer (replay)
   python gen_test_csv.py cansat27_live.csv --live  # 1 regel/s (live)
+  python gen_test_csv.py radio_test.csv --radio  # zoals via de radio
 """
 
 import argparse
 import math
 import os
 import random
+import sys
 import time
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import serial_logger  # noqa: E402  (zelfde omzetting als bij een echte meting)
 
 COLUMNS = [  # identiek aan CSV_HEADER in sensortest_fft.ino
     "millis", "temp_C", "press_hPa", "alt_m", "lat", "lon", "time_utc",
@@ -104,27 +115,64 @@ def make_row(t, t_ms):
     ])
 
 
+def radio_packet(row, t):
+    """Het LoRa-pakket dat de vluchtcode van deze meting maakt (13 waarden,
+    zelfde decimalen als String(waarde, n) in sendAndLog)."""
+    v = dict(zip(COLUMNS, row.split(",")))
+    v["temp_C"] = float(v["temp_C"]) + 0.006 * t     # buiten: warmt wat op
+    digits = {"temp_C": 1, "press_hPa": 1, "alt_m": 1, "lat": 5, "lon": 5,
+              "lacc_x": 2, "lacc_y": 2, "lacc_z": 2, "heading": 1, "roll": 1,
+              "pitch": 1, "fft_peak_hz": 0, "audio_rms": 3}
+    return [f"{float(v[k]):.{n}f}" for k, n in digits.items()]
+
+
+def radio_quality(t):
+    """Afstandstest: van 1 m tot 100 m in 2 minuten, met tussen 80 en 100 s
+    een gebouw tussen zender en ontvanger. Geeft RSSI (dBm), SNR (dB) en of
+    het pakket verloren gaat."""
+    d = 1 + 99 * t / (DURATION_S - 1)
+    wall = 80 <= t < 100
+    rssi = -40 - 25 * math.log10(d) - (20 if wall else 0) + random.gauss(0, 2)
+    snr = max(-10.0, min(10.0, (rssi + 112) / 2 + random.gauss(0, 0.7)))
+    lost = random.random() < (0.15 if wall else 0.02)
+    return round(rssi), round(snr * 4) / 4, lost
+
+
 def main():
     p = argparse.ArgumentParser(description="Maak een test-CSV zoals de Teensy.")
     p.add_argument("out", help="uitvoerbestand (.csv)")
     p.add_argument("--live", action="store_true",
                    help="schrijf 1 regel per seconde (test voor --live)")
+    p.add_argument("--radio", action="store_true",
+                   help="zoals via de Pico-ontvanger (radio), met RSSI en SNR")
     p.add_argument("--seed", type=int, default=1)
     args = p.parse_args()
     random.seed(args.seed)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
+    cols = serial_logger.COLUMNS if args.radio else COLUMNS
+    n = 0
     with open(args.out, "w", newline="", encoding="utf-8") as fh:
-        fh.write(",".join(COLUMNS) + "\r\n")   # Arduino println = CRLF
+        fh.write(",".join(cols) + "\r\n")      # Arduino println = CRLF
         t_ms = 5212                             # eerste regel na setup()
         for t in range(DURATION_S):
-            fh.write(make_row(t, t_ms) + "\r\n")
+            row = make_row(t, t_ms)
+            if args.radio:
+                rssi, snr, lost = radio_quality(t)
+                if not lost:
+                    parts = radio_packet(row, t) + [str(rssi), f"{snr:.1f}"]
+                    rrow = serial_logger.radio_row(parts, t_ms - 5212 + 2380)
+                    fh.write(serial_logger.csv_line(rrow, cols) + "\r\n")
+                    n += 1
+            else:
+                fh.write(row + "\r\n")
+                n += 1
             t_ms += 1000 + random.choice([0, 0, 1])
             if args.live:
                 fh.flush()
                 print(f"\r{t + 1}/{DURATION_S} s", end="", flush=True)
                 time.sleep(1.0)
-    print(f"\n{args.out}: {DURATION_S} regels, {len(COLUMNS)} kolommen")
+    print(f"\n{args.out}: {n} regels, {len(cols)} kolommen")
 
 
 if __name__ == "__main__":

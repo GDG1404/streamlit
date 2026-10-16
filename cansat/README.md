@@ -59,6 +59,8 @@ C:\CanSat\
 ├── start_meting.py              ← meting starten met één knop (bv. in Thonny)
 ├── sensortest_fft\
 │   └── sensortest_fft.ino       ← het programma voor de Teensy
+├── pico\
+│   └── main.py                  ← ontvanger voor de radio (Raspberry Pi Pico)
 ├── dashboard\
 │   ├── dashboard_scherm1.py     ← dashboard: grafieken
 │   ├── dashboard_scherm2.py     ← dashboard: 3D-baan, kaart en oriëntatie
@@ -283,7 +285,7 @@ Werk je liever in **Thonny**, of wil je niet drie vensters openen? Dan doet
 3. Beantwoord de drie vragen onderaan in de Shell. Druk je gewoon op **Enter**, dan
    neemt het programma het voorstel tussen [haakjes].
    ```
-   1) Op welke poort zit de Teensy?
+   1) Op welke poort zit de Teensy (USB-kabel) of de Pico (radio)?
       1. COM3     Intel(R) Active Management Technology
       2. COM9     USB Serial Device (COM9)   ← Teensy
       Poort [COM9]:                          ← Enter, of typ 2, of COM9
@@ -300,7 +302,10 @@ Werk je liever in **Thonny**, of wil je niet drie vensters openen? Dan doet
    ```
 
 Het programma bewaart de metingen in `C:\CanSat\metingen\schudtest.csv` en opent de
-dashboards die je koos, met LIVE data. Bestaat de naam al, dan vraagt het een andere
+dashboards die je koos, met LIVE data. Komen de metingen via de radio binnen (de
+Pico-ontvanger met `pico\main.py`)? Kies dan de poort met `← Pico (ontvanger)`. De
+dashboards tonen dan ook de RSSI, en `not in radio packet` bij wat niet in het
+radiopakket zit. Bestaat de naam al, dan vraagt het een andere
 naam: een oude meting wordt nooit overschreven. Spaties in de naam worden `_`.
 
 **Stoppen:** klik op de rode **Stop**-knop in Thonny. Staan de dashboards daarna nog
