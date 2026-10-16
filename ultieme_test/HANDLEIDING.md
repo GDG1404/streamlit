@@ -406,7 +406,8 @@ Volg het draaiboek van deel D. Op elk punt:
 1. Zet de laptop op een tafel. De laptop is volledig opgeladen, of zit aan het
    stopcontact.
 2. Steek de Pico in de laptop. Leg de Pico op de tafel, met de antenne recht omhoog en
-   niet tegen de laptop.
+   niet tegen de laptop. Plak de USB-kabel vast met een stukje tape, zodat niemand hem
+   lostrekt.
 3. Het lampje van de Pico flitst om de 2 seconden. Dan draait `main.py`.
 
 ### C2. Is Thonny los?
@@ -621,6 +622,7 @@ de antennes na.
 | `FOUT: COM7 is bezet door een ander programma` | Thonny of de Arduino IDE gebruikt de poort. | Sluit Thonny (of kies Local Python 3) en de Arduino IDE. Pico uit en terug in. |
 | Geen `← Pico (ontvanger)` in de lijst | De Pico wordt niet gezien. | Andere USB-kabel (een datakabel) of andere USB-poort. Typ `r` om opnieuw te zoeken. |
 | `LET OP: al 5 s niets ontvangen` | De Pico zendt niets door. | Flitst het lampje van de Pico? Staat het breadboard aan? |
+| `LET OP: de verbinding op COM7 (Pico) is weg` | De USB-kabel van de Pico is los. | Steek hem terug in. De meting gaat vanzelf verder, in hetzelfde bestand. Niets herstarten. |
 | `'py' is not recognized` | Python ontbreekt. | Installeer Python (A6), of start de meting in Thonny (C3). |
 | `FOUT: het pakket 'matplotlib' ontbreekt` | De pakketten ontbreken. | Dubbelklik op `INSTALLEER_PAKKETTEN.bat` (A6). |
 | `LET OP: dashboard_scherm1.py is gestopt met een fout` | Het dashboard crashte. | Open het `.log`-bestand dat het programma noemt, en toon het aan de leerkracht. |

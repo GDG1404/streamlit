@@ -209,7 +209,29 @@ def main():
                   "Kijk met: py tools\\serial_logger.py --list")
         return 1
     label = port_label(args.port, list_ports)
-    with ser, open(args.out, "a", newline="", encoding="utf-8") as fh:
+
+    def reconnect(old):
+        """De USB-kabel is los, of de Pico of Teensy herstartte: wachten tot de
+        poort terug is en dan verder schrijven in hetzelfde bestand. Vroeger
+        stopte de meting hier met een foutmelding."""
+        try:
+            old.close()
+        except Exception:
+            pass
+        print(f"\nLET OP: de verbinding op {args.port} ({label}) is weg. Zit de "
+              "USB-kabel nog goed?\n  Steek hem terug in: ik probeer elke 2 s "
+              "opnieuw. (Stoppen: Ctrl+C)")
+        while True:
+            time.sleep(2)
+            try:
+                new = serial.Serial(args.port, args.baud, timeout=1)
+            except (serial.SerialException, OSError):
+                continue
+            print(f"Weer verbonden met {args.port}. De meting gaat verder in "
+                  "hetzelfde bestand.")
+            return new
+
+    with open(args.out, "a", newline="", encoding="utf-8") as fh:
         if new_file:
             fh.write(HEADER + "\r\n")
         print(f"Lezen van {args.port} ({label}) → {args.out}  (Ctrl+C om te stoppen)")
@@ -220,7 +242,12 @@ def main():
         t_start = time.monotonic()
         try:
             while True:
-                line = ser.readline().decode("utf-8", errors="replace").strip()
+                try:
+                    raw = ser.readline()
+                except (serial.SerialException, OSError):
+                    ser = reconnect(ser)
+                    continue
+                line = raw.decode("utf-8", errors="replace").strip()
                 if not line:
                     if (n == 0 and not warned_silent
                             and time.monotonic() - t_start > 5):
@@ -268,6 +295,8 @@ def main():
             print(f"\nGestopt: {n} rijen in {args.out}")
             if stats.n or label == "Pico":
                 print(stats.summary())
+        finally:
+            ser.close()
     return 0
 
 
