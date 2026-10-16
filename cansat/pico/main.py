@@ -5,8 +5,8 @@
 #   Het luistert naar de radiopakketten van de CanSat (Teensy + RFM95W)
 #   en stuurt elk pakket via de USB-kabel naar de laptop, als een regel:
 #
-#     13 waarden van de CanSat , RSSI (dBm) , SNR (dB)
-#     bv. 21.3,1013.2,123.4,50.85034,4.35171,0.12,-0.05,0.03,123.4,-2.1,1.5,25,0.012,-87,9.5
+#     19 waarden van de CanSat , RSSI (dBm) , SNR (dB)
+#     (13 metingen + 6 van de FFT; een oudere vluchtcode stuurt er 13)
 #
 #   Meldingen beginnen met '#'. De laptop toont ze, maar slaat ze niet op.
 #
@@ -52,7 +52,8 @@ CR = 7           # coding rate 4/7
 SYNC_WORD = 0x12
 PREAMBLE = 8     # standaard van RadioLib (de bibliotheek op de Teensy)
 
-AANTAL_WAARDEN = 13   # zoveel getallen stuurt de CanSat per pakket
+AANTAL_WAARDEN = (13, 19)   # zoveel getallen stuurt de CanSat per pakket
+                            # (19 = met de FFT; 13 = oudere vluchtcode)
 
 # -------------------------------------------------------------------
 # Hieronder hoef je niets te veranderen.
@@ -214,14 +215,14 @@ class Radio:
 
 
 def maak_regel(data):
-    """Pakket -> tekstregel met de 13 getallen, of None als het geen
+    """Pakket -> tekstregel met de getallen, of None als het geen
     CanSat-pakket is (bv. een pakket van een ander toestel)."""
     try:
         tekst = data.decode().strip()
     except Exception:
         return None
     delen = tekst.split(",")
-    if len(delen) != AANTAL_WAARDEN:
+    if len(delen) not in AANTAL_WAARDEN:
         return None
     for i in range(len(delen)):
         d = delen[i].strip()

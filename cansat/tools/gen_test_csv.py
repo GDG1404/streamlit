@@ -16,7 +16,7 @@ Met --radio komt er een bestand zoals de logger het maakt als de gegevens
 via de Pico-ontvanger (radio) binnenkomen: alleen de 13 waarden van het
 radiopakket (de rest is 'nan'), met RSSI en SNR. Het scenario is dan een
 afstandstest: de CanSat gaat van 1 m tot 100 m ver, een paar pakketten
-gaan verloren.
+gaan verloren. Het pakket bevat ook de FFT (sterkte en 5 trillingsbanden).
 
 Gebruik:
   python gen_test_csv.py test_000.csv            # in één keer (replay)
@@ -116,13 +116,14 @@ def make_row(t, t_ms):
 
 
 def radio_packet(row, t):
-    """Het LoRa-pakket dat de vluchtcode van deze meting maakt (13 waarden,
+    """Het LoRa-pakket dat de vluchtcode van deze meting maakt (19 waarden,
     zelfde decimalen als String(waarde, n) in sendAndLog)."""
     v = dict(zip(COLUMNS, row.split(",")))
     v["temp_C"] = float(v["temp_C"]) + 0.006 * t     # buiten: warmt wat op
     digits = {"temp_C": 1, "press_hPa": 1, "alt_m": 1, "lat": 5, "lon": 5,
               "lacc_x": 2, "lacc_y": 2, "lacc_z": 2, "heading": 1, "roll": 1,
-              "pitch": 1, "fft_peak_hz": 0, "audio_rms": 3}
+              "pitch": 1, "fft_peak_hz": 0, "audio_rms": 3, "fft_peak_amp": 3,
+              **{c: 4 for c in COLUMNS[29:]}}            # de 5 trillingsbanden
     return [f"{float(v[k]):.{n}f}" for k, n in digits.items()]
 
 

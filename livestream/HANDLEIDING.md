@@ -892,8 +892,9 @@ antenne op de finale best opstelt.
   eerste 5 pakketten zijn het nulpunt van de hoogte.
 - Zet de antenne vrij, hoog en rechtop. Leg de hotspot-gsm een paar meter verder: gsm's
   zenden op frequenties dicht bij 868 MHz.
-- Het radiopakket bevat 13 waarden: onder andere hoogte, temperatuur en luchtdruk. De
-  trillingsbanden zitten er niet in; die staan alleen op de SD-kaart van de CanSat.
+- Het radiopakket bevat 19 waarden: onder andere hoogte, temperatuur en luchtdruk, en
+  de FFT (de sterkste trilling en 5 trillingsbanden). Het streamdashboard toont de
+  hoogte en de daalsnelheid; alle waarden worden bewaard in de map `metingen`.
 
 ---
 

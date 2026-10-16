@@ -43,8 +43,13 @@
  *   acc_peak_g   = grootste versnelling (LSM6DSO) sinds de vorige regel, in g
  *   gps_course_deg / gps_speed_ms = bewegingsrichting (0 = noord, 90 = oost)
  *                  en snelheid over de grond volgens de GPS (afdrijven)
- *   vib_*_g      = RMS-trilling per frequentieband in g (uit dezelfde FFT;
- *                  alleen op SD, niet in het LoRa-pakket)
+ *   vib_*_g      = RMS-trilling per frequentieband in g (uit dezelfde FFT)
+ *
+ * LoRa-pakket (1 per seconde, tekst, 19 waarden):
+ *   temp,press,alt,lat,lon,lacc_x,lacc_y,lacc_z,heading,roll,pitch,
+ *   fft_peak_hz,audio_rms,fft_peak_amp,vib_0_10,vib_10_30,vib_30_60,
+ *   vib_60_120,vib_120_208
+ *   De eerste 13 zijn dezelfde als vroeger; de FFT-waarden staan achteraan.
  */
 
 // ============================================================
@@ -74,7 +79,7 @@
 // LoRa instellingen
 #define LORA_FREQUENCY      868.0   // MHz - Europa
 #define LORA_BANDWIDTH      125.0   // kHz
-#define LORA_SF             7       // Spreading Factor 7-12 — SF7: ~130ms on-air (SF9 was ~800ms en blokkeerde de sensorloop)
+#define LORA_SF             7       // Spreading Factor 7-12 — SF7: ~0,25 s on-air voor 19 waarden (SF9 zou ~1 s zijn)
 #define LORA_CR             7       // Coding Rate 5-8
 #define LORA_SYNC_WORD      0x12    // Privé netwerk
 // Zendvermogen in dBm. 14 dBm = 25 mW: het maximum dat in Europa mag op
@@ -117,9 +122,9 @@ Adafruit_BMP3XX bmp;
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28);
 LSM6DSO lsm;
 Adafruit_GPS GPS(&Serial1);
-// Extra RX-buffer: tijdens radio.transmit() (~130 ms blokkerend) komt er
-// op 9600 baud ~125 bytes NMEA binnen; de standaardbuffer is maar 64 bytes
-// en zou elke seconde GPS-zinnen corrumperen.
+// Extra RX-buffer: als de lus even stilstaat (BMP, SD) komt er op 9600 baud
+// ~1 byte per ms NMEA binnen; de standaardbuffer is maar 64 bytes. (LoRa
+// blokkeert de lus niet meer, maar de reserve kost niets.)
 static uint8_t gpsRxBuf[512];
 
 // LoRa via RadioLib
@@ -161,6 +166,15 @@ unsigned long lastGpsMs = 0;
 unsigned long lastBnoMs = 0;
 unsigned long lastLsmUs = 0;     // microseconden! (exacte 416 Hz timing)
 unsigned long lastLoraMs = 0;
+
+// LoRa zonder wachten. Vroeger wachtte radio.transmit() tot het pakket weg
+// was (~0,2 s per seconde). Dan stond de hele lus stil, ook de LSM6DSO: elke
+// FFT-buffer had een gat, en de FFT gaf ~15% te lage frequenties (25 Hz werd
+// ~21 Hz). Nu geeft startTransmit() het pakket aan de radio en gaat de lus
+// meteen verder; de radio zendt zelf. checkLoRa() rondt af als DIO0 hoog is.
+bool loraBusy = false;
+unsigned long loraStartMs = 0;
+#define LORA_TX_TIMEOUT_MS  2000    // nooit langer dan dit "bezig"
 unsigned long lastSdFlushMs = 0;
 
 // Laatste bekende waarden (fallback bij sensoruitval)
@@ -184,8 +198,6 @@ float lsm_buffer_y[FFT_SAMPLES];
 float lsm_buffer_z[FFT_SAMPLES];
 int lsm_buf_index = 0;
 bool lsm_buf_ready = false;
-unsigned long lsmBufStartUs = 0;             // start van de huidige buffer
-float lsm_measured_fs = LSM_SAMPLE_RATE_HZ;  // werkelijke samplefrequentie
 
 // Grootste versnelling (LSM6DSO, ±16 g) sinds de vorige logregel.
 // Een schok (uitwerpen, parachute) duurt korter dan 1 s en valt anders
@@ -216,9 +228,9 @@ void setup() {
 
     // GPS UART: Serial1 wordt gestart in initGPS() (GPS.begin)
 
-    // Audio geheugen — ruim genoeg om de ~130 ms blokkerende
-    // radio.transmit() te overbruggen (44.1 kHz / 128 samples
-    // ≈ 345 blokken/s → 45 blokken per transmit + marge)
+    // Audio geheugen — ruim genoeg om een pauze van de lus van ~0,15 s te
+    // overbruggen (44.1 kHz / 128 samples ≈ 345 blokken/s → 45 blokken
+    // + marge). LoRa zendt nu zonder te wachten.
     AudioMemory(60);
 
     // Sensoren initialiseren
@@ -249,7 +261,6 @@ void setup() {
     audioQueue.begin();
 
     lastLsmUs = micros();
-    lsmBufStartUs = lastLsmUs;
 }
 
 // ============================================================
@@ -258,6 +269,9 @@ void setup() {
 
 void loop() {
     unsigned long now = millis();
+
+    // --- LoRa: klaar met zenden? (zenden zelf wacht niet meer) ---
+    checkLoRa();
 
     // --- GPS continu uitlezen (niet-blokkerend) ---
     // hele buffer leeglezen, niet 1 teken per loop-doorgang
@@ -291,7 +305,7 @@ void loop() {
     // ~17% dubbele samples en dus een scheve FFT-frequentie-as.
     if (ok_lsm && micros() - lastLsmUs >= LSM_INTERVAL_US) {
         lastLsmUs += LSM_INTERVAL_US;   // vaste tijdbasis, geen drift
-        // Na een lange blokkering (LoRa ~130 ms, BMP) niet inhalen
+        // Na een blokkering (BMP, SD) niet inhalen: dat wordt een gat
         if (micros() - lastLsmUs >= LSM_INTERVAL_US) lastLsmUs = micros();
         readLSM6DSO();
     }
@@ -591,12 +605,6 @@ void readLSM6DSO() {
     lsm_buf_index++;
 
     if (lsm_buf_index >= FFT_SAMPLES) {
-        // Werkelijke samplefrequentie meten: de loop staat elke seconde
-        // even stil (LoRa ~130 ms, BMP), dan zijn het geen 416 Hz meer
-        unsigned long t = micros();
-        unsigned long dt = t - lsmBufStartUs;
-        if (dt > 0) lsm_measured_fs = FFT_SAMPLES * 1e6f / dt;
-        lsmBufStartUs = t;
         lsm_buf_ready = true;
         lsm_buf_index = 0;
     }
@@ -632,13 +640,23 @@ void computeFFT() {
         float denom = a - 2 * b + c;
         if (denom != 0) delta = 0.5f * (a - c) / denom;
     }
-    // Met de GEMETEN samplefrequentie, niet de nominale 416 Hz
-    fft_peak_hz  = (peakIdx + delta) * lsm_measured_fs / FFT_SAMPLES;
-    // Omrekenen naar g: /(N/2) en corrigeren voor het Hamming-venster
-    // (coherente versterking = gemiddelde van w = 0,5391 bij 512 punten)
-    fft_peak_amp = peakMag / (FFT_SAMPLES / 2.0f) / 0.5391f;
+    // De metingen liggen op een vast rooster van 2404 µs (416 Hz). Een korte
+    // pauze van de lus is een gat, geen tragere meting: dus de nominale
+    // 416 Hz. (Vroeger: gemiddelde over de buffer, inclusief het gat van het
+    // zenden → frequenties ~15% te laag.)
+    const float fs = LSM_SAMPLE_RATE_HZ;
+    fft_peak_hz = (peakIdx + delta) * fs / FFT_SAMPLES;
+    // Sterkte uit de energie van de piek (bins k-2 .. k+2, Parseval, zoals
+    // de banden): klopt ook als de frequentie tussen twee bins valt.
+    // peakMag / (N/2) gaf daar tot 18% te weinig.
+    int lo = peakIdx - 2 < 1 ? 1 : peakIdx - 2;
+    int hi = peakIdx + 2 > FFT_SAMPLES / 2 - 1 ? FFT_SAMPLES / 2 - 1 : peakIdx + 2;
+    float p = 0;
+    for (int i = lo; i <= hi; i++) p += fft_real[i] * fft_real[i];
+    float rms = sqrtf(2.0f * p / ((float)FFT_SAMPLES * FFT_SAMPLES * HAMMING_POWER));
+    fft_peak_amp = rms * 1.41421356f;          // sinus: piek = RMS · √2
 
-    computeBands(lsm_measured_fs);
+    computeBands(fs);
 }
 
 // RMS-versnelling per frequentieband, uit de FFT-grootheden in fft_real[].
@@ -739,8 +757,9 @@ void sendAndLog() {
         sdBufferLines++;
     }
 
-    // LoRa pakket verzenden (compacte versie)
-    // Pakket: temp, press, alt, lat, lon, lacc_xyz, heading, roll, pitch, fft_peak, audio_rms
+    // LoRa pakket verzenden (compacte versie, 19 waarden)
+    // temp, press, alt, lat, lon, lacc_xyz, heading, roll, pitch, fft_peak_hz,
+    // audio_rms, en daarna de FFT: fft_peak_amp en de 5 trillingsbanden (g)
     String loraPacket = String(last_temp, 1) + "," +
                         String(last_pressure, 1) + "," +
                         String(last_altitude, 1) + "," +
@@ -753,18 +772,44 @@ void sendAndLog() {
                         String(last_roll, 1) + "," +
                         String(last_pitch, 1) + "," +
                         String(fft_peak_hz, 0) + "," +
-                        String(audio_rms, 3);
+                        String(audio_rms, 3) + "," +
+                        String(fft_peak_amp, 3) + "," +
+                        String(vib_band_g[0], 4) + "," +
+                        String(vib_band_g[1], 4) + "," +
+                        String(vib_band_g[2], 4) + "," +
+                        String(vib_band_g[3], 4) + "," +
+                        String(vib_band_g[4], 4);
 
     if (ok_lora) {
-        int state = radio.transmit(loraPacket);
-        if (state != RADIOLIB_ERR_NONE) {
-            Serial.print("LoRa fout: ");
-            Serial.println(state);
+        if (loraBusy) {
+            // Kan normaal niet (een pakket duurt ~0,25 s): niet wachten
+            Serial.println("LoRa: vorig pakket nog bezig, dit pakket overgeslagen");
+        } else {
+            // geeft het pakket aan de radio en keert meteen terug
+            int state = radio.startTransmit(loraPacket);
+            if (state == RADIOLIB_ERR_NONE) {
+                loraBusy = true;
+                loraStartMs = millis();
+            } else {
+                Serial.print("LoRa fout: ");
+                Serial.println(state);
+            }
         }
     }
 
     // Debug output
     Serial.println(csv);
+}
+
+// Het pakket is weg als DIO0 hoog wordt: radio terug naar standby.
+// Wordt elke lus-doorgang opgeroepen; kost bijna niets.
+void checkLoRa() {
+    if (!loraBusy) return;
+    if (digitalRead(RFM95_DIO0) == HIGH ||
+        millis() - loraStartMs > LORA_TX_TIMEOUT_MS) {
+        radio.finishTransmit();
+        loraBusy = false;
+    }
 }
 
 void flushSD() {

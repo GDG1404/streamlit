@@ -35,7 +35,7 @@ testdag volgt elk team zijn eigen deel (B of C), en samen volgen jullie deel D.
   (RFM95W) met een antenne van 8 cm. Het breadboard krijgt stroom via USB, van een
   netbook of een powerbank.
 - **De radio.** Elke seconde vliegt er één pakket door de lucht, op 868 MHz. Er zitten
-  13 meetwaarden in.
+  19 meetwaarden in: 13 metingen en 6 waarden van de FFT (de trillingen).
 - **De ontvanger.** Een RFM95W op een Raspberry Pi Pico. Het programma `main.py` geeft
   elk pakket via USB door aan de laptop. Het zet er twee getallen bij: de **RSSI** (hoe
   sterk het signaal is) en de **SNR** (hoe zuiver het is).
@@ -214,8 +214,14 @@ dezelfde computer als bij jullie sensortest.
 7. Sluit de Serial Monitor. Op de testdag heeft de Teensy alleen stroom nodig: de
    vluchtcode blijft op de Teensy staan, ook zonder stroom.
 
-> **Wat is er veranderd in de vluchtcode?** Alleen het zendvermogen: 25 mW in plaats van
-> 100 mW. Zo blijven we binnen de Europese regels (zie F4). Voor 100 m is dat ruim genoeg.
+> **Wat is er veranderd in de vluchtcode?**
+> - **De FFT gaat mee door de radio:** de sterkste trilling en de 5 trillingsbanden
+>   (zie F1 en F8).
+> - **De FFT meet juister.** Vroeger wachtte de Teensy tijdens het zenden, en dan stond
+>   ook de trillingsmeting stil. Daardoor waren de frequenties ongeveer 15% te laag. Nu
+>   zendt de radio op de achtergrond en meet de Teensy gewoon door.
+> - **Het zendvermogen is 25 mW** in plaats van 100 mW. Zo blijven we binnen de Europese
+>   regels (zie F4). Voor 100 m is dat ruim genoeg.
 
 ### A4. De radio op de Pico nakijken (Team Ontvanger)
 
@@ -350,6 +356,8 @@ Doe de hele test één keer binnen, op 1 tot 5 m afstand.
    - [ ] Bovenaan scherm 1 staat `LIVE: radio (LoRa via Pico)`.
    - [ ] Scherm 1 toont de temperatuur, de luchtdruk en de hoogte.
    - [ ] Schud het breadboard voorzichtig: de versnelling op scherm 1 beweegt.
+   - [ ] Schud een paar seconden heen en weer: bij VIBRATION PER BAND (scherm 1) groeit
+     de balk van 0–10 Hz. Zo zie je dat de FFT via de radio binnenkomt.
    - [ ] Klap in je handen bij het breadboard: AUDIO RMS gaat even omhoog.
    - [ ] Draai het breadboard: de CanSat op scherm 2 draait mee.
 5. Stop de meting (C6) en kijk het bestand na (C7).
@@ -463,8 +471,10 @@ Is Thonny nog open en verbonden met de Pico? Sluit Thonny, of kies rechtsonder
 - ALTITUDE, TEMPERATURE en PRESSURE: de metingen van de BMP390. De eenheid staat vlak
   achter elk getal.
 - De grafieken: hoogte, versnelling en geluid (AUDIO RMS).
+- VIBRATION PER BAND: de FFT. Elke balk is de trilling in één frequentieband, in g.
+  Rechtsboven staat de sterkste trilling, bijvoorbeeld `strongest 25 Hz · 0.50 g`.
 - **`not in radio packet`** wil zeggen: die meting zit niet in het radiopakket. Dat geldt
-  voor de gyroscoop, de trillingsbanden en de piekversnelling. Dat is normaal (zie F1).
+  voor de gyroscoop en de piekversnelling. Dat is normaal (zie F1).
 
 **Op scherm 2**
 
@@ -627,6 +637,7 @@ de antennes na.
 | `FOUT: het pakket 'matplotlib' ontbreekt` | De pakketten ontbreken. | Dubbelklik op `INSTALLEER_PAKKETTEN.bat` (A6). |
 | `LET OP: dashboard_scherm1.py is gestopt met een fout` | Het dashboard crashte. | Open het `.log`-bestand dat het programma noemt, en toon het aan de leerkracht. |
 | `not in radio packet` op de dashboards | Die meting zit niet in het radiopakket. | Niets: dat is normaal (F1). |
+| `bands not in radio packet` bij VIBRATION PER BAND | De Teensy draait nog de oude vluchtcode (zonder FFT in het pakket). | Zet de vluchtcode uit deze zip op de Teensy (A3). |
 | Scherm 2 heeft geen kaart als achtergrond | Er is geen internet. | Niets: het spoor werkt toch. Met een hotspot van een gsm komt de kaart wel. |
 | `WAITING FOR GPS FIX` of `no GPS fix` | De GPS heeft nog geen positie. | Buiten, met vrij zicht op de lucht. De eerste fix kan een paar minuten duren. |
 
@@ -637,7 +648,7 @@ de antennes na.
 ### F1. Wat zit er in een radiopakket?
 
 De Teensy meet veel meer dan hij doorstuurt. Per seconde stuurt hij één regel tekst met
-13 getallen, gescheiden door komma's:
+19 getallen, gescheiden door komma's:
 
 | # | Waarde | Eenheid | Voorbeeld |
 |---|---|---|---|
@@ -650,13 +661,15 @@ De Teensy meet veel meer dan hij doorstuurt. Per seconde stuurt hij één regel 
 | 9 | heading (draaiing, ten opzichte van de start) | ° | 123.4 |
 | 10 | roll (kanteling) | ° | −2.1 |
 | 11 | pitch (kanteling) | ° | 1.5 |
-| 12 | sterkste trilling | Hz | 25 |
+| 12 | FFT: frequentie van de sterkste trilling | Hz | 25 |
 | 13 | geluid (audio RMS) | — | 0.012 |
+| 14 | FFT: sterkte van de sterkste trilling | g | 0.500 |
+| 15–19 | FFT: trilling per band (0–10, 10–30, 30–60, 60–120 en 120–208 Hz) | g | 0.354 |
 
-**Waarom niet alle 34 kolommen?** Elk extra getal maakt het pakket langer. Een langer
-pakket duurt langer om te zenden: nu al ongeveer 0,18 seconde. Tijdens het zenden kan de
-Teensy niet meten. Bovendien is de zendtijd beperkt door de regels (F4). Alles wordt
-later wel bewaard op de SD-kaart in de CanSat.
+**Waarom niet alle 34 kolommen?** Elk extra getal maakt het pakket langer. Dit pakket
+duurt al ongeveer 0,25 seconde om te zenden, en de zendtijd is beperkt door de regels
+(F4). De gyroscoop, de kwaternionen en de piekversnelling zitten er daarom niet in.
+Alles wordt later wel bewaard op de SD-kaart in de CanSat.
 
 ### F2. RSSI en SNR
 
@@ -685,7 +698,7 @@ metingen zijn niet geheim. Er zijn wel drie filters:
 - In Europa mag je op 868,0 tot 868,6 MHz zenden met **maximaal 25 mW**. Daarom zendt de
   Teensy nu met 25 mW (14 dBm) in plaats van 100 mW.
 - Er is ook een grens op de **zendtijd**: 1% van de tijd op die frequentie. Wij zenden
-  elke seconde ongeveer 0,18 s, dus veel meer. Daarom vraagt de leerkracht voor de
+  elke seconde ongeveer 0,25 s, dus veel meer. Daarom vraagt de leerkracht voor de
   finale aan de organisatie welke frequentie, welk vermogen en welke zendtijd we mogen
   gebruiken.
 - Verandert er iets aan de frequentie of de instellingen? Dan moeten de Teensy én de Pico
@@ -710,6 +723,23 @@ dan toont scherm 2 `GPS fix` en begint het spoor op de kaart.
 De CanSat zendt precies één pakket per seconde. Komt het volgende pakket pas na
 3 seconden, dan zijn er waarschijnlijk 2 pakketten verloren. Zo telt scherm 2 *Lost*.
 De logger doet hetzelfde voor `laatste minuut …/60`.
+
+### F8. De FFT: de belangrijkste meting
+
+- De LSM6DSO meet de versnelling 416 keer per seconde.
+- Na 512 metingen (ongeveer 1,2 s) rekent de Teensy een **FFT** uit op de verticale as
+  (Z). Een FFT zoekt welke trillingen (frequenties) er in de metingen zitten, en hoe
+  sterk ze zijn.
+- Uit die FFT komen drie dingen in het pakket: de frequentie van de sterkste trilling
+  (Hz), hoe sterk die is (g), en de trilling per frequentieband (g). De banden zijn
+  0–10, 10–30, 30–60, 60–120 en 120–208 Hz.
+- Met 416 metingen per seconde zie je trillingen tot 208 Hz (de helft: Nyquist).
+- **Gecontroleerd:** op de computer gaven de FFT-functies uit de vluchtcode voor een
+  trilling van 0,5 g bij 3 tot 199 Hz telkens de juiste frequentie (op 0,1 Hz na) en
+  0,500 g. De band met die trilling gaf 0,354 g. Dat is juist: een trilling van 0,5 g
+  heeft een gemiddelde (RMS) van 0,5 ÷ √2.
+- **Verbeterd:** vroeger stond de meting stil tijdens het zenden. Dan gaf een trilling
+  van 25 Hz ongeveer 21 Hz. Nu meet de Teensy door tijdens het zenden.
 
 ---
 
@@ -788,7 +818,8 @@ py tools\gen_test_csv.py metingen\oefen_radio.csv --radio    een oefenbestand ma
 | **GPS-fix** | de GPS weet waar hij is, omdat hij genoeg satellieten ontvangt |
 | **LoRa** | "Long Range": de manier van zenden van de RFM95W. Ver, maar traag. |
 | **MicroPython** | een kleine Python voor microcontrollers zoals de Pico |
-| **pakket** | één bericht van de zender: hier één regel met 13 getallen |
+| **FFT** | een berekening die zoekt welke trillingen (frequenties) er in metingen zitten, en hoe sterk ze zijn |
+| **pakket** | één bericht van de zender: hier één regel met 19 getallen |
 | **Pico** | de Raspberry Pi Pico: een kleine microcontroller, hier de ontvanger |
 | **RFM95W** | de radiomodule voor 868 MHz (de chip erin is een SX1276) |
 | **RSSI** | hoe sterk het signaal binnenkomt, in dBm |

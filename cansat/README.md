@@ -622,8 +622,9 @@ hele test. Rechtsboven staat de sterkste frequentie (bv. `strongest 5 Hz · 0.81
   door het gemiddelde van het kwadraat van het venster (0,397).
 - We hebben de berekening getest met een gekend signaal: een trilling van 0,5 g bij
   25 Hz. Een sinus van 0,5 g heeft een RMS van 0,5 ÷ √2 = **0,354 g**. De Teensy-code
-  gaf **0,3535 g** in de band 10–30 Hz, en bijna niets in de andere banden. Ook als de
-  Teensy maar 380 keer per seconde meet in plaats van 416, klopt het.
+  gaf **0,3535 g** in de band 10–30 Hz, en bijna niets in de andere banden. Staat de
+  Teensy even stil (bv. om naar de SD-kaart te schrijven), dan klopt de frequentie
+  toch: de metingen volgen een vast ritme van 416 per seconde.
 
 *Grenzen: waar moet je op letten?*
 
@@ -855,12 +856,15 @@ py start_meting.py                                         logger + 2 dashboards
   ±16 g). De BNO055 meet standaard maar tot 4 g en zou een schok afkappen.
   `gps_course_deg` en `gps_speed_ms` zijn de afdrijfrichting en -snelheid volgens de GPS.
   De vluchtcode (`Cansat2027_teensy.ino`) schrijft dezelfde 34 kolommen naar de
-  SD-kaart (niet via LoRa). De dashboards lezen ook oude bestanden met 26, 27 of 29
-  kolommen.
+  SD-kaart. Via LoRa gaan 19 waarden, ook de FFT (piek en 5 banden). De dashboards
+  lezen ook oude bestanden met 26, 27 of 29 kolommen.
 - **Trillingsbanden, technisch:** per band
   RMS = √( 2 · Σ|X_k|² / (N² · ⟨w²⟩) ), met N = 512, X_k de FFT-bins in de band (DC-bin
   uitgesloten), en ⟨w²⟩ = 0,39664 voor het symmetrische 512-punts Hamming-venster van
-  arduinoFFT. De binfrequenties gebruiken de **gemeten** samplefrequentie. De berekening
+  arduinoFFT. De binfrequenties gebruiken de vaste 416 Hz van de timer: een pauze van
+  de loop is een gat in de metingen, geen tragere meting. De sterkte van de piek
+  (`fft_peak_amp`) komt uit de energie in de bins k−2 … k+2 (ook Parseval), en klopt dus
+  ook als de frequentie tussen twee bins valt. De berekening
   is vergeleken met een referentie in Python én met de C++-code van de sketch zelf, met
   dezelfde uitkomst (0,3535 g voor een sinus van 0,5 g bij 25 Hz). De Teensy leest de
   sensor met een eigen timer van 416 Hz, los van de klok van de sensor. Door het kleine
@@ -872,10 +876,10 @@ py start_meting.py                                         logger + 2 dashboards
   opstart een nieuw bestand). Voor de live-test is dat niet nodig.
 - **Sneller loggen:** zet `LOG_INTERVAL_MS` bovenaan in de sketch op `100` voor 10 regels
   per seconde. De dashboards werken daar ook mee.
-- **FFT:** de sketch meet de werkelijke samplefrequentie per blok van 512 metingen. Als de
-  loop even stilstaat (BMP390-meting, schrijven naar de SD-kaart), klopt de frequentie
-  zo toch. Een nieuw FFT-resultaat is er elke 1,2 s; bij 1 regel per seconde staat
-  dezelfde waarde dus soms twee keer in de CSV.
+- **FFT:** de Teensy leest de sensor op een vast ritme van 416 keer per seconde. Staat de
+  loop even stil (BMP390-meting, schrijven naar de SD-kaart), dan is dat een klein gat
+  in de metingen; de frequentie klopt toch. Een nieuw FFT-resultaat is er elke 1,2 s;
+  bij 1 regel per seconde staat dezelfde waarde dus soms twee keer in de CSV.
 - **Kaart in scherm 2:** gecentreerd op de eerste GPS-fix. Open scherm 2 vooraf met
   internet op de lanceerplaats (bv. een replay van een korte test daar), zodat de
   kaarttegels bewaard worden voor gebruik zonder internet.

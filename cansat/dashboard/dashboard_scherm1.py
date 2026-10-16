@@ -26,9 +26,10 @@ Panels:
   - FLIGHT PHASE TIMELINE: horizontal bar showing the phases over time
   - Cd & descent rate on a twin axis
 
-Radio data (Pico receiver, see pico/main.py): only the 13 values of the
-radio packet arrive, plus RSSI and SNR. Panels whose data is not in the
-packet (gyroscope, vibration bands, peak g) say "not in radio packet".
+Radio data (Pico receiver, see pico/main.py): the radio packet has 19
+values (13 measurements + the FFT: peak strength and the 5 vibration
+bands), plus RSSI and SNR. Panels whose data is not in the packet
+(gyroscope, peak g) say "not in radio packet".
 Text and markers scale with the window, so the layout stays the same on a
 small laptop screen.
 

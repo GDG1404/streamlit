@@ -61,10 +61,15 @@ WINDOW_TITLE = "CanSat 2027 — Stream"   # zo vind je het venster in OBS
 # Op een OBS-canvas van 1920×1080 is dat positie (1200, 150), grootte 672×378.
 CAMERA_SLOT = (0.625, 0.51111, 0.35, 0.35)   # x, y (onderkant), breedte, hoogte
 
-# Het LoRa-pakket van de vluchtcode (13 waarden, in deze volgorde)
+# Het LoRa-pakket van de vluchtcode: deze 13 waarden, in deze volgorde.
+# De nieuwere vluchtcode stuurt daarna nog 6 FFT-waarden (19 in totaal);
+# die toont de stream niet, maar ze worden wel bewaard.
 FIELDS = ["temp_C", "press_hPa", "alt_m", "lat", "lon",
           "lacc_x", "lacc_y", "lacc_z", "heading", "roll", "pitch",
           "fft_peak_hz", "audio_rms"]
+FFT_FIELDS = ["fft_peak_amp", "vib_0_10_g", "vib_10_30_g", "vib_30_60_g",
+              "vib_60_120_g", "vib_120_208_g"]
+RADIO_LENGTHS = (len(FIELDS), len(FIELDS) + len(FFT_FIELDS))   # 13 of 19
 
 # Een meetregel van de Teensy via USB (sensortest_fft.ino of de vluchtcode).
 # Oudere versies hebben minder kolommen; de eerste 26 zijn altijd dezelfde.
@@ -99,12 +104,12 @@ def parse_line(line):
     parts = line.strip().split(",")
     n = len(parts)
     try:
-        if n in (len(FIELDS), len(FIELDS) + 2):
+        if any(n in (k, k + 2) for k in RADIO_LENGTHS):   # + RSSI en SNR
             vals = [float(p) for p in parts]
             row = dict(zip(FIELDS, vals))
-            extra = vals[len(FIELDS):]
-            row["rssi"] = extra[0] if extra else None
-            row["snr"] = extra[1] if extra else None
+            with_quality = n - 2 in RADIO_LENGTHS
+            row["rssi"] = vals[-2] if with_quality else None
+            row["snr"] = vals[-1] if with_quality else None
             row["millis"] = None
             return row, "radio"
         if n in USB_FORMATS:
@@ -535,8 +540,11 @@ class StreamDashboard:
             n = len(line.split(","))
             path = os.path.join(self.log_dir, f"stream_{self.stamp}_{source}.csv")
             f = open(path, "w", newline="", encoding="utf-8")
-            cols = (FIELDS + ["rssi_dBm", "snr_dB"])[:n] if source == "radio" \
-                else CSV_COLUMNS[:n]
+            if source == "radio":
+                body = FIELDS + (FFT_FIELDS if n >= len(FIELDS) + len(FFT_FIELDS) else [])
+                cols = body + (["rssi_dBm", "snr_dB"] if n == len(body) + 2 else [])
+            else:
+                cols = CSV_COLUMNS[:n]
             f.write("pc_time," + ",".join(cols) + "\r\n")
             self.logs[source] = f
             print(f"Metingen worden bewaard in: {path}")

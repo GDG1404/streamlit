@@ -6,9 +6,10 @@ Leest een USB-poort en schrijft de metingen naar een bestand dat het
 dashboard met --live volgt. Twee soorten bronnen:
 
   - de Teensy aan de USB-kabel: CSV-regels met 34 velden;
-  - de Pico-ontvanger (radio): per pakket de 13 waarden van de CanSat,
-    gevolgd door RSSI en SNR. Kolommen die niet in het radiopakket zitten
-    (gyroscoop, trillingsbanden, ...) worden 'nan' (= geen gegevens).
+  - de Pico-ontvanger (radio): per pakket de 19 waarden van de CanSat (13
+    metingen + 6 van de FFT; een oudere vluchtcode stuurt er 13), gevolgd
+    door RSSI en SNR. Kolommen die niet in het radiopakket zitten
+    (gyroscoop, piekversnelling, ...) worden 'nan' (= geen gegevens).
 
 Opstarttekst ("BMP390 ... OK", "# Radio OK" enz.) wordt op het scherm
 getoond maar niet in het bestand gezet, zodat het bestand ook als replay
@@ -49,7 +50,11 @@ HEADER = ",".join(COLUMNS)
 RADIO_FIELDS = ["temp_C", "press_hPa", "alt_m", "lat", "lon",
                 "lacc_x", "lacc_y", "lacc_z", "heading", "roll", "pitch",
                 "fft_peak_hz", "audio_rms"]
-RADIO_LENGTHS = (len(RADIO_FIELDS), len(RADIO_FIELDS) + 2)   # 13, of + RSSI/SNR
+# daarna de FFT (vluchtcode met 19 waarden)
+RADIO_FFT = ["fft_peak_amp", "vib_0_10_g", "vib_10_30_g", "vib_30_60_g",
+             "vib_60_120_g", "vib_120_208_g"]
+_N13, _N19 = len(RADIO_FIELDS), len(RADIO_FIELDS) + len(RADIO_FFT)
+RADIO_LENGTHS = (_N13, _N13 + 2, _N19, _N19 + 2)    # + 2 = met RSSI en SNR
 # Zonder GPS-fix stuurt de vluchtcode deze plaatshouder (Elsenborn).
 # Het radiopakket heeft geen GPS-tijd: die vullen we in bij een echte fix.
 NO_FIX_LATLON = (50.4573, 6.22138)
@@ -75,13 +80,15 @@ def numbers(parts):
 
 
 def radio_row(parts, millis):
-    """13 of 15 velden van de ontvanger → rij (kolom → tekst)."""
-    row = dict(zip(RADIO_FIELDS, (p.strip() for p in parts)))
+    """13/19 velden van de ontvanger (+ RSSI en SNR) → rij (kolom → tekst)."""
+    n = len(parts)
+    fields = RADIO_FIELDS + (RADIO_FFT if n >= _N19 else [])
+    row = dict(zip(fields, (p.strip() for p in parts)))
     lat, lon = float(row["lat"]), float(row["lon"])
     row["millis"] = str(millis)             # aankomsttijd op de laptop
     row["time_utc"] = (time.strftime("%H:%M:%S", time.gmtime())
                        if has_fix(lat, lon) else NO_FIX_TIME)
-    if len(parts) == RADIO_LENGTHS[1]:
+    if n in (_N13 + 2, _N19 + 2):
         row["rssi"], row["snr"] = parts[-2].strip(), parts[-1].strip()
     return row
 
@@ -279,7 +286,8 @@ def main():
                     fh.write(csv_line(row, cols) + "\r\n")
                     fh.flush()
                     n += 1
-                    rssi, snr = (vals[-2], vals[-1]) if len(vals) == 15 else (None, None)
+                    rssi, snr = ((vals[-2], vals[-1]) if len(vals) in (_N13 + 2, _N19 + 2)
+                                 else (None, None))
                     stats.add(now, rssi, snr)
                     print(stats.status(), end="", flush=True)
                 elif len(parts) in OLD_FIELDS:

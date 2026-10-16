@@ -220,7 +220,7 @@ def overview():
                 arrowprops=dict(arrowstyle="-|>", color=ACCENT, lw=2))
     ax.text(51, 33, "LoRa-radio, 868 MHz", ha="center", fontsize=10,
             fontweight="bold", color=ACCENT)
-    ax.text(51, 17.5, "1 pakket per seconde\n(13 meetwaarden)",
+    ax.text(51, 17.5, "1 pakket per seconde\n(19 meetwaarden, met de FFT)",
             ha="center", va="top", fontsize=8.5, color=MUTED)
     ax.annotate("", xy=(64, 3.5), xytext=(34, 3.5),
                 arrowprops=dict(arrowstyle="<->", color=MUTED, lw=1.2))

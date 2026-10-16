@@ -17,7 +17,7 @@
  *   868.0 MHz, bandbreedte 125 kHz, SF7, coding rate 4/7, sync word 0x12
  *
  * Uitvoer (115200 baud), één regel per pakket:
- *   <pakket van de CanSat: 13 waarden>,<RSSI in dBm>,<SNR in dB>
+ *   <pakket van de CanSat: 19 waarden (oudere vluchtcode: 13)>,<RSSI in dBm>,<SNR in dB>
  * Regels die met # beginnen zijn meldingen, geen metingen.
  */
 

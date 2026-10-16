@@ -39,7 +39,6 @@
 #define FFT_SAMPLES         512
 #define LSM_SAMPLE_RATE_HZ  416
 #define LSM_INTERVAL_US     2404     // 1e6 / 416
-#define HAMMING_GAIN        0.5391f  // coherente versterking (gemiddelde w), 512-punts Hamming
 
 // ---------------- OBJECTEN ----------------
 Adafruit_BMP3XX bmp;
@@ -116,8 +115,6 @@ uint32_t audio_count = 0;
 float lsm_buffer_z[FFT_SAMPLES];
 int   lsm_buf_index = 0;
 bool  lsm_buf_ready = false;
-unsigned long lsmBufStartUs = 0;     // start van huidige buffer
-float lsm_measured_fs = LSM_SAMPLE_RATE_HZ;  // werkelijke samplefrequentie
 
 // Timers
 unsigned long lastBmpMs=0, lastGpsMs=0, lastBnoMs=0, lastLsmUs=0;
@@ -148,7 +145,6 @@ void setup() {
 
     lastLogMs = millis();
     lastLsmUs = micros();
-    lsmBufStartUs = lastLsmUs;
     Serial.println("--- logging gestart ---");
     // Header ook op Serial: een live-capture (CsvLive in het dashboard)
     // slaat alles over tot de regel die met "millis" begint
@@ -378,12 +374,6 @@ void readLSM6DSO() {
     lsm_buffer_z[lsm_buf_index++] = az;
 
     if (lsm_buf_index >= FFT_SAMPLES) {
-        // Werkelijke samplefrequentie meten (loop kan blokkeren)
-        unsigned long t = micros();
-        unsigned long dt = t - lsmBufStartUs;
-        if (dt > 0) lsm_measured_fs = FFT_SAMPLES * 1e6f / dt;
-        lsmBufStartUs = t;
-
         // Kopiëren vóór de buffer opnieuw gevuld wordt
         for (int i = 0; i < FFT_SAMPLES; i++) fft_real[i] = lsm_buffer_z[i];
         lsm_buf_ready = true;
@@ -421,11 +411,23 @@ void computeFFT() {
         if (denom != 0) delta = 0.5f * (a - c) / denom;
     }
 
-    fft_peak_hz  = (peakIdx + delta) * lsm_measured_fs / FFT_SAMPLES;
-    // Omrekenen naar amplitude in g: /(N/2) en corrigeren voor venster
-    fft_peak_amp = peakMag / (FFT_SAMPLES / 2.0f) / HAMMING_GAIN;
+    // De metingen liggen op een vast rooster van 2404 µs (416 Hz). Een korte
+    // pauze van de lus (SD, BMP) is een gat, geen tragere meting: dus de
+    // nominale 416 Hz. (Het gemiddelde over de buffer, inclusief zo'n gat,
+    // gaf te lage frequenties.)
+    const float fs = LSM_SAMPLE_RATE_HZ;
+    fft_peak_hz = (peakIdx + delta) * fs / FFT_SAMPLES;
+    // Sterkte uit de energie van de piek (bins k-2 .. k+2, Parseval, zoals
+    // de banden): klopt ook als de frequentie tussen twee bins valt.
+    // peakMag / (N/2) gaf daar tot 18% te weinig.
+    int lo = peakIdx - 2 < 1 ? 1 : peakIdx - 2;
+    int hi = peakIdx + 2 > FFT_SAMPLES / 2 - 1 ? FFT_SAMPLES / 2 - 1 : peakIdx + 2;
+    float p = 0;
+    for (int i = lo; i <= hi; i++) p += fft_real[i] * fft_real[i];
+    float rms = sqrtf(2.0f * p / ((float)FFT_SAMPLES * FFT_SAMPLES * HAMMING_POWER));
+    fft_peak_amp = rms * 1.41421356f;          // sinus: piek = RMS · √2
 
-    computeBands(lsm_measured_fs);
+    computeBands(fs);
 }
 
 // RMS-versnelling per frequentieband, uit de FFT-grootheden in fft_real[].
