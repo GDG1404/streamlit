@@ -1,0 +1,12 @@
+Zet hier de logo's voor het streamdashboard:
+
+  logo_school.png   het logo van de school
+  logo_team.png     het logo van jullie team
+
+- Precies deze namen (kleine letters). .jpg mag ook.
+- Liefst PNG met een doorzichtige achtergrond, minstens 400 pixels hoog.
+- Het dashboard zet ze zelf rechtsboven, naast elkaar.
+- De bestanden voorbeeld_logo_school.png en voorbeeld_logo_team.png tonen hoe
+  het eruitziet. Vervang ze door jullie eigen logo's.
+
+In OBS gebruik je dezelfde bestanden voor de scenes Start, Camera, Pauze en Einde.
