@@ -51,6 +51,12 @@ onthouden.
    Wis dat pad en typ: **`C:\CanSat`**
 5. Klik op **Uitpakken**.
 
+> **Heb je al een map `C:\CanSat` van vroeger?** Pak de nieuwe `CanSat.zip` op
+> dezelfde manier uit naar `C:\CanSat`. Windows vraagt dan of het bestanden mag
+> vervangen. Kies **De bestanden in de doelmap vervangen**. Je map `metingen`
+> blijft gewoon staan. Vervang altijd alle bestanden samen, niet één bestand apart:
+> de programma's gebruiken stukjes van elkaar.
+
 Kijk nu in `C:\CanSat`. Je moet dit zien:
 
 ```
