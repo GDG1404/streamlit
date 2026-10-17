@@ -13,10 +13,13 @@ Panels:
     first GPS fix; Elsenborn in the simulator) — the recovery view. The
     map zooms out automatically when the can drifts off the map.
   - Altitude profile bar (below the map)
-  - Large 3D can (66×115 mm, closed with lid and bottom) with an
-    ESTIMATED load heatmap (a simple model from the accelerations, not
-    a measurement). Peak hold: colours stay at the highest value reached,
-    so at the end of the flight you can see where the load was largest.
+  - Large 3D can (66×115 mm, closed with lid and bottom) coloured by
+    the LOAD PER ZONE (model in krachten.py, from the measured g): the
+    force through the can at each height, as a share of the ESA design
+    load (20 g on the bottom). On the pad, during the launch and at the
+    landing the force comes in at the bottom; when the parachute pulls,
+    at the top. Peak hold: colours stay at the highest value reached, so
+    at the end of the flight you can see which zones carried the most.
     A thin dark raster keeps the shape readable when everything colours.
   - Radio link status (RSSI / packets / SNR)
 
@@ -43,6 +46,7 @@ import numpy as np
 # reuse simulator + theme from screen 1 (same folder)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dashboard_scherm1 as s1  # SIM_SPEED read via s1 (CLI)
+import krachten as K            # force model: load per zone of the can
 from dashboard_scherm1 import (C, PhaseDetector, TelemetrySimulator,
                                WindowFit, add_unit, from_radio, has_gps_fix,
                                is_number, make_source)
@@ -191,8 +195,12 @@ class Dashboard2:
             "altitude", [C["orange"], C["amber"], C["cyan"]])
         self.alt_norm = Normalize(0, self.sim.h_max)
         self.stress_peak = np.zeros(self.cyl[2].shape)   # peak hold per patch
+        # height of each ring of the mesh above the bottom (m)
+        Zr = self.cyl[2][:, 0]
+        self.ring_z = (Zr - Zr.min()) / (Zr.max() - Zr.min()) * K.CAN_HEIGHT_M
         self.peak_load_n = 0.0
-        self._f_now = 0.0
+        self._peak_where, self._peak_g = "bottom", 1.0
+        self._f_now, self._where_now = 0.0, "bottom"
         self.view3d = True
         self._wall = None        # wall-clock pacing for real-time replay
         self._changed = False    # new row since the last tick → redraw
@@ -467,7 +475,7 @@ class Dashboard2:
         except AttributeError:
             pass
         self.ax_ori.set_title(
-            "● 3D ORIENTATION + ESTIMATED LOAD (model, not measured)",
+            "● 3D ORIENTATION + LOAD PER ZONE (model from the measured g)",
             loc="left", fontsize=8, color=C["purple"],
             fontfamily="monospace", pad=2)
         self.txt_quat = self.ax_ori.text2D(
@@ -481,7 +489,7 @@ class Dashboard2:
             0.0, 0.07, "", transform=self.ax_ori.transAxes,
             fontsize=8, color=C["red"], family="monospace", va="bottom")
         self.ax_ori.text2D(
-            0.0, 0.01, "estimate · green = low · red = high (peak hold)",
+            0.0, 0.01, "colour = force / force at 20 g (ESA) · peak hold",
             transform=self.ax_ori.transAxes, fontsize=7,
             color=C["dim"], family="monospace", va="bottom")
 
@@ -572,11 +580,12 @@ class Dashboard2:
                                    arrow_length_ratio=0.18)
             self.ori_artists.append(q)
 
-        # peak force at the attachment point (accumulated in _ingest)
+        # largest force in the can now and over the flight (from _ingest)
+        where = {"bottom": "bottom", "top": "top (chute)"}
         self.txt_load.set_text(
-            f"est. attachment {self._f_now:5.1f} N · "
-            f"peak {self.peak_load_n:.1f} N "
-            f"({self.peak_load_n / (TelemetrySimulator.MASS * 9.81):.1f} g)")
+            f"force now {self._f_now:5.1f} N at the {where[self._where_now]}\n"
+            f"peak {self.peak_load_n:.1f} N at the {where[self._peak_where]} "
+            f"({self._peak_g:.1f} g)")
 
     # ── flight track rendering ──
     def _segments(self, xs, ys, zs=None):
@@ -647,6 +656,7 @@ class Dashboard2:
             self._last_t = None
             self._dts.clear()
             self.peak_load_n = 0.0
+            self._peak_where, self._peak_g = "bottom", 1.0
             self.stress_peak[:] = 0.0
             self.detector = PhaseDetector()
 
@@ -686,27 +696,26 @@ class Dashboard2:
         self.track_y.append(y)
         self.track_z.append(alt)
 
-        # load model: accumulate the peak-hold stress map per row
-        self._accumulate_stress(row)
+        # load model: accumulate the peak-hold map per row
+        self._accumulate_stress(row, det)
         return det, t, x, y, alt
 
-    def _accumulate_stress(self, row):
-        X, Y, Z, TH = self.cyl
-        a_ax = 9.81 + max(0.0, -row["lacc_z"])
-        # the per-interval peak (LSM6DSO) also catches shocks that fall
-        # between two log lines; older files without it: nan → ignored
-        apk = row.get("acc_peak_g", float("nan"))
-        if apk == apk:
-            a_ax = max(a_ax, apk * 9.81)
-        a_lat = math.hypot(row["lacc_x"], row["lacc_y"])
-        th_f = math.atan2(row["lacc_y"], row["lacc_x"])
-        frac = (Z - Z.min()) / (Z.max() - Z.min())
-        sigma = a_ax * frac + 0.8 * a_lat * frac * (
-            0.5 + 0.5 * np.cos(TH - th_f))
-        self.stress_peak = np.maximum(self.stress_peak,
-                                      np.clip(sigma / 45.0, 0.0, 1.0))
-        self._f_now = TelemetrySimulator.MASS * (a_ax + 0.8 * a_lat)
-        self.peak_load_n = max(self.peak_load_n, self._f_now)
+    def _accumulate_stress(self, row, phase):
+        """Load per zone (krachten.py): the g of this row, the side where
+        the force comes in (bottom: pad, launch, landing; top: parachute)
+        and the force through each ring of the can, as a share of the
+        ESA design load. Peak hold per ring."""
+        n = K.load_factor_g(row)
+        side = K.support_for(phase, row["alt_m"], n)
+        share = np.clip(K.zone_share(n, side, self.ring_z), 0.0, 1.0)
+        self.stress_peak = np.maximum(self.stress_peak, share[:, None])
+        # the largest force is at the side where it comes in
+        self._f_now = float(K.axial_force_n(
+            n, side, 0.0 if side == "bottom" else K.CAN_HEIGHT_M))
+        self._where_now = side
+        if self._f_now > self.peak_load_n:
+            self.peak_load_n = self._f_now
+            self._peak_where, self._peak_g = side, n
 
     # ── per-frame update ──
     def update(self, _frame):

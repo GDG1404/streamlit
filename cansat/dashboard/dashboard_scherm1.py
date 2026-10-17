@@ -11,7 +11,7 @@ Teensy firmware (see initSD() in Cansat2027_teensy.ino), so the real
 CSV/serial parser plugs in 1-to-1 later.
 
 Panels:
-  - KPI bar with sub-values (apogee, max descent rate, mean Cd)
+  - KPI bar with sub-values (apogee, max descent rate, median Cd)
   - Altitude vs time with apogee marker
   - Gyroscope (sliding window)
   - Acceleration XYZ plus the PEAK acceleration per log interval
@@ -57,6 +57,8 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.text import Annotation, Text
+
+import krachten as K   # our CanSat (mass, parachute) + the force model
 
 # ── Settings ─────────────────────────────────────────────────
 SIM_SPEED = 1.0      # 1.0 = realtime, 2.0 = double speed
@@ -259,12 +261,13 @@ class WindowFit:
 class TelemetrySimulator:
     """Generates test data of a complete CanSat flight.
 
-    Physics: 350 g can, parachute Ø45 cm → terminal velocity ±8 m/s.
+    Physics: mass and parachute from krachten.py (330 g, Ø 45 cm)
+    → terminal velocity ±8 m/s.
     """
 
-    MASS   = 0.350          # kg
-    A_PARA = 0.159          # m² (parachute Ø 0.45 m)
-    G      = 9.81
+    MASS   = K.MASS_KG                 # kg, whole CanSat with parachute
+    A_PARA = K.parachute_area_m2()     # m²
+    G      = K.G
     H_MAX  = 450.0          # apogee (m)
 
     T_LAUNCH  = 5.0         # s — launch
@@ -545,9 +548,9 @@ class CsvReplay:
         v = row_speed(self, row)
         if v < 2.0:
             return float("nan")
-        rho = 1.225 * (1 - 2.25577e-5 *
-                       (row["alt_m"] + self.ground_asl)) ** 4.25588
-        cd = 2 * self.MASS * self.G / (rho * self.A_PARA * v ** 2)
+        # air density from our own pressure and temperature
+        rho = K.row_air_density(row, row["alt_m"] + self.ground_asl)
+        cd = float(K.drag_coefficient(v, rho, self.MASS, self.A_PARA))
         return min(1.5, max(0.0, cd))
 
 
@@ -652,9 +655,9 @@ class CsvLive:
         v = row_speed(self, row)
         if v < 2.0 or self.ground_asl is None:
             return float("nan")
-        rho = 1.225 * (1 - 2.25577e-5 *
-                       (row["alt_m"] + self.ground_asl)) ** 4.25588
-        cd = 2 * self.MASS * self.G / (rho * self.A_PARA * v ** 2)
+        # air density from our own pressure and temperature
+        rho = K.row_air_density(row, row["alt_m"] + self.ground_asl)
+        cd = float(K.drag_coefficient(v, rho, self.MASS, self.A_PARA))
         return min(1.5, max(0.0, cd))
 
 
@@ -806,7 +809,7 @@ class Dashboard:
         self.apogee = 0.0
         self.t_apogee = 0.0
         self.v_max = 0.0
-        self.cd_sum, self.cd_n = 0.0, 0
+        self.cd_vals = []    # Cd of each descent row (median on screen)
         self.freq_hist = []          # peak frequencies seen this flight
         self.segments = []           # [phase, t_start, t_end] timeline
         self.seg_artists = []
@@ -1068,7 +1071,7 @@ class Dashboard:
             for d in self.hist.values():
                 d.clear()
             self.apogee = self.v_max = 0.0
-            self.cd_sum, self.cd_n = 0.0, 0
+            self.cd_vals = []
             self.freq_hist.clear()
             self.shock_g, self.t_shock = 0.0, 0.0
             self.band_max[:] = 0.0
@@ -1099,9 +1102,10 @@ class Dashboard:
             self.t_apogee = t
         if not math.isnan(v_now):
             self.v_max = max(self.v_max, v_now)
-        if not math.isnan(cd):
-            self.cd_sum += cd
-            self.cd_n += 1
+        # median over the descent: the first seconds after the parachute
+        # opens (speed still changing) do not pull it away
+        if not math.isnan(cd) and det == "DESCENT":
+            self.cd_vals.append(cd)
         bands = np.array([row.get(c, np.nan) for c in BAND_COLUMNS])
         if not np.isnan(bands).any():
             self.band_max = np.maximum(self.band_max, bands)
@@ -1180,7 +1184,7 @@ class Dashboard:
                 "",
                 "",
                 f"max: {self.v_max:.1f} m/s" if self.v_max > 0 else "",
-                f"mean: {self.cd_sum / self.cd_n:.2f}" if self.cd_n else "")
+                f"median: {np.median(self.cd_vals):.2f}" if self.cd_vals else "")
         for txt, v in zip(self.txt_kpi, vals):
             txt.set_text(v)
         for txt, v in zip(self.txt_kpi_sub, subs):

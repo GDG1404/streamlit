@@ -22,6 +22,7 @@ gewerkt? Geen probleem: elke stap staat erin, ook waar je klikt en wat je typt.
 - [Deel C — Hoe werkt het?](#deel-c--hoe-werkt-het) (uitleg en vragen)
 - [Deel D — Het lukt niet](#deel-d--het-lukt-niet)
 - [Deel E — Naslag](#deel-e--naslag): aansluitingen, CSV-kolommen, normale waarden, woordenlijst, alle commando's
+- [Deel F — Na de vlucht: de krachten op de CanSat](#deel-f--na-de-vlucht-de-krachten-op-de-cansat) (Cd van de parachute, controle, zones)
 
 Deze handleiding gaat uit van een **Windows**-laptop.
 
@@ -70,11 +71,13 @@ C:\CanSat\
 ├── dashboard\
 │   ├── dashboard_scherm1.py     ← dashboard: grafieken
 │   ├── dashboard_scherm2.py     ← dashboard: 3D-baan, kaart en oriëntatie
+│   ├── krachten.py              ← gegevens van jullie CanSat + het krachtenmodel
 │   └── requirements.txt         ← lijst met Python-pakketten
 └── tools\
     ├── serial_logger.py         ← schrijft de metingen van de Teensy naar een bestand
     ├── check_csv.py             ← controleert een meetbestand
-    └── gen_test_csv.py          ← maakt nep-metingen om te oefenen
+    ├── gen_test_csv.py          ← maakt nep-metingen om te oefenen (ook een oefenvlucht)
+    └── krachten_analyse.py      ← na de vlucht: Cd, controle en krachten per zone
 ```
 
 De map `metingen` bestaat nog niet. Die wordt vanzelf gemaakt bij je eerste test.
@@ -404,8 +407,8 @@ logboek telkens de **tijd** die rechtsboven in het dashboard staat.
 | # | Test | Wat doe je? | Waar kijk je? |
 |---|---|---|---|
 | 1 | **Rust** | 30 s niets: CanSat stil op tafel | Alle grafieken ongeveer vlak. Dit is je **nulmeting**. |
-| 2 | **Schudden** | 15 s stevig schudden met de hand | Scherm 1: ACCELERATION, GYROSCOPE en VIBRATION PER BAND. Scherm 2: het blikje kleurt oranje/rood. |
-| 2b | **Schok** | zet de CanSat met een stevige tik op de tafel | Scherm 1: ACCELERATION. De witte stippellijn springt omhoog. Linksboven staat `largest shock` met de grootte en het tijdstip. |
+| 2 | **Schudden** | 15 s stevig schudden met de hand | Scherm 1: ACCELERATION, GYROSCOPE en VIBRATION PER BAND. Scherm 2: het blikje kleurt onderaan wat geler. Schudden is maar 2 à 3 g; rood is pas 20 g. |
+| 2b | **Schok** | zet de CanSat met een stevige tik op de tafel | Scherm 1: ACCELERATION. De witte stippellijn springt omhoog. Linksboven staat `largest shock` met de grootte en het tijdstip. Scherm 2: de bodem kleurt geel tot oranje. |
 | 3 | **Klap** | één keer hard in de handen klappen naast de CanSat | Scherm 1: AUDIO RMS. Let op de getallen naast de grafiek: de schaal past zich aan. In een stil lokaal is de lijn ongeveer 0,003. Na een klap gaat de schaal omhoog. |
 | 4 | **Draaien** | CanSat langzaam een kwartslag draaien rond de verticale as | Scherm 2: het blik rechts draait mee, *Heading* verandert |
 | 5 | **Kantelen** | CanSat schuin houden, naar voren en opzij | Scherm 2: *Roll* en *Pitch* |
@@ -661,10 +664,17 @@ Daarom houdt de Teensy elke seconde de **grootste** versnelling bij. Hij meet da
 De zwaartekracht zit er ook in. Ligt de CanSat stil, dan is `acc_peak_g` dus ongeveer
 **1 g**. Een tik op de tafel geeft al snel 3 tot 8 g.
 
-**Het gekleurde blikje op scherm 2 is een schatting.** Het dashboard rekent met een
-eenvoudige formule uit hoe zwaar het blikje belast wordt. Dat gebeurt op basis van de
-versnelling. Er zit geen sensor die de belasting zelf meet. Groen betekent een kleine
-belasting, rood een grote. De kleur blijft staan op de hoogste waarde.
+**Het gekleurde blikje op scherm 2 toont de kracht per zone.** Het is een model: het
+rekent met de gemeten g en de massa (`dashboard\krachten.py`). Er zit geen sensor die
+de kracht in het blik zelf meet.
+
+- Op de grond, bij de lancering en bij de landing komt de kracht **onderaan** binnen.
+  Als de parachute trekt, komt ze **bovenaan** binnen.
+- Hoe dichter bij die plaats, hoe meer het blik moet dragen.
+- Groen is weinig. Rood (100 %) is 20 g op de bodem: zoveel moet een CanSat volgens
+  ESA kunnen verdragen.
+- De kleur blijft staan op de hoogste waarde. Na de vlucht zie je zo welke zones het
+  meest moesten dragen. Meer uitleg staat in [Deel F](#deel-f--na-de-vlucht-de-krachten-op-de-cansat).
 
 ### C5. Een CSV-bestand
 
@@ -816,6 +826,7 @@ Elke rij heeft 34 kolommen, altijd in deze volgorde.
 | **baud** | snelheid van een seriële verbinding in bits per seconde. 115 200 baud is ongeveer 11 500 tekens per seconde. |
 | **bibliotheek / pakket** | code die iemand anders geschreven heeft en die jij kan gebruiken |
 | **COM-poort** | de naam die Windows geeft aan een seriële verbinding, bv. COM5 |
+| **Cd** | luchtweerstandscoëfficiënt: een getal dat zegt hoe goed de parachute de lucht tegenhoudt |
 | **compileren** | code vertalen naar instructies die de microcontroller begrijpt |
 | **CSV** | tekstbestand met een tabel; de waarden staan gescheiden door komma's |
 | **FFT** | rekenmethode die uitzoekt welke frequenties in een signaal zitten |
@@ -825,7 +836,9 @@ Elke rij heeft 34 kolommen, altijd in deze volgorde.
 | **Hz** | hertz: aantal keer per seconde |
 | **I²C** | verbinding met 2 draden waarop meerdere sensoren kunnen hangen, elk met een eigen adres |
 | **I²S** | verbinding speciaal voor digitale audio |
+| **luchtdichtheid (ρ)** | hoeveel kilogram lucht er in 1 m³ zit. Hoger in de lucht is het minder. |
 | **microcontroller** | kleine computer op één chip, gemaakt om dingen te meten en aan te sturen |
+| **model** | een berekening die de werkelijkheid nabootst, met formules en gemeten getallen |
 | **opdrachtprompt** | venster waarin je commando's typt (`cmd`) |
 | **RMS** | soort gemiddelde dat aangeeft hoe groot een trilling of geluid is |
 | **sensorfusie** | metingen van meerdere sensoren combineren tot één betere meting |
@@ -851,8 +864,144 @@ py dashboard\dashboard_scherm1.py --sim                   vluchtsimulator
 py tools\check_csv.py metingen\test_01.csv                meting controleren
 py tools\gen_test_csv.py metingen\oefen.csv               nep-metingen maken
 py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per seconde
+py tools\gen_test_csv.py metingen\oefenvlucht.csv --vlucht   een oefenvlucht (Cd 0,50)
+py tools\krachten_analyse.py metingen\vlucht.csv          na de vlucht: Cd en krachten
 py start_meting.py                                         logger + 2 dashboards in één keer
 ```
+
+---
+
+## Deel F — Na de vlucht: de krachten op de CanSat
+
+Na de vlucht kan je uitrekenen welke krachten op de CanSat werkten, en **waar**. Dat
+doet `tools\krachten_analyse.py`. Je hebt alleen het meetbestand nodig.
+
+### F1. Wat het programma uitrekent
+
+1. **De vlucht in stukken:** lancering, hoogste punt, parachute open, landing.
+2. **De Cd van de parachute.** In de rustige daling valt de CanSat even snel. Dan is
+   de luchtweerstand even groot als het gewicht:
+
+   ```
+   ½ · ρ · v² · Cd · A = m · g      dus      Cd = 2 · m · g / (ρ · v² · A)
+   ```
+
+   - v = de daalsnelheid, uit de hoogtemeter
+   - ρ = de luchtdichtheid, uit jullie **eigen** druk en temperatuur: ρ = p / (287 · T),
+     met p in pascal en T in kelvin
+   - m = de massa van de CanSat, A = de oppervlakte van de parachute
+3. **De controle.** Met die Cd rekent het programma voor elke seconde uit hoe hard de
+   parachute trekt. Dat zet het naast wat de sensor mat. Komt het overeen? Dan klopt
+   het model. Een tweede controle: de Cd moet op elke hoogte ongeveer gelijk zijn. Hoog
+   in de lucht is de lucht dunner. Daar valt de CanSat dus sneller, maar de Cd blijft
+   dezelfde.
+4. **De kracht op elke hoogte in het blik**, voor elk moment van de vlucht.
+5. **De zones:** waar het blik het meest en waar het het minst moest dragen.
+
+### F2. Het idee: waar komt de kracht binnen?
+
+- De sensor meet hoeveel g de CanSat voelt. Bij 10 g duwt of trekt elk onderdeel met
+  10 keer zijn eigen gewicht: **F = m · n · g**.
+- De kracht komt op één plaats binnen:
+  - **onderaan** bij de lancering (de raket duwt) en bij de landing (de grond duwt).
+    Het blik wordt dan **samengedrukt**.
+  - **bovenaan** als de parachute trekt. Het blik wordt dan **uitgerekt**.
+- Een plek in het blik moet alles dragen wat verder van die plaats ligt. Hoe dichter bij
+  de plaats waar de kracht binnenkomt, hoe groter de kracht.
+
+**Voorbeeld:** bij de lancering met 10 g draagt de bodem de hele CanSat:
+0,330 kg × 10 × 9,81 m/s² = 32 N. Halverwege draagt het blik alleen de bovenste helft:
+16 N. Het deksel draagt bijna niets. Hangt de CanSat aan de parachute, dan is het net
+andersom.
+
+### F3. De gegevens van jullie CanSat invullen
+
+Open `dashboard\krachten.py`, bijvoorbeeld in Thonny. Bovenaan staat:
+
+```
+MASS_KG = 0.330               # de hele CanSat MET parachute (gewogen)
+PARACHUTE_MASS_KG = 0.0       # de parachute alleen (0 = nog niet gewogen)
+PARACHUTE_DIAMETER_M = 0.45   # diameter van de parachute, plat uitgelegd
+HEAVY_PARTS = [ ... ]         # zware onderdelen: naam, massa, hoogte
+```
+
+- Weeg en meet, en vul in. Gebruik een **punt**, geen komma: `0.330`.
+- Zware onderdelen (bijvoorbeeld de batterij) mag je apart invullen, met de hoogte van
+  hun midden boven de bodem. Dan wordt het model nauwkeuriger. Laat je de lijst leeg,
+  dan is de massa gelijk verdeeld over de hoogte.
+- De dashboards gebruiken dezelfde gegevens.
+
+### F4. Oefenen zonder vlucht
+
+Op tafel kan je dit niet testen: daar is geen vlucht. Maak daarom een oefenvlucht:
+
+```
+py tools\gen_test_csv.py metingen\oefenvlucht.csv --vlucht
+py tools\krachten_analyse.py metingen\oefenvlucht.csv
+```
+
+De oefenvlucht is berekend met de natuurkunde: een lancering met 10 g, een hoogste punt
+op ongeveer 950 m, een parachute en een landing. De Cd van de parachute is daarin
+**0,50**. Vindt het programma 0,50? Dan werkt de methode.
+
+Je kan de oefenvlucht ook in de dashboards afspelen:
+
+```
+py dashboard\dashboard_scherm2.py --replay metingen\oefenvlucht.csv --speed 4
+```
+
+### F5. Na de echte vlucht
+
+1. Kopieer het bestand van de SD-kaart naar `C:\CanSat\metingen\`, bijvoorbeeld als
+   `vlucht.csv`.
+2. Typ in een opdrachtprompt in `C:\CanSat`:
+   ```
+   py tools\krachten_analyse.py metingen\vlucht.csv
+   ```
+3. Lees het verslag in het venster. De figuren staan in `metingen\vlucht_krachten\`.
+
+Gebruik het bestand van de **SD-kaart**. Daarin staat elke seconde de grootste
+versnelling (`acc_peak_g`). In het radiobestand zit die niet. Dan kent het programma
+de lancering en de landing niet, en zegt het dat ook.
+
+### F6. De figuren
+
+| Bestand | Wat zie je? |
+|---|---|
+| `1_vlucht.png` | de hoogte en de grootste versnelling per seconde, met de lancering, de parachute en de landing |
+| `2_parachute_cd.png` | links de daalsnelheid op elke hoogte, rechts de Cd van elke seconde |
+| `3_controle.png` | de kracht volgens het parachutemodel naast de kracht volgens de sensor |
+| `4_kracht_per_hoogte.png` | de kracht door het blik op elke hoogte, voor elk moment |
+| `5_zones.png` | het blik in kleuren: groen is weinig, rood is 20 g op de bodem (de ESA-eis) |
+| `krachten_per_seconde.csv` | alle getallen per seconde, om zelf grafieken te maken |
+
+De tekst in de figuren is in het Engels, net als in de dashboards.
+
+### F7. Wat het programma níet kan
+
+- **Het is een model.** Geen enkele sensor meet de kracht in het blik zelf. Het
+  programma rekent met de gemeten g en de massa. Ingenieurs doen het ook zo. Zeg dat
+  eerlijk in je presentatie.
+- **De sensor meet tot 16 g.** Een grotere schok wordt afgeknipt. Het verslag zegt dan
+  "≥ 16 g": minstens 16 g. Bij de landing kan dat gebeuren.
+- **Eén hoogte per seconde.** De daalsnelheid is daardoor een gemiddelde over
+  2 seconden. Bij het openen van de parachute verandert de snelheid heel snel. Daarom
+  schat het model die kracht te laag.
+- **Uitwerpen en parachute vallen samen.** Ze liggen maar enkele seconden uit elkaar.
+  Het programma neemt de grootste piek van die seconden.
+- **Alleen krachten langs het blik.** Zijwaartse krachten (buigen) rekent het niet. Het
+  controleert met de BNO055 of ze klein zijn.
+
+### F8. Vragen om over na te denken
+
+1. Waarom valt de CanSat hoog in de lucht iets sneller dan vlak bij de grond?
+2. Jullie temperatuursensor zit binnen in het blik. Stel dat hij 10 °C te warm meet.
+   Hoeveel procent verandert de Cd dan? Reken het uit.
+3. Bij het openen van de parachute geeft het model minder g dan de sensor. Bedenk twee
+   redenen.
+4. Waar is het blik het minst belast? Kan je daar materiaal en dus massa besparen?
+5. Waar zou jij de batterij zetten: onderaan of bovenaan? Vul ze in bij `HEAVY_PARTS`
+   en vergelijk.
 
 ---
 
@@ -889,4 +1038,17 @@ py start_meting.py                                         logger + 2 dashboards
 - **Kaart in scherm 2:** gecentreerd op de eerste GPS-fix. Open scherm 2 vooraf met
   internet op de lanceerplaats (bv. een replay van een korte test daar), zodat de
   kaarttegels bewaard worden voor gebruik zonder internet.
+- **Krachtenmodel (`dashboard\krachten.py`):** alleen axiale krachten. De normaalkracht
+  op hoogte z is N(z) = n · g · m_ver(z): de massa aan de andere kant van de doorsnede,
+  gezien vanaf het steunpunt. Steunpunt onderaan op het platform, bij de lancering en
+  bij de landing (een schok > 2,5 g onder 25 m tijdens de daling geldt als landing);
+  bovenaan bij APOGEE en DESCENT. n is `acc_peak_g` (LSM6DSO); zonder die kolom de
+  BNO055 (|lacc + grav|, of 1 + |lacc|/g in het radiobestand, een bovengrens). De kleur
+  is N(z) gedeeld door 20 g · g · m. De parachute zit tijdens de lancering verpakt
+  bovenaan en hoort dan bij de massa; aan de parachute niet meer.
+- **Cd:** scherm 1 en `krachten_analyse.py` gebruiken ρ = p / (R · T) uit de eigen
+  druk en temperatuur (R = 287,05 J/(kg·K)). Scherm 1 toont de mediaan over de
+  daalfase. Het analyseprogramma neemt alleen de rustige daling: binnen 20 % van de
+  gewone daalsnelheid, versnelling < 0,6 m/s². Op de oefenvlucht (`--vlucht`, Cd 0,50)
+  vindt het 0,50 terug (0,48 tot 0,52).
 - **Python-versie:** 3.9 of nieuwer.

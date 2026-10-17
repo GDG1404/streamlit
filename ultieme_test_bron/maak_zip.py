@@ -22,6 +22,7 @@ FILES = [
     ("start_meting.py", "cansat/start_meting.py"),
     ("dashboard/dashboard_scherm1.py", "cansat/dashboard/dashboard_scherm1.py"),
     ("dashboard/dashboard_scherm2.py", "cansat/dashboard/dashboard_scherm2.py"),
+    ("dashboard/krachten.py", "cansat/dashboard/krachten.py"),
     ("dashboard/requirements.txt", "cansat/dashboard/requirements.txt"),
     ("tools/serial_logger.py", "cansat/tools/serial_logger.py"),
     ("tools/check_csv.py", "cansat/tools/check_csv.py"),
