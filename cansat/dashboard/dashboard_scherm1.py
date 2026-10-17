@@ -45,6 +45,7 @@ import csv
 import math
 import os
 import random
+import sys
 import time
 from collections import deque
 
@@ -58,7 +59,12 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.text import Annotation, Text
 
-import krachten as K   # our CanSat (mass, parachute) + the force model
+try:
+    import krachten as K   # our CanSat (mass, parachute) + the force model
+except ImportError:
+    sys.exit("krachten.py is missing. Put it in the same folder as "
+             "dashboard_scherm1.py and dashboard_scherm2.py: the dashboards "
+             "need it.")
 
 # ── Settings ─────────────────────────────────────────────────
 SIM_SPEED = 1.0      # 1.0 = realtime, 2.0 = double speed
