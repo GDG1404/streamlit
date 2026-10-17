@@ -12,7 +12,9 @@ Rekent na de vlucht uit welke krachten op de CanSat werkten, en waar:
   4. de kracht door de CanSat op elke hoogte, voor elk moment;
   5. de zones: waar de CanSat het meest en het minst belast werd;
   6. de energie: hoogte-energie, bewegingsenergie en hoeveel energie de
-     parachute omzet in warmte en wervelingen.
+     parachute omzet in warmte en wervelingen;
+  7. de kracht die het blik voelt in 3D: hoe groot en in welke richting,
+     gezien vanuit het blik zelf.
 
 Gebruik (in de map C:\\CanSat):
   py tools\\krachten_analyse.py metingen\\vlucht.csv
@@ -263,10 +265,16 @@ def analyse(d):
     # zijwaarts: de as van het blik = de richting van de zwaartekracht in de
     # rustige daling (het blik hangt dan recht onder de parachute)
     r["zij_max"] = r["as_g"] = float("nan")
+    r["fv"], r["as_vec"] = fv, None
     gr = grav[rustig]
+    voor = grav[max(0, f["lancering"] - 30):f["lancering"]]
+    if np.isfinite(voor).all() and len(voor):     # geen rustige daling: de
+        r["as_vec"] = voor.mean(axis=0)           # lanceerplaats (rechtop)
+        r["as_vec"] = r["as_vec"] / np.linalg.norm(r["as_vec"])
     if rustig.sum() >= 5 and np.isfinite(gr).all():
         u = gr.mean(axis=0)
         u /= np.linalg.norm(u)
+        r["as_vec"] = u
         sl = slice(f["vmax"], f["klap"])
         langs = fv[sl] @ u
         zij = np.linalg.norm(fv[sl] - np.outer(langs, u), axis=1) / K.G
@@ -693,6 +701,92 @@ def fig_energie(r, naam, pad):
         plt.close(fig)
 
 
+def fig_kracht_3d(r, naam, pad):
+    """De kracht die het blik voelt (BNO055: linacc + grav), één punt per
+    seconde, in 3D gezien vanuit het blik zelf: z = de as naar het deksel.
+    Links de hele vlucht, rechts een close-up rond 1 g."""
+    u = r["as_vec"]
+    fv = r["fv"] / K.G
+    goed = np.isfinite(fv).all(axis=1)
+    ex = np.array([1.0, 0.0, 0.0]) if abs(u[0]) < 0.9 else np.array([0.0, 1.0, 0.0])
+    ex = ex - (ex @ u) * u
+    ex /= np.linalg.norm(ex)
+    ey = np.cross(u, ex)
+    P = np.column_stack([fv @ ex, fv @ ey, fv @ u])
+    grootte = np.linalg.norm(P, axis=1)
+    hoek = np.degrees(np.arccos(np.clip(P[:, 2] / np.maximum(grootte, 1e-9), -1, 1)))
+    fase = np.array(r["fase"])
+    # op de lanceerplaats en onder de parachute voelt het blik hetzelfde
+    # (1 g langs de as): open ringen, zodat beide zichtbaar blijven
+    groepen = [("on the pad", ("pad",),
+                dict(s=80, facecolors="none", edgecolors=BLAUW, linewidths=1.6)),
+               ("in the rocket", ("ascent",),
+                dict(s=30, color=ORANJE, edgecolor=OPP, linewidth=0.6)),
+               ("under the parachute", ("chute opening", "descent"),
+                dict(s=22, color=AQUA, edgecolor=OPP, linewidth=0.5)),
+               ("after the landing", ("landing", "landed"),
+                dict(s=30, color=GEEL, edgecolor=INKT2, linewidth=0.6))]
+    tekst = []
+    for label, sleutels, _ in groepen:
+        sel = goed & np.isin(fase, sleutels)
+        sterk = sel & (grootte > 0.3)              # bij ~0 g is er geen richting
+        if sterk.any():
+            tekst.append(f"{label}: {np.median(grootte[sterk]):.1f} g, "
+                         f"{np.median(hoek[sterk]):.0f}° from the axis")
+        elif sel.any():
+            tekst.append(f"{label}: about 0 g")
+    lim_alles = max(1.5, float(np.nanmax(grootte[goed])) * 1.1)
+    with plt.rc_context(STIJL):
+        fig = plt.figure(figsize=FIG)
+        fig.subplots_adjust(left=0.0, right=1.0, top=0.83, bottom=0.17, wspace=0.0)
+        titel(fig, "The force on the can in 3D",
+              f"{naam} · what the can feels: linacc + grav (BNO055, one point per "
+              f"second, up to 4 g) · seen from the can itself · the peaks of the "
+              f"LSM6DSO have no direction")
+        handles = []
+        for k, (lim, sub) in enumerate(((lim_alles, "whole flight"),
+                                        (1.3, "close-up around 1 g"))):
+            a = fig.add_subplot(1, 2, k + 1, projection="3d")
+            a.set_facecolor(OPP)
+            th, ph = np.meshgrid(np.linspace(0, 2 * np.pi, 37), np.linspace(0, np.pi, 19))
+            a.plot_wireframe(np.cos(th) * np.sin(ph), np.sin(th) * np.sin(ph),
+                             np.cos(ph), color=RASTER, linewidth=0.6)
+            T, Z = np.meshgrid(np.linspace(0, 2 * np.pi, 37),
+                               np.array([-0.17, 0.17]) * lim)
+            a.plot_surface(0.06 * lim * np.cos(T), 0.06 * lim * np.sin(T), Z,
+                           color=GRIJS, alpha=0.25, linewidth=0, shade=False)
+            a.plot([0, 0], [0, 0], [-lim, lim], color=INKT2, lw=1)
+            a.text(0, 0, lim * 1.04, "lid", color=INKT2, fontsize=10, ha="center")
+            a.text(0, 0, -lim * 1.12, "bottom", color=INKT2, fontsize=10, ha="center")
+            for label, sleutels, stijl in groepen:
+                sel = goed & np.isin(fase, sleutels) & (grootte <= lim)
+                if sel.any():
+                    h = a.scatter(P[sel, 0], P[sel, 1], P[sel, 2], depthshade=False,
+                                  label=label, **stijl)
+                    if k == 0:
+                        handles.append(h)
+            a.set_xlim(-lim, lim)
+            a.set_ylim(-lim, lim)
+            a.set_zlim(-lim, lim)
+            try:
+                a.set_box_aspect((1, 1, 1))
+            except AttributeError:
+                pass
+            a.set_xlabel("sideways x (g)", labelpad=6)
+            a.set_ylabel("sideways y (g)", labelpad=6)
+            a.set_zlabel("along the can (g)", labelpad=6)
+            a.view_init(elev=18, azim=-55)
+            a.set_title(sub + ("" if k == 0 else f" (points above {lim} g left out)"),
+                        fontsize=12, color=INKT, loc="center")
+        fig.legend(handles=handles, loc="lower left", bbox_to_anchor=(0.012, 0.09),
+                   ncol=4, fontsize=11)
+        fig.text(0.012, 0.075, "median where the force is larger than 0.3 g "
+                 "(the grey sphere is 1 g):", fontsize=10, color=INKT2, va="top")
+        fig.text(0.012, 0.04, "  ·  ".join(tekst), fontsize=10, color=INKT2, va="top")
+        fig.savefig(pad, dpi=DPI)
+        plt.close(fig)
+
+
 def schrijf_tabel(r, pad):
     kol = ["t_s", "phase", "height_agl_m", "descent_rate_ms", "air_density_kgm3",
            "cd", "n_sensor_peak_g", "n_sensor_bno_g", "n_parachute_model_g",
@@ -876,6 +970,11 @@ def main():
         fig_kracht_hoogte(r, naam, os.path.join(map_uit, "4_kracht_per_hoogte.png"))
         fig_zones(r, naam, os.path.join(map_uit, "5_zones.png"))
     fig_energie(r, naam, os.path.join(map_uit, "6_energie.png"))
+    if r["as_vec"] is not None and np.isfinite(r["fv"]).all(axis=1).any():
+        fig_kracht_3d(r, naam, os.path.join(map_uit, "7_kracht_3d.png"))
+    else:
+        print("Geen 3D-figuur: in dit bestand staat de richting niet "
+              "(grav_x/y/z ontbreken, bv. het radiobestand).")
     schrijf_tabel(r, os.path.join(map_uit, "krachten_per_seconde.csv"))
     return 0
 

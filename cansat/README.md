@@ -980,6 +980,7 @@ de lancering en de landing niet, en zegt het dat ook.
 | `4_kracht_per_hoogte.png` | de kracht door het blik op elke hoogte, voor elk moment |
 | `5_zones.png` | het blik in kleuren: groen is weinig, rood is 20 g op de bodem (de ESA-eis) |
 | `6_energie.png` | boven de hoogte-energie, de bewegingsenergie en de som; onder het vermogen van de parachute |
+| `7_kracht_3d.png` | de kracht die het blik voelt in 3D, één punt per seconde, gezien vanuit het blik: hoe groot en in welke richting. Links de hele vlucht, rechts dichtbij rond 1 g. Uit de BNO055 (tot 4 g); de pieken van de schokken staan er niet in. Niet in het radiobestand. |
 | `krachten_per_seconde.csv` | alle getallen per seconde, om zelf grafieken te maken |
 
 De tekst in de figuren is in het Engels, net als in de dashboards.
