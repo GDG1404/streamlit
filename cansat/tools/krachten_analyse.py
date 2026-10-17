@@ -10,7 +10,9 @@ Rekent na de vlucht uit welke krachten op de CanSat werkten, en waar:
   3. de controle: de kracht volgens de parachute (met die Cd) naast de
      kracht die de sensor mat;
   4. de kracht door de CanSat op elke hoogte, voor elk moment;
-  5. de zones: waar de CanSat het meest en het minst belast werd.
+  5. de zones: waar de CanSat het meest en het minst belast werd;
+  6. de energie: hoogte-energie, bewegingsenergie en hoeveel energie de
+     parachute omzet in warmte en wervelingen.
 
 Gebruik (in de map C:\\CanSat):
   py tools\\krachten_analyse.py metingen\\vlucht.csv
@@ -313,7 +315,38 @@ def analyse(d):
     r["volledig"] = len(r["krachten"]) == len(momenten)
     if r["krachten"]:
         r["omhulsel"] = np.max(np.vstack(list(r["krachten"].values())), axis=0)
+    energie(r, f, t)
     return r
+
+
+def energie(r, f, t):
+    """Energie uit de hoogtemeter (m = de hele CanSat met parachute):
+    hoogte-energie m·g·h, bewegingsenergie ½·m·v² (verticaal) en het
+    vermogen van de parachute: de energie die per seconde verdwijnt."""
+    m = K.MASS_KG
+    e_pot = m * K.G * f["hoogte"]
+    e_kin = 0.5 * m * f["daal"] ** 2
+    e_tot = e_pot + e_kin
+    r["e_pot"], r["e_kin"], r["e_tot"] = e_pot, e_kin, e_tot
+    i0, it, io, ik = f["lancering"], f["top"], f["vmax"], f["klap"]
+    # de laatste rij die nog boven de grond is (de klap zelf telt niet mee)
+    ie = ik - 1
+    while ie > io and f["hoogte"][ie] <= 1.0:
+        ie -= 1
+    vermogen = np.full(len(t), np.nan)
+    vermogen[io:ie + 1] = -np.gradient(e_tot, t)[io:ie + 1]
+    r["vermogen"] = vermogen
+    r["e_top"] = float(e_pot[it])
+    # uitvliegen na de motor: beweging wordt hoogte, de som blijft (bijna) gelijk
+    uit = e_tot[i0 + 3:it + 1]
+    r["e_uitvliegen"] = (float(uit.min()), float(uit.max())) if len(uit) >= 3 else None
+    # daling: wat de parachute omzet, van het openen tot vlak voor de landing
+    r["e_omgezet"] = float(e_tot[io] - e_tot[ie])
+    rust = f["rustig"]
+    if rust.any():
+        r["p_rustig"] = float(np.median(vermogen[rust]))
+        r["p_mgv"] = float(np.median(m * K.G * f["daal"][rust]))
+        r["e_kin_land"] = float(0.5 * m * np.median(f["daal"][rust][-5:]) ** 2)
 
 
 # ═════════════════════════════════════════════════════════════
@@ -610,10 +643,62 @@ def fig_zones(r, naam, pad):
         plt.close(fig)
 
 
+def fig_energie(r, naam, pad):
+    t, f = r["t"], r["f"]
+    x0, x1 = t[f["lancering"]] - 10, t[f["klap"]] + 10
+    with plt.rc_context(STIJL):
+        fig, (a1, a2) = plt.subplots(2, 1, figsize=FIG, sharex=True,
+                                     gridspec_kw={"height_ratios": [3, 2]})
+        fig.subplots_adjust(left=0.07, right=0.97, top=0.84, bottom=0.09, hspace=0.32)
+        titel(fig, "Energy: where does it go?",
+              f"{naam} · from the barometer · m = {K.MASS_KG * 1000:.0f} g · "
+              f"height energy m·g·h, motion energy ½·m·v² (vertical)")
+        a1.plot(t, r["e_tot"] / 1000, color=INKT, label="total")
+        a1.plot(t, r["e_pot"] / 1000, color=BLAUW, label="height energy  m·g·h")
+        a1.plot(t, r["e_kin"] / 1000, color=ORANJE, label="motion energy  ½·m·v²")
+        a1.set_title("Energy of the CanSat")
+        a1.set_ylabel("energy (kJ)")
+        a1.set_ylim(-0.05 * r["e_top"] / 1000, 1.3 * r["e_top"] / 1000)
+        a1.legend(loc="upper right")
+        it = f["top"]
+        a1.annotate(f"apogee: {r['e_top'] / 1000:.2f} kJ",
+                    (t[it], r["e_tot"][it] / 1000), xytext=(10, 10),
+                    textcoords="offset points", fontsize=11, color=INKT)
+        if np.isfinite(r["e_omgezet"]):
+            mid = (r["t_open"] + t[f["klap"]]) / 2
+            a1.annotate(f"the parachute turns {r['e_omgezet'] / 1000:.2f} kJ\n"
+                        "into heat and swirls of air",
+                        (mid, np.interp(mid, t, r["e_tot"]) / 1000),
+                        xytext=(12, 22), textcoords="offset points",
+                        fontsize=11, color=INKT)
+        a2.plot(t, r["vermogen"], color=BLAUW, marker="o", ms=3,
+                label="energy lost per second (from the data)")
+        if "p_mgv" in r:
+            a2.axhline(r["p_mgv"], color=ORANJE, lw=2,
+                       label=f"m·g·v = {r['p_mgv']:.0f} W (steady descent)")
+        a2.axhline(0, color=AS, lw=1)
+        a2.set_title("Power of the parachute")
+        a2.set_ylabel("power (W)")
+        a2.set_xlabel("time since the launch (s)")
+        p = r["vermogen"][np.isfinite(r["vermogen"])]
+        gewoon = r.get("p_mgv", float(np.median(p)) if len(p) else 1.0)
+        top = min(float(p.max()) if len(p) else gewoon, 4 * gewoon)  # opening: max 4×
+        a2.set_ylim(min(0.0, float(p.min()) if len(p) else 0.0) - 2, 1.25 * top + 2)
+        a2.legend(loc="upper right")
+        for (te, _) in gebeurtenissen(r):
+            for a in (a1, a2):
+                a.axvline(te, color=AS, lw=1, zorder=0)
+        a1.set_xlim(x0, x1)
+        fig.savefig(pad, dpi=DPI)
+        plt.close(fig)
+
+
 def schrijf_tabel(r, pad):
     kol = ["t_s", "phase", "height_agl_m", "descent_rate_ms", "air_density_kgm3",
            "cd", "n_sensor_peak_g", "n_sensor_bno_g", "n_parachute_model_g",
-           "support", "force_bottom_n", "force_top_n"]
+           "support", "force_bottom_n", "force_top_n",
+           "energy_height_j", "energy_motion_j", "energy_total_j",
+           "parachute_power_w"]
     f = r["f"]
     with open(pad, "w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
@@ -630,7 +715,11 @@ def schrijf_tabel(r, pad):
                           for x in (r["piek"][i], r["bno"][i], r["model"][i])),
                         steun,
                         f"{float(K.axial_force_n(n, steun, 0.0)):.1f}",
-                        f"{float(K.axial_force_n(n, steun, K.CAN_HEIGHT_M)):.1f}"])
+                        f"{float(K.axial_force_n(n, steun, K.CAN_HEIGHT_M)):.1f}",
+                        f"{r['e_pot'][i]:.1f}", f"{r['e_kin'][i]:.1f}",
+                        f"{r['e_tot'][i]:.1f}",
+                        "" if not np.isfinite(r["vermogen"][i])
+                        else f"{r['vermogen'][i]:.1f}"])
 
 
 # ═════════════════════════════════════════════════════════════
@@ -733,13 +822,31 @@ def verslag(r, naam, map_uit, herstart):
                   f"{100 * om[j] / fd:3.0f} % van de ESA-eis")
         print(f"   minst belast: op {z[jmin] * 1000:.0f} mm hoogte, "
               f"{getal(om[jmin])} N")
+    print(f"\n6. ENERGIE (uit de hoogtemeter, m = {K.MASS_KG * 1000:.0f} g)")
+    if r["e_uitvliegen"]:
+        lo, hi = r["e_uitvliegen"]
+        print(f"   na de motor      totale energie {getal(lo / 1000, 2)} tot "
+              f"{getal(hi / 1000, 2)} kJ: bijna gelijk")
+        print("                    (bewegingsenergie wordt hoogte-energie)")
+    print(f"   hoogste punt     hoogte-energie m·g·h = {getal(r['e_top'] / 1000, 2)} kJ")
+    tot = "vlak voor de landing" if f["geland"] else "het einde van het bestand"
+    print(f"   daling           de parachute zet {getal(r['e_omgezet'] / 1000, 2)} kJ "
+          f"om in warmte en wervelingen\n"
+          f"                    (van het openen tot {tot})")
+    if "p_rustig" in r:
+        print(f"                    gemiddeld {getal(r['p_rustig'])} W "
+              f"(m·g·v = {getal(r['p_mgv'])} W)")
+        if f["geland"]:
+            print(f"   landing          nog {getal(r['e_kin_land'], 0)} J "
+                  f"bewegingsenergie (½·m·v²)")
     print(f"\nFiguren en tabel: {map_uit}")
 
 
 # ═════════════════════════════════════════════════════════════
 def main():
     p = argparse.ArgumentParser(
-        description="Krachten op de CanSat na de vlucht (Cd, controle, zones).")
+        description="Krachten op de CanSat na de vlucht (Cd, controle, zones, "
+                    "energie).")
     p.add_argument("csv", help="het meetbestand, bv. metingen\\vlucht.csv")
     args = p.parse_args()
 
@@ -768,6 +875,7 @@ def main():
     if r.get("krachten"):
         fig_kracht_hoogte(r, naam, os.path.join(map_uit, "4_kracht_per_hoogte.png"))
         fig_zones(r, naam, os.path.join(map_uit, "5_zones.png"))
+    fig_energie(r, naam, os.path.join(map_uit, "6_energie.png"))
     schrijf_tabel(r, os.path.join(map_uit, "krachten_per_seconde.csv"))
     return 0
 

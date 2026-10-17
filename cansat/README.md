@@ -897,6 +897,12 @@ doet `tools\krachten_analyse.py`. Je hebt alleen het meetbestand nodig.
    dezelfde.
 4. **De kracht op elke hoogte in het blik**, voor elk moment van de vlucht.
 5. **De zones:** waar het blik het meest en waar het het minst moest dragen.
+6. **De energie**, uit de hoogtemeter:
+   - hoogte-energie = m · g · h, bewegingsenergie = ½ · m · v²;
+   - na de motor blijft de som bijna gelijk: beweging wordt hoogte;
+   - onder de parachute verdwijnt elke seconde m · g · v. De parachute zet die energie
+     om in warmte en wervelingen in de lucht. Voor de oefenvlucht is dat ongeveer
+     27 W: zoveel als een kleine lamp.
 
 ### F2. Het idee: waar komt de kracht binnen?
 
@@ -973,6 +979,7 @@ de lancering en de landing niet, en zegt het dat ook.
 | `3_controle.png` | de kracht volgens het parachutemodel naast de kracht volgens de sensor |
 | `4_kracht_per_hoogte.png` | de kracht door het blik op elke hoogte, voor elk moment |
 | `5_zones.png` | het blik in kleuren: groen is weinig, rood is 20 g op de bodem (de ESA-eis) |
+| `6_energie.png` | boven de hoogte-energie, de bewegingsenergie en de som; onder het vermogen van de parachute |
 | `krachten_per_seconde.csv` | alle getallen per seconde, om zelf grafieken te maken |
 
 De tekst in de figuren is in het Engels, net als in de dashboards.
@@ -1002,6 +1009,8 @@ De tekst in de figuren is in het Engels, net als in de dashboards.
 4. Waar is het blik het minst belast? Kan je daar materiaal en dus massa besparen?
 5. Waar zou jij de batterij zetten: onderaan of bovenaan? Vul ze in bij `HEAVY_PARTS`
    en vergelijk.
+6. Na de motor blijft de totale energie bijna gelijk. Bij een echte vlucht daalt ze
+   een beetje. Waar gaat die energie naartoe?
 
 ---
 
@@ -1051,4 +1060,8 @@ De tekst in de figuren is in het Engels, net als in de dashboards.
   daalfase. Het analyseprogramma neemt alleen de rustige daling: binnen 20 % van de
   gewone daalsnelheid, versnelling < 0,6 m/s². Op de oefenvlucht (`--vlucht`, Cd 0,50)
   vindt het 0,50 terug (0,48 tot 0,52).
+- **Energie:** E_h = m·g·h en E_b = ½·m·v² met v de verticale snelheid uit de
+  hoogtemeter (centrale differentie over 2 s); horizontaal (wind) telt niet mee. Het
+  vermogen van de parachute is −dE/dt, van het openen tot de laatste rij boven de
+  grond; in de rustige daling is dat m·g·v.
 - **Python-versie:** 3.9 of nieuwer.
