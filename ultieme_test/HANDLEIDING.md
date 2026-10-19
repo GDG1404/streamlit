@@ -98,7 +98,7 @@ C:\UltiemeTest\
 ├── INSTALLEER_PAKKETTEN.bat  ← installeert de Python-pakketten (één keer)
 ├── requirements.txt          ← de lijst van die pakketten
 ├── start_meting.py           ← het startprogramma (ook te gebruiken in Thonny)
-├── dashboard\                ← scherm 1 en scherm 2
+├── dashboard\                ← scherm 1 en scherm 2 (met krachten.py)
 ├── tools\                    ← de logger, de controle van een meting, oefenbestanden
 ├── teensy\
 │   └── Cansat2027_teensy\
@@ -483,6 +483,9 @@ Is Thonny nog open en verbonden met de Pico? Sluit Thonny, of kies rechtsonder
 - RADIO LINK STATUS: *Packets* (ontvangen), *Lost* (gemist, geschat uit de gaten in de
   tijd) en *SNR*.
 - De CanSat in 3D draait mee met het breadboard (heading, roll en pitch).
+- Het blik kleurt per zone hoe zwaar het belast wordt. Rood is 20 g op de bodem: zoveel
+  moet een CanSat volgens ESA kunnen verdragen. Bij deze test blijft het blik groen,
+  want schudden is maar 1 à 3 g.
 - Druk op **M** voor de kaart. Heeft de GPS een fix, dan zie je Team Breadboard
   wandelen. De achtergrondkaart heeft internet nodig. Zonder internet zie je alleen het
   spoor.
@@ -636,6 +639,7 @@ de antennes na.
 | `'py' is not recognized` | Python ontbreekt. | Installeer Python (A6), of start de meting in Thonny (C3). |
 | `FOUT: het pakket 'matplotlib' ontbreekt` | De pakketten ontbreken. | Dubbelklik op `INSTALLEER_PAKKETTEN.bat` (A6). |
 | `LET OP: dashboard_scherm1.py is gestopt met een fout` | Het dashboard crashte. | Open het `.log`-bestand dat het programma noemt, en toon het aan de leerkracht. |
+| `krachten.py is missing` in het `.log`-bestand | In de map `dashboard` ontbreekt `krachten.py`. | Pak de hele zip opnieuw uit. `krachten.py` hoort naast de twee dashboards. |
 | `not in radio packet` op de dashboards | Die meting zit niet in het radiopakket. | Niets: dat is normaal (F1). |
 | `bands not in radio packet` bij VIBRATION PER BAND | De Teensy draait nog de oude vluchtcode (zonder FFT in het pakket). | Zet de vluchtcode uit deze zip op de Teensy (A3). |
 | Scherm 2 heeft geen kaart als achtergrond | Er is geen internet. | Niets: het spoor werkt toch. Met een hotspot van een gsm komt de kaart wel. |
