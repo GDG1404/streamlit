@@ -201,6 +201,7 @@ class Dashboard2:
         self.peak_load_n = 0.0
         self._peak_where, self._peak_g = "bottom", 1.0
         self._f_now, self._where_now = 0.0, "bottom"
+        self.alt_top = 0.0       # highest altitude: ground test or flight
         self.view3d = True
         self._wall = None        # wall-clock pacing for real-time replay
         self._changed = False    # new row since the last tick → redraw
@@ -658,6 +659,7 @@ class Dashboard2:
             self.peak_load_n = 0.0
             self._peak_where, self._peak_g = "bottom", 1.0
             self.stress_peak[:] = 0.0
+            self.alt_top = 0.0
             self.detector = PhaseDetector()
 
         # packet statistics: the simulator simulates ~1% loss; for real
@@ -692,6 +694,7 @@ class Dashboard2:
         else:
             x, y = 0.0, 0.0
         alt = max(0.0, row["alt_m"])
+        self.alt_top = max(self.alt_top, row["alt_m"])   # nan: unchanged
         self.track_x.append(x)
         self.track_y.append(y)
         self.track_z.append(alt)
@@ -802,12 +805,20 @@ class Dashboard2:
             self.txt_kpi_sub[0].set_text(
                 f"towards {compass_point(crs)} ({crs:.0f}°)" if spd >= 0.5
                 else "standing still")
+        # altitude in whole metres; a ground test (never higher than
+        # GROUND_TEST_M) to 0.1 m, also below the start
+        baro = row["alt_m"]
+        if (sim_mode or self.alt_top > s1.GROUND_TEST_M
+                or not is_number(baro)):
+            alt_txt = f"{alt:.0f}"
+        else:
+            alt_txt = f"{round(baro, 1) or 0.0:.1f}"          # no "-0.0"
         if sim_mode:
             self.txt_kpi[2].set_text(f"{alt + random.gauss(0, 4):.0f}")
             self.txt_kpi_sub[2].set_text(f"baro: {alt:.0f}m (GPS sim)")
         else:
             # GPS altitude is not in the telemetry
-            self.txt_kpi[2].set_text(f"{alt:.0f}")
+            self.txt_kpi[2].set_text(alt_txt)
             self.txt_kpi_sub[2].set_text("barometric (AGL)")
         self.txt_kpi[1].set_text(f"{int(t // 60):02d}:{int(t % 60):02d}")
         self.txt_kpi[3].set_text(f"{row['lat']:.4f}°N")
@@ -841,7 +852,7 @@ class Dashboard2:
         self.txt_prof.set_position(
             (alt + (-0.015 if right else 0.015) * self.sim.h_max, 0.5))
         self.txt_prof.set_horizontalalignment("right" if right else "left")
-        self.txt_prof.set_text(f"{alt:.0f} m")
+        self.txt_prof.set_text(f"{alt_txt} m")
 
         # ── radio link ──
         tot = self.pkt_rx + self.pkt_lost

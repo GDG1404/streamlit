@@ -471,6 +471,9 @@ Is Thonny nog open en verbonden met de Pico? Sluit Thonny, of kies rechtsonder
 - ALTITUDE, TEMPERATURE en PRESSURE: de metingen van de BMP390. De eenheid staat vlak
   achter elk getal.
 - De grafieken: hoogte, versnelling en geluid (AUDIO RMS).
+- De hoogtegrafiek zoomt in zolang de CanSat nooit hoger dan 50 m kwam
+  (`below 50 m: zoomed in`). Zo zie je ook een trap. Tijdens de vlucht gaat de as van
+  0 tot 1100 m.
 - VIBRATION PER BAND: de FFT. Elke balk is de trilling in één frequentieband, in g.
   Rechtsboven staat de sterkste trilling, bijvoorbeeld `strongest 25 Hz · 0.50 g`.
 - **`not in radio packet`** wil zeggen: die meting zit niet in het radiopakket. Dat geldt

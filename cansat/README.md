@@ -412,9 +412,14 @@ logboek telkens de **tijd** die rechtsboven in het dashboard staat.
 | 3 | **Klap** | één keer hard in de handen klappen naast de CanSat | Scherm 1: AUDIO RMS. Let op de getallen naast de grafiek: de schaal past zich aan. In een stil lokaal is de lijn ongeveer 0,003. Na een klap gaat de schaal omhoog. |
 | 4 | **Draaien** | CanSat langzaam een kwartslag draaien rond de verticale as | Scherm 2: het blik rechts draait mee, *Heading* verandert |
 | 5 | **Kantelen** | CanSat schuin houden, naar voren en opzij | Scherm 2: *Roll* en *Pitch* |
-| 6 | **Hoogte** | trap op en weer af, laptop mee | Scherm 1: ALTITUDE |
+| 6 | **Hoogte** | trap op en weer af, laptop mee | Scherm 1: ALTITUDE. De grafiek zoomt in, dus je ziet de trap goed. Onder het getal staat `highest`: het hoogste punt. |
 | 7 | **GPS** | naar buiten, vrij zicht op de lucht, enkele minuten wachten | Scherm 2: LATITUDE/LONGITUDE, toets **M** voor de kaart |
 | 8 | **Wandelen** | met GPS-fix een stukje rechtdoor wandelen, laptop mee | Scherm 2: DRIFT toont je snelheid (ongeveer 1–1,5 m/s) en je richting, bv. `towards NE` |
+
+> **Hoogte op de grond:** zolang de CanSat nooit hoger dan 50 m kwam, zoomt de grafiek
+> ALTITUDE in. Rechtsboven staat dan `below 50 m: zoomed in`. Het getal ALTITUDE heeft
+> dan één cijfer na de komma, bv. `3.2`. Onder de beginhoogte is het negatief. Tijdens de
+> vlucht (hoger dan 50 m) gaat de as van 0 tot 1100 m, zoals altijd.
 
 > **Op scherm 2:** druk op **M** om te wisselen tussen de 3D-vluchtbaan en een kaart. De
 > kaart toont de plek waar je staat (zodra de GPS een positie heeft) en zoomt vanzelf uit
@@ -1044,6 +1049,11 @@ De tekst in de figuren is in het Engels, net als in de dashboards.
   loop even stil (BMP390-meting, schrijven naar de SD-kaart), dan is dat een klein gat
   in de metingen; de frequentie klopt toch. Een nieuw FFT-resultaat is er elke 1,2 s;
   bij 1 regel per seconde staat dezelfde waarde dus soms twee keer in de CSV.
+- **Hoogte-as:** `GROUND_TEST_M = 50` bovenaan in `dashboard_scherm1.py`. Was de
+  hoogste hoogte (ten opzichte van de eerste 10 rijen) nooit meer dan 50 m, dan is het
+  een grondtest: de grafiek past zich aan de metingen aan (minstens 5 m hoog, 0 altijd
+  zichtbaar). Daarboven de vaste as van 0 tot 1100 m. Bij een herstart van de CanSat
+  begint het opnieuw.
 - **Kaart in scherm 2:** gecentreerd op de eerste GPS-fix. Open scherm 2 vooraf met
   internet op de lanceerplaats (bv. een replay van een korte test daar), zodat de
   kaarttegels bewaard worden voor gebruik zonder internet.

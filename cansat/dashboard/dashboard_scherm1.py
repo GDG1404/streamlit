@@ -12,7 +12,9 @@ CSV/serial parser plugs in 1-to-1 later.
 
 Panels:
   - KPI bar with sub-values (apogee, max descent rate, median Cd)
-  - Altitude vs time with apogee marker
+  - Altitude vs time with apogee marker. A ground test (never higher than
+    GROUND_TEST_M above the start) zooms in, so a staircase shows; in
+    flight the axis is 0–1100 m
   - Gyroscope (sliding window)
   - Acceleration XYZ plus the PEAK acceleration per log interval
     (LSM6DSO, ±16 g), so short shocks (ejection, parachute) are not
@@ -147,6 +149,9 @@ BAND_LABELS = [f"{a}–{b}" for a, b in zip(BAND_EDGES_HZ, BAND_EDGES_HZ[1:])]
 FFT_STRONG_G = 0.3   # fft_peak_amp (g) above which a vibration counts as
                      # "strong" — tune after the first real measurements
 ACC_PEAK_MAX_G = 16  # LSM6DSO range in the firmware (±16 g)
+GROUND_TEST_M = 50   # never higher than this above the start: a ground
+                     # test. The altitude chart then zooms in, so a
+                     # staircase (~3 m per floor) shows. Higher: 0–1100 m
 
 # Without a GPS fix the firmware logs placeholder coordinates and this
 # time; such rows must not be used as the GPS reference point.
@@ -175,6 +180,15 @@ def is_number(v):
 def fmt(v, spec):
     """Value for a label; nan (not measured, not in the radio packet) → —."""
     return format(v, spec) if is_number(v) else "—"
+
+
+def ground_ylim(alts, min_span=5.0):
+    """Altitude range for a ground test: every height and 0 in view, at
+    least min_span metres tall, so sensor noise (±0.2 m) stays small."""
+    vals = [a for a in alts if is_number(a)]
+    lo, hi = min(vals + [0.0]), max(vals + [0.0])
+    pad = max(0.5, 0.1 * (hi - lo), (min_span - (hi - lo)) / 2)
+    return lo - pad, hi + pad
 
 
 def from_radio(row):
@@ -904,6 +918,9 @@ class Dashboard:
                                            color=C["amber"], visible=False)
         self.ax_alt.set_ylim(0, self.sim.h_max * 1.12)
         self.ax_alt.set_ylabel("m", fontsize=7)
+        # says why the axis is small during a ground test
+        self.txt_alt_zoom = self.ax_alt.set_title(
+            "", loc="right", fontsize=7, color=C["dim"], pad=4)
 
         self.ax_acc = self.fig.add_subplot(gs[0, 4:])
         self._style_axes(self.ax_acc, "● ACCELERATION (m/s²)", C["blue"])
@@ -1181,12 +1198,24 @@ class Dashboard:
 
         # ── KPIs ──
         alt = row["alt_m"]
-        vals = (f"{int(round(alt))}" if is_number(alt) else "—",  # no "-0"
+        flight = self.apogee > GROUND_TEST_M      # else: a ground test
+        if not is_number(alt):
+            alt_txt = "—"
+        elif flight:
+            alt_txt = f"{int(round(alt))}"                # no "-0"
+        else:                       # ground test: decimetres count here
+            alt_txt = f"{round(alt, 1) or 0.0:.1f}"       # no "-0.0"
+        if flight:
+            alt_sub = f"apogee: {self.apogee:.0f} m"
+        else:
+            alt_sub = (f"highest: {self.apogee:.1f} m"
+                       if self.apogee >= 1.0 else "")
+        vals = (alt_txt,
                 fmt(row["temp_C"], ".1f"),
                 fmt(row["press_hPa"], ".0f"),
                 fmt(row_speed(self.sim, row), ".1f") if det == "DESCENT" else "0.0",
                 fmt(cd, ".2f"))
-        subs = (f"apogee: {self.apogee:.0f} m" if self.apogee > 10 else "",
+        subs = (alt_sub,
                 "",
                 "",
                 f"max: {self.v_max:.1f} m/s" if self.v_max > 0 else "",
@@ -1196,23 +1225,31 @@ class Dashboard:
         for txt, v in zip(self.txt_kpi_sub, subs):
             txt.set_text(v)
 
-        # ── altitude (y-axis grows along in live mode) ──
-        if self.apogee > self.sim.h_max:
-            self.sim.h_max = self.apogee * 1.1
-        self.ax_alt.set_ylim(0, self.sim.h_max * 1.12)
+        # ── altitude: in flight 0–1100 m (grows along with a higher
+        #    apogee); a ground test zooms in (GROUND_TEST_M) ──
+        if flight:
+            if self.apogee > self.sim.h_max:
+                self.sim.h_max = self.apogee * 1.1
+            self.ax_alt.set_ylim(0, self.sim.h_max * 1.12)
+            self.txt_alt_zoom.set_text("")
+        else:
+            self.ax_alt.set_ylim(*ground_ylim(h["alt"]))
+            self.txt_alt_zoom.set_text(
+                f"below {GROUND_TEST_M} m: zoomed in · flight: 0–1100 m")
         self.ln_alt.set_data(ts, h["alt"])
         if self.fill_alt:
             self.fill_alt.remove()
         self.fill_alt = self.ax_alt.fill_between(
             ts, 0, np.array(h["alt"]), color=C["cyan"], alpha=0.12)
         self.ax_alt.set_xlim(0, max(60, t + 5))
-        if self.apogee > 10:
+        if flight:
             self.ln_apogee.set_xdata([self.t_apogee, self.t_apogee])
             self.txt_apogee.set_position((self.t_apogee + 1,
                                           self.sim.h_max * 1.03))
             self.txt_apogee.set_text(f"APOGEE {self.apogee:.0f}m")
             self.txt_apogee.set_visible(True)
         else:
+            self.ln_apogee.set_xdata([np.nan, np.nan])
             self.txt_apogee.set_visible(False)
 
         # ── sliding window for the small charts ──
