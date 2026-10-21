@@ -1726,7 +1726,11 @@ button { cursor: pointer; }
 .verborgen { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ---------- Kop ---------- */
-.app { max-width: 520px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) 16px calc(108px + env(safe-area-inset-bottom)); }
+.app {
+  max-width: 520px; margin: 0 auto;
+  padding-block: calc(14px + env(safe-area-inset-top, 0px)) calc(108px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
 .kop { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .hanko {
   width: 46px; height: 46px; flex: none; border-radius: 11px; display: grid; place-items: center;
@@ -1987,7 +1991,7 @@ textarea.invoer { resize: vertical; min-height: 74px; line-height: 1.4; }
 /* ---------- Tabbalk ---------- */
 .tabbalk {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: center;
-  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
   background: color-mix(in srgb, var(--kaart) 90%, transparent); border-top: 1px solid var(--lijn);
   -webkit-backdrop-filter: saturate(1.4) blur(14px); backdrop-filter: saturate(1.4) blur(14px);
 }
@@ -2039,7 +2043,7 @@ textarea.invoer { resize: vertical; min-height: 74px; line-height: 1.4; }
 .toast .i { width: 18px; height: 18px; }
 
 /* ---------- Zijpaneel in Google Sheets ---------- */
-[data-modus="zijpaneel"] .app { padding: 10px 12px 104px; }
+[data-modus="zijpaneel"] .app { padding-block: 10px 104px; padding-left: 12px; padding-right: 12px; }
 [data-modus="zijpaneel"] .kop { margin-bottom: 14px; }
 [data-modus="zijpaneel"] .hanko { width: 40px; height: 40px; }
 [data-modus="zijpaneel"] .hanko span { font-size: 10.5px; letter-spacing: .5px; }

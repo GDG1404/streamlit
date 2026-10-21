@@ -92,11 +92,35 @@ const vulling = `
 })();
 `;
 
+const band = `<style>
+.demo-band { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 14px; padding: 10px 12px; border-radius: 12px;
+  background: var(--hanko-zacht); color: var(--inkt); font-size: 13px; line-height: 1.4; }
+.demo-band strong { color: var(--hanko); }
+</style>
+<p class="demo-band"><strong>Voorbeeld</strong><span>Verzonnen gegevens om de app te proberen. Wat je hier invult, wordt niet bewaard.</span></p>`;
 let pagina = app
   .replace('/*__KB_START__*/null', 'window.__KB_DEMO_START__')
-  .replace('__KB_MODUS__', 'web');
+  .replace('__KB_MODUS__', 'web')
+  .replace('<div class="app" id="app">', '<div class="app" id="app">\n' + band);
 const scripts = `<script>\n${veilig(nep)}\n</script>\n<script>\n${veilig(brug)}\n</script>\n<script>\n${veilig(server)}\n</script>\n<script>\n${veilig(vulling)}\n</script>\n`;
 const plek = pagina.lastIndexOf('<script>');
 pagina = pagina.slice(0, plek) + scripts + pagina.slice(plek);
 writeFileSync(join(map, 'demo.html'), pagina);
 console.log('test/demo.html geschreven (' + Math.round(pagina.length / 1024) + ' kB)');
+
+// Optioneel: een versie zonder <html>/<head>/<body> om als losse webpagina te publiceren.
+const doel = process.argv[2];
+if (doel) {
+  const titel = '<title>Kakebo budgetplanner</title>\n<meta name="claude:viewport-fit-sides" content="cover">\n';
+  const romp = pagina
+    .replace(/<!DOCTYPE html>\s*<html lang="nl">\s*<head>\s*/i, '')
+    .replace('<base target="_top">\n', '')
+    .replace('<meta charset="utf-8">\n', '')
+    .replace(/<meta name="viewport"[^>]*>\n/, '')
+    .replace('<title>Kakebo</title>\n', '')
+    .replace('</head>\n<body>\n', '')
+    .replace(/<\/body>\s*<\/html>\s*$/, '')
+    .replace('calc(14px + env(safe-area-inset-top, 0px))', '14px');
+  writeFileSync(doel, titel + romp);
+  console.log(doel + ' geschreven');
+}
