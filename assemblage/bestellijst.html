@@ -1,0 +1,252 @@
+<title>CanSat bestellijst</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* layout: één kolom (± 72 tekens) met per winkel een blok; elke regel = vinkje, onderdeel, aantal, link. Zelfde huisstijl als het draadschema */
+:root {
+  --paper: #f2f4f6; --sheet: #ffffff; --head: #eaeef3; --ink: #18212b; --muted: #576372;
+  --rule: #d2d8df; --accent: #1d4e9e; --accent-ink: #ffffff; --done: #2e7d32; --opt: #8a5a00; --opt-bg: #fbf1dc;
+  --display: "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1216; --sheet: #151b21; --head: #1b232b; --ink: #e4e9ef; --muted: #9aa6b3;
+    --rule: #2c353f; --accent: #8fb3ff; --accent-ink: #0e1216; --done: #6fcf7d; --opt: #f0c46a; --opt-bg: #2a2214;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1216; --sheet: #151b21; --head: #1b232b; --ink: #e4e9ef; --muted: #9aa6b3;
+  --rule: #2c353f; --accent: #8fb3ff; --accent-ink: #0e1216; --done: #6fcf7d; --opt: #f0c46a; --opt-bg: #2a2214;
+  color-scheme: dark;
+}
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.page {
+  max-width: 880px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 72px;
+  display: grid; gap: 36px;
+}
+h1, h2 { margin: 0; text-wrap: balance; }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(34px, 6vw, 48px); line-height: 1.04; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 26px; line-height: 1.1; }
+p, ul { margin: 0; }
+ul { padding-left: 1.3em; display: grid; gap: 6px; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: .88em; background: var(--head); padding: 1px 5px; border-radius: 3px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.kop { display: grid; gap: 14px; }
+.lead { font-size: 18px; max-width: 62ch; }
+.kort { display: flex; flex-wrap: wrap; gap: 8px; }
+.kort span { font-family: var(--mono); font-size: 12.5px; border: 1px solid var(--rule); background: var(--sheet); padding: 3px 10px; border-radius: 999px; }
+
+.winkel { display: grid; gap: 12px; }
+.winkel-kop { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; border-top: 2px solid var(--ink); padding-top: 12px; }
+.winkel-kop p { color: var(--muted); font-size: 14.5px; }
+.lijst { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; background: var(--sheet); border: 1px solid var(--rule); }
+.item { display: grid; grid-template-columns: 28px minmax(0, 1fr) 64px auto; gap: 6px 14px; align-items: start; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+.item:last-child { border-bottom: 0; }
+.item input { width: 20px; height: 20px; margin: 3px 0 0; accent-color: var(--done); }
+.naam { font-weight: 600; }
+.waarom { color: var(--muted); font-size: 14.5px; margin-top: 2px; }
+.aantal { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; padding-top: 1px; }
+.aantal small { display: block; font-size: 11px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.link { white-space: nowrap; font-size: 14.5px; font-weight: 600; padding-top: 1px; }
+.item.klaar .naam { text-decoration: line-through; text-decoration-color: var(--done); }
+.item.klaar .naam::after { content: " · besteld"; color: var(--done); font-weight: 400; text-decoration: none; display: inline-block; margin-left: 4px; }
+.optie { display: inline-block; font-size: 11.5px; font-family: var(--mono); color: var(--opt); background: var(--opt-bg); padding: 1px 7px; border-radius: 4px; margin-left: 6px; vertical-align: 1px; font-weight: 400; }
+.noot { font-size: 14.5px; color: var(--muted); max-width: 72ch; }
+.blok { background: var(--sheet); border: 1px solid var(--rule); padding: 16px 20px; display: grid; gap: 10px; max-width: 72ch; }
+.blok h2 { font-size: 22px; }
+.knoppen { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+button { font: 600 15px var(--body); color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 6px; padding: 9px 16px; cursor: pointer; }
+button.stil { background: transparent; color: var(--accent); border: 1px solid var(--rule); }
+#melding { font-size: 14px; color: var(--done); }
+#kopie { width: 100%; min-height: 160px; font: 13px var(--mono); color: var(--ink); background: var(--sheet); border: 1px solid var(--rule); padding: 10px; }
+
+@media (max-width: 560px) {
+  .item { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .item .link { grid-column: 2 / 4; }
+  .aantal small { display: inline; margin-left: 4px; }
+}
+@media (prefers-reduced-motion: no-preference) { .item { transition: background-color .15s; } }
+</style>
+
+<div class="page">
+
+<header class="kop">
+  <p class="eyebrow">CanSat 2027 · bestellen</p>
+  <h1>Bestellijst: buzzer, antennes en een extra radio</h1>
+  <p class="lead">Alles wat je nog nodig hebt, per winkel. Je batterij heb je al. Prijzen en voorraad veranderen: kijk ze na op de site voor je bestelt.</p>
+  <div class="kort" aria-label="Samenvatting">
+    <span>3 winkels</span><span>buzzer voor de CanSat</span><span>schroefantennes voor de ontvangers</span><span>1 extra radio</span>
+  </div>
+</header>
+
+<section class="winkel" aria-labelledby="w1">
+  <div class="winkel-kop">
+    <h2 id="w1">TinyTronics</h2>
+    <p>buzzer en antenne-aansluitingen · <a href="https://www.tinytronics.nl">tinytronics.nl</a></p>
+  </div>
+  <ul class="lijst">
+    <li class="item">
+      <input type="checkbox" id="t-buzzer" aria-label="Actieve buzzer besteld">
+      <div><div class="naam">Actieve buzzer 5V</div><p class="waarom">Voor de CanSat (BZ1). Werkt op 3,5 tot 5,5 V en neemt minder dan 25 mA. Ø 12 mm. Eén extra als reserve.</p></div>
+      <div class="aantal">2<small>stuks</small></div>
+      <a class="link" href="https://www.tinytronics.nl/shop/nl/audio/speakers/buzzers/actieve-buzzer-5v">Bekijk ↗</a>
+    </li>
+    <li class="item">
+      <input type="checkbox" id="t-sma" aria-label="SMA-printconnector besteld">
+      <div><div class="naam">SMA-printconnector 1,6 mm, female</div><p class="waarom">Soldeer je op de rand van de RFM95W, waar nu het draadje zit. Daarna schroef je de antenne erop. Eén per ontvanger en één reserve.</p></div>
+      <div class="aantal">3<small>stuks</small></div>
+      <a class="link" href="https://www.tinytronics.nl/en/cables-and-connectors/connectors/others/sma-pcb-1.6mm-connector-female">Bekijk ↗</a>
+    </li>
+  </ul>
+</section>
+
+<section class="winkel" aria-labelledby="w2">
+  <div class="winkel-kop">
+    <h2 id="w2">Kiwi Electronics</h2>
+    <p>antennes voor het grondstation · <a href="https://www.kiwi-electronics.com">kiwi-electronics.com</a></p>
+  </div>
+  <ul class="lijst">
+    <li class="item">
+      <input type="checkbox" id="k-antenne" aria-label="LoRa-antenne besteld">
+      <div><div class="naam">LoRa-antenne 868 MHz, 2,8 dBi, SMA male, 195 mm</div><p class="waarom">Eén op elke ontvanger. Ontvangt veel beter dan het draadje van 8 cm. Zet ze rechtop.</p></div>
+      <div class="aantal">2<small>stuks</small></div>
+      <a class="link" href="https://www.kiwi-electronics.com/nl/2-8dbi-lora-antenne-sma-male-868mhz-195mm-20047">Bekijk ↗</a>
+    </li>
+    <li class="item">
+      <input type="checkbox" id="k-powerboost" aria-label="PowerBoost besteld">
+      <div><div class="naam">PowerBoost 1000C <span class="optie">als je hem nog niet hebt</span></div><p class="waarom">Laadt je batterij op en maakt er 5 V van. Zo staat hij in het draadschema.</p></div>
+      <div class="aantal">1<small>stuk</small></div>
+      <a class="link" href="https://www.kiwi-electronics.com/en/powerboost-1000-charger-rechargeable-5v-lipo-usb-boost--1a-1824">Bekijk ↗</a>
+    </li>
+  </ul>
+</section>
+
+<section class="winkel" aria-labelledby="w3">
+  <div class="winkel-kop">
+    <h2 id="w3">Opencircuit</h2>
+    <p>extra radio · <a href="https://opencircuit.shop">opencircuit.shop</a></p>
+  </div>
+  <ul class="lijst">
+    <li class="item">
+      <input type="checkbox" id="o-rfm95w" aria-label="RFM95W besteld">
+      <div><div class="naam">Adafruit RFM95W LoRa-bordje, 868/915 MHz</div><p class="waarom">Hetzelfde bordje als nu. Voor een tweede ontvanger of als reserve. Dezelfde draden en dezelfde <code>main.py</code>.</p></div>
+      <div class="aantal">1<small>stuk</small></div>
+      <a class="link" href="https://opencircuit.shop/product/adafruit-rfm95w-lora-radio-transceiver">Bekijk ↗</a>
+    </li>
+  </ul>
+</section>
+
+<section class="winkel" aria-labelledby="w4">
+  <div class="winkel-kop">
+    <h2 id="w4">Kleine onderdelen</h2>
+    <p>meestal al op school · anders mee bij TinyTronics, zoek op de naam</p>
+  </div>
+  <ul class="lijst">
+    <li class="item"><input type="checkbox" id="s-bc337" aria-label="BC337 besteld"><div><div class="naam">Transistor BC337-40 of 2N2222A</div><p class="waarom">Q1: schakelt de buzzer.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
+    <li class="item"><input type="checkbox" id="s-r1k" aria-label="Weerstand 1 kilo-ohm besteld"><div><div class="naam">Weerstand 1 kΩ</div><p class="waarom">R1: tussen pin 14 en de transistor.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
+    <li class="item"><input type="checkbox" id="s-r10k" aria-label="Weerstand 10 kilo-ohm besteld"><div><div class="naam">Weerstand 10 kΩ</div><p class="waarom">R2: houdt de buzzer stil bij het opstarten.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
+    <li class="item"><input type="checkbox" id="s-1n4148" aria-label="1N4148 besteld"><div><div class="naam">Diode 1N4148</div><p class="waarom">D3: over de buzzer.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
+    <li class="item"><input type="checkbox" id="s-1n5817" aria-label="1N5817 besteld"><div><div class="naam">Schottky-diode 1N5817</div><p class="waarom">D1 en D2 in de voeding, plus één reserve.</p></div><div class="aantal">3<small>stuks</small></div><span></span></li>
+    <li class="item"><input type="checkbox" id="s-schakelaar" aria-label="Schakelaar besteld"><div><div class="naam">Schuifschakelaar SPDT, 3 pinnen</div><p class="waarom">S1: de hoofdschakelaar.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
+    <li class="item"><input type="checkbox" id="s-cr1220" aria-label="CR1220 besteld"><div><div class="naam">Knoopcel CR1220</div><p class="waarom">In de houder van de GPS: sneller een positie.</p></div><div class="aantal">1<small>stuk</small></div><span></span></li>
+  </ul>
+</section>
+
+<aside class="blok" aria-labelledby="niet">
+  <h2 id="niet">Niet bestellen</h2>
+  <ul>
+    <li><strong>Batterij:</strong> heb je al. Ze moet één cel zijn (3,7 V) met een JST-PH-stekker. Kijk + en − na vóór je ze op de PowerBoost steekt.</li>
+    <li><strong>Antenne voor de CanSat zelf:</strong> twee draadjes van 8,2 cm (een dipool) zijn lichter en werken beter. Zie fig. 4 in het <a href="https://claude.ai/artifact/B6gADWpw8X2HZD7J67kVqr">draadschema</a>.</li>
+  </ul>
+</aside>
+
+<aside class="blok" aria-labelledby="tips">
+  <h2 id="tips">Zo ontvang je beter</h2>
+  <ul>
+    <li>Zet de antenne van de ontvanger rechtop, zo hoog mogelijk en met vrij zicht. Niet naast de laptop of naast metaal.</li>
+    <li>De antenne van de CanSat hangt verticaal. Die van de ontvanger dus ook.</li>
+    <li>Een antenne met SMA male past op een SMA female-connector. Koop geen RP-SMA: die past niet.</li>
+    <li>Haal eerst het draadje van 8 cm van <code>ANT</code> voor je de SMA-connector soldeert.</li>
+    <li>Zend nooit zonder antenne. Zonder antenne kan de RFM95W stukgaan.</li>
+    <li>Wil je nog verder ontvangen? Een Yagi-antenne voor 868 MHz haalt meer bereik, maar iemand moet hem op de CanSat richten.</li>
+  </ul>
+</aside>
+
+<section class="blok" aria-labelledby="kopieer">
+  <h2 id="kopieer">De lijst als tekst</h2>
+  <p class="noot">Handig om in een mail aan de aankoopdienst te plakken. De vinkjes onthoudt alleen deze browser.</p>
+  <div class="knoppen">
+    <button type="button" id="knop-kopieer">Kopieer de lijst</button>
+    <button type="button" class="stil" id="knop-wis">Vinkjes wissen</button>
+    <span id="melding" role="status" aria-live="polite"></span>
+  </div>
+  <textarea id="kopie" readonly hidden aria-label="De bestellijst als tekst"></textarea>
+</section>
+
+</div>
+
+<script>
+(function () {
+  var KEY = "cansat-bestellijst-v1";
+  var boxes = Array.prototype.slice.call(document.querySelectorAll(".item input[type=checkbox]"));
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { state = {}; }
+
+  function toon(box) { box.closest(".item").classList.toggle("klaar", box.checked); }
+  function bewaar() {
+    var s = {};
+    boxes.forEach(function (b) { if (b.checked) s[b.id] = true; });
+    try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { /* geen opslag: geen probleem */ }
+  }
+  boxes.forEach(function (b) {
+    b.checked = !!state[b.id];
+    toon(b);
+    b.addEventListener("change", function () { toon(b); bewaar(); });
+  });
+
+  function lijstAlsTekst() {
+    var regels = ["CanSat 2027 - bestellijst", ""];
+    document.querySelectorAll(".winkel").forEach(function (w) {
+      regels.push(w.querySelector("h2").textContent.trim());
+      w.querySelectorAll(".item").forEach(function (it) {
+        var naam = it.querySelector(".naam").childNodes[0].textContent.trim();
+        var aantal = it.querySelector(".aantal").childNodes[0].textContent.trim();
+        var a = it.querySelector("a.link");
+        regels.push("- " + aantal + " x " + naam + (a ? " : " + a.href : ""));
+      });
+      regels.push("");
+    });
+    return regels.join("\n");
+  }
+
+  var melding = document.getElementById("melding");
+  var kopie = document.getElementById("kopie");
+  document.getElementById("knop-kopieer").addEventListener("click", function () {
+    var tekst = lijstAlsTekst();
+    function terugval() {
+      kopie.value = tekst; kopie.hidden = false; kopie.focus(); kopie.select();
+      melding.textContent = "Kopiëren lukte niet vanzelf. De tekst staat hieronder geselecteerd: druk Ctrl+C.";
+    }
+    try {
+      navigator.clipboard.writeText(tekst).then(function () {
+        melding.textContent = "Gekopieerd.";
+      }, terugval);
+    } catch (e) { terugval(); }
+  });
+  document.getElementById("knop-wis").addEventListener("click", function () {
+    boxes.forEach(function (b) { b.checked = false; toon(b); });
+    bewaar();
+    melding.textContent = "Vinkjes gewist.";
+  });
+})();
+</script>
