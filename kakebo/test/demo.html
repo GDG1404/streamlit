@@ -641,6 +641,20 @@ textarea.invoer { resize: vertical; min-height: 74px; line-height: 1.4; }
 
   function maakNepGoogle(opties) {
     opties = opties || {};
+    /** Google Sheets leest een formule uit een script in de taal van de sheet (nl: ; en ,). */
+    function leesFormule(f, waar) {
+      controleerFormule(f, waar);
+      if (/^en/i.test(ss._locale)) return true;
+      var zonderTekst = f.replace(/"[^"]*"/g, '""');
+      if (/,/.test(zonderTekst) || /\d\.\d/.test(zonderTekst)) {
+        ss._parseFouten.push(waar + ' (' + ss._locale + '): ' + f);
+        return false;
+      }
+      return true;
+    }
+    function notatieInTaal(waar) {
+      if (!/^en/i.test(ss._locale)) ss._notatiesInTaal.push(waar + ' (' + ss._locale + ')');
+    }
     var tijdzone = opties.tijdzone || 'Europe/Brussels';
     var log = [];
 
@@ -688,6 +702,7 @@ textarea.invoer { resize: vertical; min-height: 74px; line-height: 1.4; }
     var bladTeller = 0;
     var ss = {
       _bladen: [], _actief: null, _locale: opties.locale || 'en_US', _thema: null, _toasts: [],
+      _parseFouten: [], _notatiesInTaal: [],
       getId: function () { return 'nep-sheet-id'; },
       getUrl: function () { return 'https://docs.google.com/spreadsheets/d/nep-sheet-id/edit'; },
       getName: function () { return 'Kakebo'; },
@@ -870,7 +885,7 @@ textarea.invoer { resize: vertical; min-height: 74px; line-height: 1.4; }
           var c = cel(r, k, true);
           if (v === null || v === undefined || v === '') { c.v = ''; c.f = ''; return; }
           if (typeof v === 'string') {
-            if (v.charAt(0) === '=') { controleerFormule(v, blad._naam + '!' + kolomLetters(k) + r); c.f = v; c.v = ''; return; }
+            if (v.charAt(0) === '=') { c._fout = !leesFormule(v, blad._naam + '!' + kolomLetters(k) + r); c.f = v; c.v = ''; return; }
             if (v.charAt(0) === "'") { c.v = v.slice(1); c.f = ''; return; }
             if (/^-?\d+([.,]\d+)?$/.test(v)) { c.v = Number(v.replace(',', '.')); c.f = ''; return; }
             c.v = v; c.f = '';
@@ -882,7 +897,7 @@ textarea.invoer { resize: vertical; min-height: 74px; line-height: 1.4; }
         function leesWaarde(r, k) {
           var c = cel(r, k);
           if (!c) return '';
-          if (c.f) return c._uitkomst !== undefined ? c._uitkomst : '';
+          if (c.f) return c._fout ? '#ERROR!' : (c._uitkomst !== undefined ? c._uitkomst : '');
           if (typeof c.v === 'number' && isDatumNotatie(c.fmt)) return datumUitSerieel(c.v, tijdzone);
           return c.v;
         }
@@ -906,14 +921,41 @@ textarea.invoer { resize: vertical; min-height: 74px; line-height: 1.4; }
         R.setValue = function (v) { elke(function (r, k) { zetWaarde(r, k, v); }); return R; };
         R.getFormulas = function () { var uit = []; for (var r = 0; r < rijen; r++) { var rr = []; for (var k = 0; k < kolommen; k++) { var c = cel(rij + r, kol + k); rr.push(c && c.f ? c.f : ''); } uit.push(rr); } return uit; };
         R.getFormula = function () { var c = cel(rij, kol); return c && c.f ? c.f : ''; };
-        R.setFormula = function (f) { controleerFormule(f, blad._naam + '!' + R.getA1Notation()); elke(function (r, k) { var c = cel(r, k, true); c.f = f; c.v = ''; }); return R; };
-        R.setFormulas = function (data) {
-          vorm(data, 'setFormulas');
-          elke(function (r, k, i, j) { controleerFormule(data[i][j], blad._naam + '!' + kolomLetters(k) + r); var c = cel(r, k, true); c.f = data[i][j]; c.v = ''; });
+        R.setFormula = function (f) {
+          var goed = leesFormule(f, blad._naam + '!' + R.getA1Notation());
+          elke(function (r, k) { var c = cel(r, k, true); c.f = f; c.v = ''; c._fout = !goed; });
           return R;
         };
-        R.setNumberFormat = function (fmt) { if (typeof fmt !== 'string') throw new Error('Notatie moet tekst zijn'); elke(function (r, k) { cel(r, k, true).fmt = fmt; }); return R; };
-        R.setNumberFormats = function (data) { vorm(data, 'setNumberFormats'); elke(function (r, k, i, j) { cel(r, k, true).fmt = data[i][j]; }); return R; };
+        R.setFormulas = function (data) {
+          vorm(data, 'setFormulas');
+          elke(function (r, k, i, j) { var goed = leesFormule(data[i][j], blad._naam + '!' + kolomLetters(k) + r); var c = cel(r, k, true); c.f = data[i][j]; c.v = ''; c._fout = !goed; });
+          return R;
+        };
+        R.setNumberFormat = function (fmt) {
+          if (typeof fmt !== 'string') throw new Error('Notatie moet tekst zijn');
+          notatieInTaal(blad._naam + '!' + R.getA1Notation() + ' ' + fmt);
+          elke(function (r, k) { cel(r, k, true).fmt = fmt; });
+          return R;
+        };
+        R.setNumberFormats = function (data) {
+          vorm(data, 'setNumberFormats');
+          notatieInTaal(blad._naam + '!' + R.getA1Notation());
+          elke(function (r, k, i, j) { cel(r, k, true).fmt = data[i][j]; });
+          return R;
+        };
+        R.copyFormatToRange = function (doel, k1, k2, r1, r2) {
+          if (!doel || typeof doel.getParent !== 'function' || doel.getParent() !== ss) throw new Error('copyFormatToRange verwacht een blad');
+          if (k2 - k1 + 1 !== kolommen || rijen !== 1) throw new Error('copyFormatToRange: afmetingen kloppen niet');
+          doel.getRange(r1, k1, r2 - r1 + 1, k2 - k1 + 1); // controleert de grenzen
+          for (var rr = r1; rr <= r2; rr++) {
+            for (var kk = k1; kk <= k2; kk++) {
+              var bron = cel(rij, kol + (kk - k1));
+              var doelCel = doel._cellen.get(rr + ',' + kk) || { v: '', f: '', fmt: '' };
+              doelCel.fmt = bron ? bron.fmt : '';
+              doel._cellen.set(rr + ',' + kk, doelCel);
+            }
+          }
+        };
         R.getNumberFormat = function () { var c = cel(rij, kol); return c && c.fmt ? c.fmt : 'General'; };
         R.clear = function () { elke(function (r, k) { blad._cellen.delete(sleutel(r, k)); }); return R; };
         R.clearContent = function () { elke(function (r, k) { var c = cel(r, k); if (c) { c.v = ''; c.f = ''; } }); return R; };
@@ -1236,18 +1278,23 @@ function installeren() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) throw new Error('Open dit script vanuit je Google Sheet (Extensies › Apps Script) en probeer opnieuw.');
   PropertiesService.getScriptProperties().setProperty('KB_SHEET_ID', ss.getId());
+  var taal = /^nl/i.test(ss.getSpreadsheetLocale()) ? ss.getSpreadsheetLocale() : 'nl_NL';
 
-  stelSpreadsheetIn_(ss);
-  maakBladen_(ss);
-  bouwInstellingen_(ss);
-  bouwVasteLasten_(ss);
-  bouwUitgaven_(ss);
-  bouwMaanden_(ss);
-  zorgVoorMaanden_(ss);
-  bouwHulp_(ss);
-  var overzicht = bouwOverzicht_(ss);
-  ordenTabbladen_(ss);
-  ruimLegeBladenOp_(ss);
+  var overzicht = metEngelseFormules_(ss, function () {
+    stelThemaIn_(ss);
+    maakBladen_(ss);
+    bouwInstellingen_(ss);
+    bouwVasteLasten_(ss);
+    bouwUitgaven_(ss);
+    bouwMaanden_(ss);
+    zorgVoorMaanden_(ss);
+    bouwHulp_(ss);
+    var blad = bouwOverzicht_(ss);
+    ordenTabbladen_(ss);
+    ruimLegeBladenOp_(ss);
+    return blad;
+  });
+  if (ss.getSpreadsheetLocale() !== taal) ss.setSpreadsheetLocale(taal);
   ss.setActiveSheet(overzicht);
   SpreadsheetApp.flush();
 
@@ -1580,9 +1627,9 @@ function schrijfUitgave_(sh, rij, u, tijd) {
     u.bedrag,
     tijd
   ]]);
-  sh.getRange(rij, UITG.DATUM).setNumberFormat(KB.FMT.DATUM);
-  sh.getRange(rij, UITG.BEDRAG).setNumberFormat(KB.FMT.EURO);
-  sh.getRange(rij, UITG.TOEGEVOEGD).setNumberFormat(KB.FMT.TIJD);
+  // De kolommen zijn bij het installeren opgemaakt; kopieer die opmaak voor de zekerheid
+  // van de eerste rij (zonder notaties opnieuw te laten lezen in de taal van de sheet).
+  if (rij > 2) sh.getRange(2, 1, 1, UITG.KOLOMMEN).copyFormatToRange(sh, 1, UITG.KOLOMMEN, rij, rij);
 }
 
 function zoekUitgaveRij_(ss, ref) {
@@ -1633,6 +1680,10 @@ function zorgVoorMaand_(ss, maand, lijst) {
   for (var i = 0; i < lijst.length; i++) {
     if (lijst[i].maand === maand) return lijst[i].rij;
   }
+  return metEngelseFormules_(ss, function () { return maakMaandRij_(ss, maand, lijst); });
+}
+
+function maakMaandRij_(ss, maand, lijst) {
   var sh = blad_(ss, KB.BLAD.MAANDEN);
   var huidig = vandaag_(ss).slice(0, 7);
   var vorige = null;
@@ -2038,12 +2089,26 @@ function appUrl_(ss) {
  *  TABBLADEN OPBOUWEN
  * ============================================================ */
 
-function stelSpreadsheetIn_(ss) {
+/**
+ * Voert fn uit terwijl de sheet even op Engels (VS) staat, en zet daarna de taal terug.
+ * Google Sheets leest een formule uit een script in de taal van de sheet: in het Nederlands
+ * met ; in plaats van ,. De formules hier zijn in de Engelse vorm geschreven. Eenmaal
+ * opgeslagen werken ze in elke taal. Ook getalnotaties worden zo altijd op dezelfde manier gelezen.
+ */
+function metEngelseFormules_(ss, fn) {
+  var taal = ss.getSpreadsheetLocale();
+  if (taal === 'en_US') return fn();
+  ss.setSpreadsheetLocale('en_US');
   try {
-    if (!/^nl/i.test(ss.getSpreadsheetLocale())) ss.setSpreadsheetLocale('nl_NL');
-  } catch (e) {
-    // Taalinstelling is niet essentieel.
+    var uit = fn();
+    SpreadsheetApp.flush();
+    return uit;
+  } finally {
+    ss.setSpreadsheetLocale(taal);
   }
+}
+
+function stelThemaIn_(ss) {
   try {
     var thema = ss.getSpreadsheetTheme() || ss.resetSpreadsheetTheme();
     thema.setFontFamily(KB.LETTER);
@@ -2106,7 +2171,7 @@ function zorgRuimte_(sh, rij, stijlFn) {
   var laatste = Math.min(Math.max(sh.getLastRow(), 2), mr);
   var extra = 500;
   sh.insertRowsAfter(laatste, extra);
-  if (stijlFn) stijlFn(sh, laatste + 1, extra);
+  if (stijlFn) metEngelseFormules_(sh.getParent(), function () { stijlFn(sh, laatste + 1, extra); });
 }
 
 function stijl_(r, s) {
@@ -2540,7 +2605,7 @@ function bouwOverzicht_(ss) {
     stijl_(sh.getRange(5, c, 6, 2), { bg: K.kaart });
     rand_(sh.getRange(5, c, 6, 2), K.lijn);
     stijl_(sh.getRange(5, c, 1, 2).merge().setValue(k.kop), { kleur: K.inkt2, vet: true, grootte: 10 });
-    stijl_(sh.getRange(6, c, 1, 2).merge().setFormula(k.groot), { vet: true, grootte: 18, fmt: EURO });
+    stijl_(sh.getRange(6, c, 1, 2).merge().setFormula(k.groot), { vet: true, grootte: 18, fmt: EURO, uitlijn: 'left' });
     k.regels.forEach(function (regel, i) {
       var rij = 7 + i;
       var label = sh.getRange(rij, c);

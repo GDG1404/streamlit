@@ -101,18 +101,23 @@ function installeren() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) throw new Error('Open dit script vanuit je Google Sheet (Extensies › Apps Script) en probeer opnieuw.');
   PropertiesService.getScriptProperties().setProperty('KB_SHEET_ID', ss.getId());
+  var taal = /^nl/i.test(ss.getSpreadsheetLocale()) ? ss.getSpreadsheetLocale() : 'nl_NL';
 
-  stelSpreadsheetIn_(ss);
-  maakBladen_(ss);
-  bouwInstellingen_(ss);
-  bouwVasteLasten_(ss);
-  bouwUitgaven_(ss);
-  bouwMaanden_(ss);
-  zorgVoorMaanden_(ss);
-  bouwHulp_(ss);
-  var overzicht = bouwOverzicht_(ss);
-  ordenTabbladen_(ss);
-  ruimLegeBladenOp_(ss);
+  var overzicht = metEngelseFormules_(ss, function () {
+    stelThemaIn_(ss);
+    maakBladen_(ss);
+    bouwInstellingen_(ss);
+    bouwVasteLasten_(ss);
+    bouwUitgaven_(ss);
+    bouwMaanden_(ss);
+    zorgVoorMaanden_(ss);
+    bouwHulp_(ss);
+    var blad = bouwOverzicht_(ss);
+    ordenTabbladen_(ss);
+    ruimLegeBladenOp_(ss);
+    return blad;
+  });
+  if (ss.getSpreadsheetLocale() !== taal) ss.setSpreadsheetLocale(taal);
   ss.setActiveSheet(overzicht);
   SpreadsheetApp.flush();
 
@@ -445,9 +450,9 @@ function schrijfUitgave_(sh, rij, u, tijd) {
     u.bedrag,
     tijd
   ]]);
-  sh.getRange(rij, UITG.DATUM).setNumberFormat(KB.FMT.DATUM);
-  sh.getRange(rij, UITG.BEDRAG).setNumberFormat(KB.FMT.EURO);
-  sh.getRange(rij, UITG.TOEGEVOEGD).setNumberFormat(KB.FMT.TIJD);
+  // De kolommen zijn bij het installeren opgemaakt; kopieer die opmaak voor de zekerheid
+  // van de eerste rij (zonder notaties opnieuw te laten lezen in de taal van de sheet).
+  if (rij > 2) sh.getRange(2, 1, 1, UITG.KOLOMMEN).copyFormatToRange(sh, 1, UITG.KOLOMMEN, rij, rij);
 }
 
 function zoekUitgaveRij_(ss, ref) {
@@ -498,6 +503,10 @@ function zorgVoorMaand_(ss, maand, lijst) {
   for (var i = 0; i < lijst.length; i++) {
     if (lijst[i].maand === maand) return lijst[i].rij;
   }
+  return metEngelseFormules_(ss, function () { return maakMaandRij_(ss, maand, lijst); });
+}
+
+function maakMaandRij_(ss, maand, lijst) {
   var sh = blad_(ss, KB.BLAD.MAANDEN);
   var huidig = vandaag_(ss).slice(0, 7);
   var vorige = null;
@@ -903,12 +912,26 @@ function appUrl_(ss) {
  *  TABBLADEN OPBOUWEN
  * ============================================================ */
 
-function stelSpreadsheetIn_(ss) {
+/**
+ * Voert fn uit terwijl de sheet even op Engels (VS) staat, en zet daarna de taal terug.
+ * Google Sheets leest een formule uit een script in de taal van de sheet: in het Nederlands
+ * met ; in plaats van ,. De formules hier zijn in de Engelse vorm geschreven. Eenmaal
+ * opgeslagen werken ze in elke taal. Ook getalnotaties worden zo altijd op dezelfde manier gelezen.
+ */
+function metEngelseFormules_(ss, fn) {
+  var taal = ss.getSpreadsheetLocale();
+  if (taal === 'en_US') return fn();
+  ss.setSpreadsheetLocale('en_US');
   try {
-    if (!/^nl/i.test(ss.getSpreadsheetLocale())) ss.setSpreadsheetLocale('nl_NL');
-  } catch (e) {
-    // Taalinstelling is niet essentieel.
+    var uit = fn();
+    SpreadsheetApp.flush();
+    return uit;
+  } finally {
+    ss.setSpreadsheetLocale(taal);
   }
+}
+
+function stelThemaIn_(ss) {
   try {
     var thema = ss.getSpreadsheetTheme() || ss.resetSpreadsheetTheme();
     thema.setFontFamily(KB.LETTER);
@@ -971,7 +994,7 @@ function zorgRuimte_(sh, rij, stijlFn) {
   var laatste = Math.min(Math.max(sh.getLastRow(), 2), mr);
   var extra = 500;
   sh.insertRowsAfter(laatste, extra);
-  if (stijlFn) stijlFn(sh, laatste + 1, extra);
+  if (stijlFn) metEngelseFormules_(sh.getParent(), function () { stijlFn(sh, laatste + 1, extra); });
 }
 
 function stijl_(r, s) {
@@ -1405,7 +1428,7 @@ function bouwOverzicht_(ss) {
     stijl_(sh.getRange(5, c, 6, 2), { bg: K.kaart });
     rand_(sh.getRange(5, c, 6, 2), K.lijn);
     stijl_(sh.getRange(5, c, 1, 2).merge().setValue(k.kop), { kleur: K.inkt2, vet: true, grootte: 10 });
-    stijl_(sh.getRange(6, c, 1, 2).merge().setFormula(k.groot), { vet: true, grootte: 18, fmt: EURO });
+    stijl_(sh.getRange(6, c, 1, 2).merge().setFormula(k.groot), { vet: true, grootte: 18, fmt: EURO, uitlijn: 'left' });
     k.regels.forEach(function (regel, i) {
       var rij = 7 + i;
       var label = sh.getRange(rij, c);

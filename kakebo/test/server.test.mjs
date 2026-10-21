@@ -257,3 +257,53 @@ test('zijpaneel, telefoonlink en web-app geven HTML', () => {
   const json = web._html.match(/var START = (.*);\n/)[1];
   assert.equal(JSON.parse(json).maand.maand, '2026-11');
 });
+
+test('nep-omgeving: een Nederlandstalige sheet leest , als fout (zoals Google Sheets)', () => {
+  const proef = maakNepGoogle({ locale: 'nl_BE' });
+  const b = proef._ss.getSheets()[0];
+  b.getRange('A1').setFormula('=IF(1,2,3)');
+  assert.equal(b.getRange('A1').getValue(), '#ERROR!');
+  assert.equal(proef._ss._parseFouten.length, 1);
+});
+
+test('meer dan 1000 uitgaven: nieuwe rijen worden netjes opgemaakt', () => {
+  const u = blad('Uitgaven');
+  const laatste = u.getLastRow();
+  u.deleteRows(laatste + 5, u.getMaxRows() - laatste - 4);
+  assert.equal(u.getMaxRows(), laatste + 4);
+  let res;
+  for (let i = 0; i < 6; i++) res = G.kbVoegToe({ datum: '2026-11-03', bedrag: 1 + i, categorie: 'Extra', omschrijving: 'Test ' + i, wie: 'Geert' });
+  assert.ok(u.getMaxRows() > laatste + 400);
+  assert.equal(res.uitgaven.filter((x) => x.omschrijving.startsWith('Test ')).length, 6);
+  const rij = u.getLastRow();
+  assert.equal(u.getRange(rij, 1).getNumberFormat(), 'd mmm yyyy');
+  assert.equal(u.getRange(rij, 5).getNumberFormat(), '"€ "#,##0.00;"-€ "#,##0.00');
+});
+
+test('geen enkele formule of notatie is in de Nederlandse schrijfwijze gelezen', () => {
+  assert.equal(ss.getSpreadsheetLocale(), 'nl_NL');
+  assert.deepEqual(ss._parseFouten, []);
+  assert.deepEqual(ss._notatiesInTaal, []);
+});
+
+test('installeren in een Nederlandstalige sheet: geen parseerfouten, taal blijft Nederlands', () => {
+  const nl = maakNepGoogle({ tijdzone: 'Europe/Brussels', geenUi: true, locale: 'nl_BE' });
+  for (const naam of ['SpreadsheetApp', 'PropertiesService', 'LockService', 'HtmlService', 'ScriptApp', 'Session', 'Utilities', 'Charts', 'Logger']) {
+    globalThis[naam] = nl[naam];
+  }
+  zetDatum(2026, 10, 21);
+  G.installeren();
+  G.kbBewaarMaand('2026-10', { ink1: 2000, ink2: 1500, spaardoel: 300, vasteLijst: [{ naam: 'Huur', bedrag: 900 }] });
+  G.kbVoegToe({ datum: '2026-10-21', bedrag: '12,50', categorie: 'Overleven', omschrijving: 'Bakker', wie: 'Geert' });
+  G.kbBewaarMaand('2026-08', { ink1: 2000, ink2: 1500, spaardoel: 300, vaste: 900 }); // rij vóór oktober
+  zetDatum(2026, 11, 2);
+  G.kbStart(); // nieuwe maand
+  assert.equal(nl._ss.getSpreadsheetLocale(), 'nl_BE');
+  assert.deepEqual(nl._ss._parseFouten, []);
+  assert.deepEqual(nl._ss._notatiesInTaal, []);
+  const fouten = [];
+  for (const b of nl._ss.getSheets()) {
+    b._cellen.forEach((c, sleutel) => { if (c._fout) fouten.push(b.getName() + ' ' + sleutel); });
+  }
+  assert.deepEqual(fouten, []);
+});

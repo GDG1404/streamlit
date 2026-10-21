@@ -47,6 +47,20 @@
 
   function maakNepGoogle(opties) {
     opties = opties || {};
+    /** Google Sheets leest een formule uit een script in de taal van de sheet (nl: ; en ,). */
+    function leesFormule(f, waar) {
+      controleerFormule(f, waar);
+      if (/^en/i.test(ss._locale)) return true;
+      var zonderTekst = f.replace(/"[^"]*"/g, '""');
+      if (/,/.test(zonderTekst) || /\d\.\d/.test(zonderTekst)) {
+        ss._parseFouten.push(waar + ' (' + ss._locale + '): ' + f);
+        return false;
+      }
+      return true;
+    }
+    function notatieInTaal(waar) {
+      if (!/^en/i.test(ss._locale)) ss._notatiesInTaal.push(waar + ' (' + ss._locale + ')');
+    }
     var tijdzone = opties.tijdzone || 'Europe/Brussels';
     var log = [];
 
@@ -94,6 +108,7 @@
     var bladTeller = 0;
     var ss = {
       _bladen: [], _actief: null, _locale: opties.locale || 'en_US', _thema: null, _toasts: [],
+      _parseFouten: [], _notatiesInTaal: [],
       getId: function () { return 'nep-sheet-id'; },
       getUrl: function () { return 'https://docs.google.com/spreadsheets/d/nep-sheet-id/edit'; },
       getName: function () { return 'Kakebo'; },
@@ -276,7 +291,7 @@
           var c = cel(r, k, true);
           if (v === null || v === undefined || v === '') { c.v = ''; c.f = ''; return; }
           if (typeof v === 'string') {
-            if (v.charAt(0) === '=') { controleerFormule(v, blad._naam + '!' + kolomLetters(k) + r); c.f = v; c.v = ''; return; }
+            if (v.charAt(0) === '=') { c._fout = !leesFormule(v, blad._naam + '!' + kolomLetters(k) + r); c.f = v; c.v = ''; return; }
             if (v.charAt(0) === "'") { c.v = v.slice(1); c.f = ''; return; }
             if (/^-?\d+([.,]\d+)?$/.test(v)) { c.v = Number(v.replace(',', '.')); c.f = ''; return; }
             c.v = v; c.f = '';
@@ -288,7 +303,7 @@
         function leesWaarde(r, k) {
           var c = cel(r, k);
           if (!c) return '';
-          if (c.f) return c._uitkomst !== undefined ? c._uitkomst : '';
+          if (c.f) return c._fout ? '#ERROR!' : (c._uitkomst !== undefined ? c._uitkomst : '');
           if (typeof c.v === 'number' && isDatumNotatie(c.fmt)) return datumUitSerieel(c.v, tijdzone);
           return c.v;
         }
@@ -312,14 +327,41 @@
         R.setValue = function (v) { elke(function (r, k) { zetWaarde(r, k, v); }); return R; };
         R.getFormulas = function () { var uit = []; for (var r = 0; r < rijen; r++) { var rr = []; for (var k = 0; k < kolommen; k++) { var c = cel(rij + r, kol + k); rr.push(c && c.f ? c.f : ''); } uit.push(rr); } return uit; };
         R.getFormula = function () { var c = cel(rij, kol); return c && c.f ? c.f : ''; };
-        R.setFormula = function (f) { controleerFormule(f, blad._naam + '!' + R.getA1Notation()); elke(function (r, k) { var c = cel(r, k, true); c.f = f; c.v = ''; }); return R; };
-        R.setFormulas = function (data) {
-          vorm(data, 'setFormulas');
-          elke(function (r, k, i, j) { controleerFormule(data[i][j], blad._naam + '!' + kolomLetters(k) + r); var c = cel(r, k, true); c.f = data[i][j]; c.v = ''; });
+        R.setFormula = function (f) {
+          var goed = leesFormule(f, blad._naam + '!' + R.getA1Notation());
+          elke(function (r, k) { var c = cel(r, k, true); c.f = f; c.v = ''; c._fout = !goed; });
           return R;
         };
-        R.setNumberFormat = function (fmt) { if (typeof fmt !== 'string') throw new Error('Notatie moet tekst zijn'); elke(function (r, k) { cel(r, k, true).fmt = fmt; }); return R; };
-        R.setNumberFormats = function (data) { vorm(data, 'setNumberFormats'); elke(function (r, k, i, j) { cel(r, k, true).fmt = data[i][j]; }); return R; };
+        R.setFormulas = function (data) {
+          vorm(data, 'setFormulas');
+          elke(function (r, k, i, j) { var goed = leesFormule(data[i][j], blad._naam + '!' + kolomLetters(k) + r); var c = cel(r, k, true); c.f = data[i][j]; c.v = ''; c._fout = !goed; });
+          return R;
+        };
+        R.setNumberFormat = function (fmt) {
+          if (typeof fmt !== 'string') throw new Error('Notatie moet tekst zijn');
+          notatieInTaal(blad._naam + '!' + R.getA1Notation() + ' ' + fmt);
+          elke(function (r, k) { cel(r, k, true).fmt = fmt; });
+          return R;
+        };
+        R.setNumberFormats = function (data) {
+          vorm(data, 'setNumberFormats');
+          notatieInTaal(blad._naam + '!' + R.getA1Notation());
+          elke(function (r, k, i, j) { cel(r, k, true).fmt = data[i][j]; });
+          return R;
+        };
+        R.copyFormatToRange = function (doel, k1, k2, r1, r2) {
+          if (!doel || typeof doel.getParent !== 'function' || doel.getParent() !== ss) throw new Error('copyFormatToRange verwacht een blad');
+          if (k2 - k1 + 1 !== kolommen || rijen !== 1) throw new Error('copyFormatToRange: afmetingen kloppen niet');
+          doel.getRange(r1, k1, r2 - r1 + 1, k2 - k1 + 1); // controleert de grenzen
+          for (var rr = r1; rr <= r2; rr++) {
+            for (var kk = k1; kk <= k2; kk++) {
+              var bron = cel(rij, kol + (kk - k1));
+              var doelCel = doel._cellen.get(rr + ',' + kk) || { v: '', f: '', fmt: '' };
+              doelCel.fmt = bron ? bron.fmt : '';
+              doel._cellen.set(rr + ',' + kk, doelCel);
+            }
+          }
+        };
         R.getNumberFormat = function () { var c = cel(rij, kol); return c && c.fmt ? c.fmt : 'General'; };
         R.clear = function () { elke(function (r, k) { blad._cellen.delete(sleutel(r, k)); }); return R; };
         R.clearContent = function () { elke(function (r, k) { var c = cel(r, k); if (c) { c.v = ''; c.f = ''; } }); return R; };
