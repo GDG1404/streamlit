@@ -1,7 +1,7 @@
 """Het breadboard van bovenaf: twee borden van 830 gaatjes boven elkaar.
 
 Onder: de Teensy 4.1 (USB links), de radio en de GPS.
-Boven: de drie I2C-sensoren.
+Boven: de microfoon (I2S, recht boven de Teensy) en de drie I2C-sensoren.
 In het midden liggen twee railparen: het bovenste geeft 3V3/GND aan de
 sensoren, het onderste is de I2C-bus (SDA/SCL, met tape gemerkt). Het
 onderste railpaar van het onderste bord geeft 3V3/GND aan radio en GPS.
@@ -199,6 +199,16 @@ def lsm6dso(t, c):
     t.pinnen(c, r + 10, ["INT2", "INT1", "OCS", "SCX", "SDX", "SDOX"], (), boven=False)
 
 
+def microfoon(t, c):
+    """Adafruit SPH0645 (I2S): één rij van 6 pinnen op rij 3 van het bovenste
+    bord. De volgorde van de pinnen is niet nagekeken op het echte bordje."""
+    r = U1 + 2
+    t.pcb(c - 1, c + 6, r - 0.6, r + 5.4, "pcb-ada")
+    t.rect(X(c + 1.9), Y(r + 4.6), X(c + 3.1) - X(c + 1.9), Y(r + 3.5) - Y(r + 4.6), "metal", rx=1)
+    t.text(X(c + 2.5), Y(r + 2.2) + 4, "SPH0645", "pcb-title small")
+    t.pinnen(c, r, ["3V", "GND", "BCLK", "DOUT", "LRCL", "SEL"], set(range(c, c + 6)))
+
+
 def bmp390(t, c):
     """Adafruit BMP390: één rij van 8 pinnen, op rij 3 van het bovenste bord."""
     r = U1 + 2
@@ -257,8 +267,9 @@ def breadbord():
             t.text(X(c), ty + 3.2, tekst, "tape-t")
 
     teensy(t)
-    bno055(t, 15)
-    lsm6dso(t, 27)
+    microfoon(t, 6)
+    bno055(t, 21)
+    lsm6dso(t, 33)
     bmp390(t, 52)
     ax, ay = rfm95w(t, 30)
     gps(t, 44)
@@ -268,12 +279,21 @@ def breadbord():
     for c, rail, k in ((4, "R2-", "w-gnd"), (5, "R2+", "w-3v3"),
                        (10, "R3-", "w-scl"), (11, "R3+", "w-sda")):
         t.recht(c, J, RAIL[rail], k)
-    for c0, pins in ((15, ((0, "R2+"), (2, "R2-"), (3, "R3-"), (4, "R3+"))),      # BNO055
-                     (27, ((0, "R2-"), (1, "R2+"), (2, "R3+"), (3, "R3-"))),      # LSM6DSO
+    for c0, pins in ((6, ((0, "R2+"), (1, "R2-"), (5, "R2-"))),                    # microfoon
+                     (21, ((0, "R2+"), (2, "R2-"), (3, "R3-"), (4, "R3+"))),      # BNO055
+                     (33, ((0, "R2-"), (1, "R2+"), (2, "R3+"), (3, "R3-"))),      # LSM6DSO
                      (52, ((0, "R2+"), (2, "R2-"), (3, "R3-"), (5, "R3+")))):     # BMP390
         for dc, rail in pins:
             k = {"R2+": "w-3v3", "R2-": "w-gnd", "R3+": "w-sda", "R3-": "w-scl"}[rail]
             t.recht(c0 + dc, U1, RAIL[rail], k)
+
+    # microfoon (I2S): pin 21 en 20 zitten bovenaan, pin 8 onderaan. De knikken
+    # liggen tussen de borden, boven de I2C-draden van pin 18 en 19.
+    t.recht(8, J, U1, "w-i2s")                                         # BCLK ← 21
+    t.draad(f"M{f(X(9))} {f(Y(J))} L{f(X(9))} {f(Y(16.6))} L{f(X(10))} {f(Y(16.6))} "
+            f"L{f(X(10))} {f(Y(U1))}", "w-i2s")                        # LRCL ← 20
+    t.draad(f"M{f(X(12))} {f(Y(RIJ['C']))} L{f(X(12.5))} {f(Y(2.6))} L{f(X(12.5))} "
+            f"{f(Y(17.8))} L{f(X(9))} {f(Y(17.8))} L{f(X(9))} {f(Y(U1))}", "w-i2s")  # DOUT ← 8
 
     # ── draden onder ──
     # radio: SPI en G0 in bogen onder de pinnen door
@@ -310,15 +330,17 @@ def breadbord():
     # bouwvolgorde
     t.badge(X(1) - 52, (Y(14.5) + Y(15.5)) / 2, 1)
     t.badge(X(7.5), Y(6), 2)
-    t.badge(X(7.5), Y(13.3), 3)
-    t.badge(X(12) + 6, Y(U1 + 9.3) - 6, 4)
-    t.badge(X(24.7) + 14, Y(U1 + 11.5) + 14, 5)
+    t.badge(X(6.5), Y(13.3), 3)
+    t.badge(X(18) + 6, Y(U1 + 9.3) - 6, 4)
+    t.badge(X(30.7) + 14, Y(U1 + 11.5) + 14, 5)
     t.badge(X(50.5) + 14, Y(U1 + 8.4) + 14, 6)
-    t.badge(X(28) + 14, Y(12.4) + 14, 7)
-    t.badge(X(43) + 14, Y(14.3) + 14, 8)
+    t.badge(X(5) + 6, Y(U1 + 7.4) - 6, 7)
+    t.badge(X(28) + 14, Y(12.4) + 14, 8)
+    t.badge(X(43) + 14, Y(14.3) + 14, 9)
 
     label = ("Breadboard van bovenaf. Onder: Teensy 4.1 met USB links, de radio "
-             "RFM95W en de GPS. Boven: BNO055, LSM6DSO en BMP390. De middelste "
+             "RFM95W en de GPS. Boven: de microfoon SPH0645, BNO055, LSM6DSO en "
+             "BMP390. De middelste "
              "rails geven 3V3 en GND aan de sensoren en dragen de I2C-bus SDA en SCL. "
              "De onderste rails geven 3V3 en GND aan de radio en de GPS.")
     return (f'<svg class="bb" viewBox="0 0 {W} {H}" role="img" aria-label="{esc(label)}" '

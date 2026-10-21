@@ -12,7 +12,7 @@
   --body: "IBM Plex Sans", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
   --mono: "IBM Plex Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
   /* de draden: echte kleuren van de draadjes, gelijk in beide thema's */
-  --w3v3: #e0352b; --wgnd: #2559d8; --wsda: #2b9b46; --wscl: #f0c419; --wgps: #8e44ad; --wspi: #ef7d12;
+  --w3v3: #e0352b; --wgnd: #2559d8; --wsda: #2b9b46; --wscl: #f0c419; --wgps: #8e44ad; --wspi: #ef7d12; --wi2s: #8f969d;
   /* het breadboard zelf (een voorwerp: blijft licht, wordt in het donker wat gedimd) */
   --bb-bg: #ecebe6; --bb: #f7f5ef; --bb-edge: #d6d0c2; --hole: #4a463e; --groove: #e6e2d6;
   --bb-ink: #7a7468; --bb-text: #26231e; --rail-red: #d4372c; --rail-blue: #2e62d4;
@@ -72,6 +72,7 @@ strong { font-weight: 600; }
 .kleuren span { font-size: 13.5px; color: var(--muted); line-height: 1.3; }
 .k-3v3 { background: var(--w3v3); } .k-gnd { background: var(--wgnd); } .k-sda { background: var(--wsda); }
 .k-scl { background: var(--wscl); } .k-gps { background: var(--wgps); } .k-spi { background: var(--wspi); }
+.k-i2s { background: var(--wi2s); }
 
 /* tekeningen */
 .blad { margin: 0; background: var(--sheet); border: 1px solid var(--rule); display: grid; gap: 10px; padding: 12px 12px 14px; min-width: 0; }
@@ -120,6 +121,8 @@ svg.bb.klein { min-width: 0; max-width: 560px; }
 .bb .w { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
 .bb .w-3v3 { stroke: var(--w3v3); } .bb .w-gnd { stroke: var(--wgnd); } .bb .w-sda { stroke: var(--wsda); }
 .bb .w-scl { stroke: var(--wscl); } .bb .w-gps { stroke: var(--wgps); } .bb .w-spi { stroke: var(--wspi); }
+.bb .w-i2s { stroke: var(--wi2s); }
+.bb .pcb-title.small { font-size: 11.5px; }
 .bb .plug { fill: var(--plug); }
 .bb .antpad { fill: var(--copper); stroke: #6d3a0e; }
 .bb .antwire { fill: #e6a15a; stroke: #6d3a0e; stroke-width: 1.4; }
@@ -217,7 +220,7 @@ tr.vrij td { color: var(--muted); }
 <header class="kop">
   <p class="eyebrow">CanSat 2027 · breadboard</p>
   <h1>Het breadboard, stap voor stap</h1>
-  <p class="lead">Een overzichtelijk breadboard met vier sensoren, de radio en de antenne. Elke soort draad heeft een eigen kleur. GND, 3V3, SDA en SCL lopen over lange rails. Zo komt er nooit meer dan één draad bij een pin.</p>
+  <p class="lead">Een overzichtelijk breadboard met de vijf sensoren, de radio en de antenne. Elke soort draad heeft een eigen kleur. GND, 3V3, SDA en SCL lopen over lange rails. Zo komt er nooit meer dan één draad bij een pin.</p>
   <dl class="titelblok">
     <div><dt>Project</dt><dd>CanSat 2027</dd></div>
     <div><dt>Tekening</dt><dd>Breadboard voor de testen</dd></div>
@@ -245,6 +248,7 @@ tr.vrij td { color: var(--muted); }
     <li><i class="draadje k-scl"></i><b>Geel</b><span>SCL, I²C-klok</span></li>
     <li><i class="draadje k-spi"></i><b>Oranje</b><span>de radio</span></li>
     <li><i class="draadje k-gps"></i><b>Paars</b><span>de GPS</span></li>
+    <li><i class="draadje k-i2s"></i><b>Grijs</b><span>de microfoon</span></li>
   </ul>
   <p class="noot">Heb je een kleur niet? Kies een andere. Houd ze wel overal hetzelfde.</p>
 </section>
@@ -253,7 +257,7 @@ tr.vrij td { color: var(--muted); }
   <h2 id="bord-titel">Het breadboard van bovenaf</h2>
   <figure class="blad liggend">
     <div class="blad-scroll"><!-- FIGUUR:breadbord --></div>
-    <figcaption><b>Fig. 1</b>Onder: de Teensy, de radio en de GPS. Boven: de drie sensoren met I²C. De cijfers in de bolletjes zijn de stappen hieronder. De kaartjes rechts zeggen wat er op elke rail zit.<span class="scherm"> Op een smal scherm kan je de tekening opzij schuiven.</span></figcaption>
+    <figcaption><b>Fig. 1</b>Onder: de Teensy, de radio en de GPS. Boven: de microfoon en de drie sensoren met I²C. De cijfers in de bolletjes zijn de stappen hieronder. De kaartjes rechts zeggen wat er op elke rail zit.<span class="scherm"> Op een smal scherm kan je de tekening opzij schuiven.</span></figcaption>
   </figure>
 </section>
 
@@ -262,7 +266,7 @@ tr.vrij td { color: var(--muted); }
   <div class="tekst"><p>Een rail is een lange rij gaatjes die allemaal met elkaar verbonden zijn. Je hebt vier paar rails. Elk paar krijgt één taak.</p></div>
   <div class="rails">
     <div class="rail vrij"><p class="waar">Bovenaan<small>bovenste bord, buitenkant</small></p><div class="rijen"><span class="chip">vrij, hier komt niets</span></div></div>
-    <div class="rail"><p class="waar">Midden, boven<small>bovenste bord, onderkant</small></p><div class="rijen"><span class="chip"><i class="k-3v3"></i>3V3 op de rode rij</span><span class="chip"><i class="k-gnd"></i>GND op de blauwe rij</span></div><p class="uitleg">Voor de drie sensoren. Komt van de bovenste rij pinnen van de Teensy.</p></div>
+    <div class="rail"><p class="waar">Midden, boven<small>bovenste bord, onderkant</small></p><div class="rijen"><span class="chip"><i class="k-3v3"></i>3V3 op de rode rij</span><span class="chip"><i class="k-gnd"></i>GND op de blauwe rij</span></div><p class="uitleg">Voor de vier bordjes op het bovenste bord. Komt van de bovenste rij pinnen van de Teensy.</p></div>
     <div class="rail"><p class="waar">Midden, onder<small>onderste bord, bovenkant</small></p><div class="rijen"><span class="chip"><i class="k-sda"></i>SDA op groene tape</span><span class="chip"><i class="k-scl"></i>SCL op gele tape</span></div><p class="uitleg">De I²C-bus. Komt van pin 18 (SDA) en pin 19 (SCL). Hier komt geen 3V3 en geen GND op.</p></div>
     <div class="rail"><p class="waar">Onderaan<small>onderste bord, buitenkant</small></p><div class="rijen"><span class="chip"><i class="k-3v3"></i>3V3 op de rode rij</span><span class="chip"><i class="k-gnd"></i>GND op de blauwe rij</span></div><p class="uitleg">Voor de radio en de GPS. Komt van de onderste rij pinnen van de Teensy.</p></div>
   </div>
@@ -290,8 +294,8 @@ tr.vrij td { color: var(--muted); }
 </section>
 
 <section aria-labelledby="stap-titel">
-  <h2 id="stap-titel">Bouwen in negen stappen</h2>
-  <div class="tekst"><p>Stap 1 tot 8 staan als bolletjes op fig. 1. Doe ze in deze volgorde. Laat bij stap 9 een tweede leerling alles nakijken.</p></div>
+  <h2 id="stap-titel">Bouwen in tien stappen</h2>
+  <div class="tekst"><p>Stap 1 tot 9 staan als bolletjes op fig. 1. Doe ze in deze volgorde. Laat bij stap 10 een tweede leerling alles nakijken.</p></div>
   <ol class="stappen">
     <li class="stap"><div>
       <h3>Tape op de I²C-rails</h3>
@@ -361,6 +365,24 @@ tr.vrij td { color: var(--muted); }
       </table></div>
     </div></li>
     <li class="stap"><div>
+      <h3>De microfoon SPH0645 (geluid)</h3>
+      <p>Links op het bovenste bord, recht boven de Teensy. De pinnen komen in de derde rij boven de rail. Zo zitten de draden naar pin 20 en 21 recht onder het bordje.</p>
+      <div class="tabel-wrap"><table>
+        <thead><tr><th scope="col">Pin</th><th scope="col">Gaat naar</th><th scope="col">Kleur</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">3V</td><td>3V3-rail midden</td><td class="kleur"><i class="k-3v3"></i>rood</td></tr>
+          <tr><td class="pin">GND</td><td>GND-rail midden</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">SEL</td><td>GND-rail midden</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">BCLK</td><td>Teensy pin 21</td><td class="kleur"><i class="k-i2s"></i>grijs</td></tr>
+          <tr><td class="pin">LRCL</td><td>Teensy pin 20</td><td class="kleur"><i class="k-i2s"></i>grijs</td></tr>
+          <tr><td class="pin">DOUT</td><td>Teensy pin 8 (onderste rij)</td><td class="kleur"><i class="k-i2s"></i>grijs</td></tr>
+        </tbody>
+      </table></div>
+      <p>Pin 8 zit aan de andere kant van de Teensy. De draad naar pin 8 gaat dus over de Teensy heen. Dat mag.</p>
+      <p>Test: klap in je handen bij het breadboard. AUDIO RMS in het dashboard gaat even omhoog.</p>
+      <p class="noot">Bij dit bordje kon ik de volgorde van de pinnen niet nakijken. Volg de namen op het bordje.</p>
+    </div></li>
+    <li class="stap"><div>
       <h3>De radio RFM95W en de antenne</h3>
       <p>Rechts naast de Teensy, op het onderste bord. De pinnen komen in rij D. Het bordje ligt over de gleuf.</p>
       <div class="tabel-wrap"><table>
@@ -398,16 +420,15 @@ tr.vrij td { color: var(--muted); }
     <li class="stap"><div>
       <h3>Nakijken en opstarten</h3>
       <p>Laat een tweede leerling elke draad nakijken met de tabellen. Steek dan pas de USB-kabel in. Open de Serial Monitor op 115200 baud.</p>
-      <p>Bij het opstarten zie je per sensor <code>OK</code> of <code>FOUT</code>. Staat er FOUT? Trek de USB-kabel uit, kijk de vier draden van dat bordje na en steek de kabel terug in.</p>
+      <p>Bij het opstarten zie je per sensor <code>OK</code> of <code>FOUT</code>. Staat er FOUT? Trek de USB-kabel uit, kijk de draden van dat bordje na en steek de kabel terug in.</p>
     </div></li>
   </ol>
 </section>
 
-<section aria-labelledby="later-titel">
-  <h2 id="later-titel">Later: de microfoon</h2>
+<section aria-labelledby="bron-titel">
+  <h2 id="bron-titel">Waar komen de pinnen vandaan?</h2>
   <div class="tekst">
-    <p>De microfoon SPH0645 staat nog niet op het breadboard. Er is plaats voor op het bovenste bord, in het midden. Hij krijgt 3V3 en GND van de middelste rails. De andere pinnen: <code>BCLK</code> naar pin 21, <code>LRCL</code> naar pin 20, <code>DOUT</code> naar pin 8 en <code>SEL</code> naar GND.</p>
-    <p class="noot">Alle pinnen volgen de vluchtcode <code>Cansat2027_teensy.ino</code>, net als in het draadschema voor de assemblage. In de CanSat zelf worden de draden gesoldeerd. Dit breadboard is alleen om te testen.</p>
+    <p>Alle pinnen volgen de vluchtcode <code>Cansat2027_teensy.ino</code>, net als in het draadschema voor de assemblage. In de CanSat zelf worden de draden gesoldeerd. Dit breadboard is alleen om te testen.</p>
   </div>
 </section>
 
