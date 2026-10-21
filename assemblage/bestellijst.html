@@ -83,31 +83,38 @@ button.stil { background: transparent; color: var(--accent); border: 1px solid v
 <header class="kop">
   <p class="eyebrow">CanSat 2027 · bestellen</p>
   <h1>Bestellijst: buzzer, antennes en een extra radio</h1>
-  <p class="lead">Alles wat je nog nodig hebt, per winkel. Je batterij heb je al. Prijzen en voorraad veranderen: kijk ze na op de site voor je bestelt.</p>
+  <p class="lead">Alles wat je nog nodig hebt, per winkel. De drie winkels leveren in België. Je batterij heb je al. Prijzen en voorraad veranderen: kijk ze na op de site voor je bestelt.</p>
   <div class="kort" aria-label="Samenvatting">
-    <span>3 winkels</span><span>buzzer voor de CanSat</span><span>schroefantennes voor de ontvangers</span><span>1 extra radio</span>
+    <span>3 winkels, levering in België</span><span>buzzer voor de CanSat</span><span>schroefantennes voor de ontvangers</span><span>1 extra radio</span>
   </div>
 </header>
 
 <section class="winkel" aria-labelledby="w1">
   <div class="winkel-kop">
-    <h2 id="w1">TinyTronics</h2>
-    <p>buzzer en antenne-aansluitingen · <a href="https://www.tinytronics.nl">tinytronics.nl</a></p>
+    <h2 id="w1">Bits &amp; Parts</h2>
+    <p>buzzer en kleine onderdelen · <a href="https://www.bitsandparts.nl/en">bitsandparts.nl</a></p>
   </div>
   <ul class="lijst">
     <li class="item">
-      <input type="checkbox" id="t-buzzer" aria-label="Actieve buzzer besteld">
-      <div><div class="naam">Actieve buzzer 5V</div><p class="waarom">Voor de CanSat (BZ1). Werkt op 3,5 tot 5,5 V en neemt minder dan 25 mA. Ø 12 mm. Eén extra als reserve.</p></div>
+      <input type="checkbox" id="b-buzzer" aria-label="Actieve buzzer besteld">
+      <div><div class="naam">Buzzer 5 V, 12 mm, actief</div><p class="waarom">Voor de CanSat (BZ1). Werkt van 3 tot 7 V, hoogstens 30 mA, 85 dB op 10 cm. Eén extra als reserve.</p></div>
       <div class="aantal">2<small>stuks</small></div>
-      <a class="link" href="https://www.tinytronics.nl/shop/nl/audio/speakers/buzzers/actieve-buzzer-5v">Bekijk ↗</a>
+      <a class="link" href="https://www.bitsandparts.nl/en/buzzer-5-volt-12mm-active-p100955">Bekijk ↗</a>
     </li>
     <li class="item">
-      <input type="checkbox" id="t-sma" aria-label="SMA-printconnector besteld">
-      <div><div class="naam">SMA-printconnector 1,6 mm, female</div><p class="waarom">Soldeer je op de rand van de RFM95W, waar nu het draadje zit. Daarna schroef je de antenne erop. Eén per ontvanger en één reserve.</p></div>
+      <input type="checkbox" id="b-1n5817" aria-label="1N5817 besteld">
+      <div><div class="naam">Schottky-diode 1N5817</div><p class="waarom">D1 en D2 in de voeding, plus één reserve.</p></div>
       <div class="aantal">3<small>stuks</small></div>
-      <a class="link" href="https://www.tinytronics.nl/en/cables-and-connectors/connectors/others/sma-pcb-1.6mm-connector-female">Bekijk ↗</a>
+      <a class="link" href="https://www.bitsandparts.nl/en/diode-1n5817-schottky-20v-1a-p104143">Bekijk ↗</a>
+    </li>
+    <li class="item">
+      <input type="checkbox" id="b-schakelaar" aria-label="Schuifschakelaar besteld">
+      <div><div class="naam">Schuifschakelaar SPDT, 3 pinnen</div><p class="waarom">S1: de hoofdschakelaar. Eén extra als reserve.</p></div>
+      <div class="aantal">2<small>stuks</small></div>
+      <a class="link" href="https://www.bitsandparts.nl/en/switch-slide-micro-on-off-for-breadboard-spdt-0.5a-12vdc-p1098876">Bekijk ↗</a>
     </li>
   </ul>
+  <p class="noot">Met briefpost kan een levering naar België langer dan een week duren.</p>
 </section>
 
 <section class="winkel" aria-labelledby="w2">
@@ -134,7 +141,7 @@ button.stil { background: transparent; color: var(--accent); border: 1px solid v
 <section class="winkel" aria-labelledby="w3">
   <div class="winkel-kop">
     <h2 id="w3">Opencircuit</h2>
-    <p>extra radio · <a href="https://opencircuit.shop">opencircuit.shop</a></p>
+    <p>extra radio en antenne-aansluitingen · <a href="https://opencircuit.shop">opencircuit.shop</a></p>
   </div>
   <ul class="lijst">
     <li class="item">
@@ -143,21 +150,25 @@ button.stil { background: transparent; color: var(--accent); border: 1px solid v
       <div class="aantal">1<small>stuk</small></div>
       <a class="link" href="https://opencircuit.shop/product/adafruit-rfm95w-lora-radio-transceiver">Bekijk ↗</a>
     </li>
+    <li class="item">
+      <input type="checkbox" id="o-sma" aria-label="SMA-connector besteld">
+      <div><div class="naam">Edge-launch SMA-connector, voor print van 1,6 mm (Adafruit 1865)</div><p class="waarom">Soldeer je op de rand van de RFM95W, waar nu het draadje zit. Daarna schroef je de antenne erop. Eén per ontvanger.</p></div>
+      <div class="aantal">2<small>stuks</small></div>
+      <a class="link" href="https://opencircuit.shop/product/edge-launch-sma-connector-1.6mm-0.062-inch">Bekijk ↗</a>
+    </li>
   </ul>
 </section>
 
 <section class="winkel" aria-labelledby="w4">
   <div class="winkel-kop">
     <h2 id="w4">Kleine onderdelen</h2>
-    <p>meestal al op school · anders mee bij TinyTronics, zoek op de naam</p>
+    <p>meestal al op school · anders mee bij Bits &amp; Parts, zoek op de naam</p>
   </div>
   <ul class="lijst">
     <li class="item"><input type="checkbox" id="s-bc337" aria-label="BC337 besteld"><div><div class="naam">Transistor BC337-40 of 2N2222A</div><p class="waarom">Q1: schakelt de buzzer.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
     <li class="item"><input type="checkbox" id="s-r1k" aria-label="Weerstand 1 kilo-ohm besteld"><div><div class="naam">Weerstand 1 kΩ</div><p class="waarom">R1: tussen pin 14 en de transistor.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
     <li class="item"><input type="checkbox" id="s-r10k" aria-label="Weerstand 10 kilo-ohm besteld"><div><div class="naam">Weerstand 10 kΩ</div><p class="waarom">R2: houdt de buzzer stil bij het opstarten.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
     <li class="item"><input type="checkbox" id="s-1n4148" aria-label="1N4148 besteld"><div><div class="naam">Diode 1N4148</div><p class="waarom">D3: over de buzzer.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
-    <li class="item"><input type="checkbox" id="s-1n5817" aria-label="1N5817 besteld"><div><div class="naam">Schottky-diode 1N5817</div><p class="waarom">D1 en D2 in de voeding, plus één reserve.</p></div><div class="aantal">3<small>stuks</small></div><span></span></li>
-    <li class="item"><input type="checkbox" id="s-schakelaar" aria-label="Schakelaar besteld"><div><div class="naam">Schuifschakelaar SPDT, 3 pinnen</div><p class="waarom">S1: de hoofdschakelaar.</p></div><div class="aantal">2<small>stuks</small></div><span></span></li>
     <li class="item"><input type="checkbox" id="s-cr1220" aria-label="CR1220 besteld"><div><div class="naam">Knoopcel CR1220</div><p class="waarom">In de houder van de GPS: sneller een positie.</p></div><div class="aantal">1<small>stuk</small></div><span></span></li>
   </ul>
 </section>
