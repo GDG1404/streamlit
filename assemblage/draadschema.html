@@ -1,0 +1,585 @@
+<title>CanSat 2027 draadschema</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* layout: één leeskolom (± 74 tekens) met tekeningen op volle breedte, als bladen van een technische tekening; kop = titelblok */
+:root {
+  --paper: #f2f4f6; --sheet: #ffffff; --head: #eaeef3; --ink: #18212b; --muted: #576372;
+  --rule: #d2d8df; --accent: #1d4e9e; --warn: #a3261b; --warn-bg: #fcf0ee; --cell: #e3e8ee;
+  --canopy: #f6e3c8;
+  --n3v3: #c62828; --n5v: #c25f00; --ngnd: #2b323b; --ni2c: #1565c0; --nuart: #7b2fa8;
+  --ni2s: #00808b; --nspi: #2e7d32; --nctl: #b0246c; --nink: #18212b;
+  --display: "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1216; --sheet: #151b21; --head: #1b232b; --ink: #e4e9ef; --muted: #9aa6b3;
+    --rule: #2c353f; --accent: #8fb3ff; --warn: #ff8f80; --warn-bg: #2a1816; --cell: #26303a;
+    --canopy: #4a3a26;
+    --n3v3: #ff6b5e; --n5v: #ffa24a; --ngnd: #c4cdd7; --ni2c: #64a7ff; --nuart: #c58cf2;
+    --ni2s: #47cfd6; --nspi: #6fcf7d; --nctl: #f27ab5; --nink: #e4e9ef;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1216; --sheet: #151b21; --head: #1b232b; --ink: #e4e9ef; --muted: #9aa6b3;
+  --rule: #2c353f; --accent: #8fb3ff; --warn: #ff8f80; --warn-bg: #2a1816; --cell: #26303a;
+  --canopy: #4a3a26;
+  --n3v3: #ff6b5e; --n5v: #ffa24a; --ngnd: #c4cdd7; --ni2c: #64a7ff; --nuart: #c58cf2;
+  --ni2s: #47cfd6; --nspi: #6fcf7d; --nctl: #f27ab5; --nink: #e4e9ef;
+  color-scheme: dark;
+}
+
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.page {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 72px;
+  display: grid; gap: 44px;
+}
+.tekst { max-width: 74ch; display: grid; gap: 14px; min-width: 0; }
+section { display: grid; gap: 18px; min-width: 0; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(34px, 6vw, 52px); line-height: 1.02; letter-spacing: .01em; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 30px; line-height: 1.1; padding-top: 14px; border-top: 2px solid var(--ink); }
+h3 { font-size: 17px; font-weight: 600; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: grid; gap: 6px; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+code { background: var(--head); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+strong { font-weight: 600; }
+
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.lead { font-size: 18px; max-width: 62ch; }
+.kop { display: grid; gap: 16px; }
+
+/* titelblok zoals onderaan een technische tekening */
+.titelblok { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); border: 1.5px solid var(--ink); background: var(--sheet); margin: 6px 0 0; }
+.titelblok div { padding: 8px 12px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); min-width: 0; }
+.titelblok dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.titelblok dd { margin: 2px 0 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+
+.regels { border: 1.5px solid var(--warn); background: var(--warn-bg); padding: 16px 20px; display: grid; gap: 10px; max-width: 74ch; }
+.regels h2 { border: 0; padding: 0; font-size: 24px; color: var(--warn); }
+.regels ul { gap: 8px; }
+
+/* tekeningen */
+.blad { margin: 0; background: var(--sheet); border: 1px solid var(--rule); display: grid; gap: 10px; padding: 12px 12px 14px; min-width: 0; }
+.blad-scroll { overflow-x: auto; }
+.schema { display: block; width: 100%; height: auto; min-width: 860px; }
+.blad.smal .schema { min-width: 560px; max-width: 760px; margin: 0 auto; }
+figcaption { font-size: 14px; color: var(--muted); max-width: 90ch; padding: 0 4px; }
+figcaption b { color: var(--ink); font-family: var(--mono); font-weight: 600; margin-right: 6px; }
+
+.schema text { font-family: var(--mono); font-size: 11.5px; fill: var(--ink); }
+.schema .tt { font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: .02em; }
+.schema .tt.big { font-size: 20px; letter-spacing: .1em; }
+.schema .ts { font-family: var(--body); font-size: 11px; fill: var(--muted); }
+.schema .tn { font-family: var(--body); font-size: 10.5px; fill: var(--muted); }
+.schema .tl { font-family: var(--body); font-size: 11.5px; }
+.schema .strong { font-weight: 600; }
+.schema .dim { fill: var(--muted); opacity: .7; }
+.schema .box { fill: var(--sheet); stroke: var(--ink); stroke-width: 1.3; }
+.schema .box.teensy, .schema .box.board { fill: var(--head); }
+.schema .box.usb { fill: var(--cell); }
+.schema .box.cell { fill: var(--cell); }
+.schema .box.can { stroke-width: 1.8; }
+.schema .box.titleblock { fill: var(--sheet); stroke-width: 1.5; }
+.schema .boxrule { fill: none; stroke: var(--rule); stroke-width: 1; }
+.schema .wire { fill: none; stroke: var(--c); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.schema .comp { fill: none; stroke: var(--c, var(--ink)); stroke-width: 1.6; stroke-linejoin: round; }
+.schema .fillsheet { fill: var(--sheet); }
+.schema .pad { fill: var(--sheet); stroke: var(--c); stroke-width: 1.5; }
+.schema .dot { fill: var(--c); }
+.schema .ah { fill: var(--c); }
+.schema .tag { fill: var(--sheet); stroke: var(--c); stroke-width: 1.4; }
+.schema .tagt { fill: var(--c); font-weight: 600; font-size: 11px; }
+.schema .contact { fill: var(--sheet); stroke: var(--c); stroke-width: 1.5; }
+.schema .pin { fill: var(--c); stroke: var(--ink); stroke-width: .8; }
+.schema .pin.unused { fill: var(--sheet); stroke: var(--muted); }
+.schema .tp-ring { fill: var(--sheet); stroke: var(--c); stroke-width: 2; }
+.schema .cut { stroke: var(--warn); stroke-width: 2.4; stroke-linecap: round; }
+.schema .canopy { fill: var(--canopy); stroke: var(--ink); stroke-width: 1.3; }
+.schema .shroud { stroke: var(--muted); stroke-width: 1; }
+.schema .patch { fill: var(--muted); stroke: var(--ink); stroke-width: 1; }
+.schema .cellfill { fill: var(--cell); stroke: var(--ink); stroke-width: 1.3; }
+.schema .leader { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.schema .dim-line { stroke: var(--muted); stroke-width: 1; }
+.schema .antwire { --c: var(--ink); stroke-width: 3; }
+.schema .counter { --c: var(--ink); stroke-width: 2.2; stroke-dasharray: 7 4; }
+.schema .n3v3 { --c: var(--n3v3); } .schema .n5v { --c: var(--n5v); }
+.schema .ngnd { --c: var(--ngnd); } .schema .ni2c { --c: var(--ni2c); }
+.schema .nuart { --c: var(--nuart); } .schema .ni2s { --c: var(--ni2s); }
+.schema .nspi { --c: var(--nspi); } .schema .nctl { --c: var(--nctl); }
+.schema .nink { --c: var(--nink); }
+.schema .n3v3t { fill: var(--n3v3); } .schema .n5vt { fill: var(--n5v); }
+.schema .ngndt { fill: var(--ngnd); } .schema .ni2ct { fill: var(--ni2c); }
+.schema .nuartt { fill: var(--nuart); } .schema .ni2st { fill: var(--ni2s); }
+.schema .nspit { fill: var(--nspi); } .schema .nctlt { fill: var(--nctl); }
+.schema .ninkt { fill: var(--ink); }
+
+/* tabellen */
+.tabel-wrap { overflow-x: auto; border: 1px solid var(--rule); background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 7px 12px; border-bottom: 1px solid var(--rule); }
+thead th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--head); }
+tbody th[colspan] { font-family: var(--display); font-weight: 600; font-size: 18px; letter-spacing: .02em; background: var(--head); padding-top: 9px; }
+tbody th[colspan] span { font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; letter-spacing: 0; }
+td.pin { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+td.naar, td.kort { white-space: nowrap; }
+.sw { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: var(--ink); }
+.sw.n3v3 { background: var(--n3v3); } .sw.n5v { background: var(--n5v); } .sw.ngnd { background: var(--ngnd); }
+.sw.ni2c { background: var(--ni2c); } .sw.nuart { background: var(--nuart); } .sw.ni2s { background: var(--ni2s); }
+.sw.nspi { background: var(--nspi); } .sw.nctl { background: var(--nctl); }
+tr.totaal td { font-weight: 600; border-top: 1.5px solid var(--ink); }
+.getal { text-align: right; white-space: nowrap; }
+
+.twee { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px 36px; align-items: start; }
+.twee > * { min-width: 0; }
+.noot { font-size: 14px; color: var(--muted); }
+
+@media (max-width: 520px) {
+  body { font-size: 15.5px; }
+  h2 { font-size: 26px; }
+  th, td { padding: 6px 9px; }
+}
+
+/* afdrukken en PDF: altijd licht, tekeningen passen op het blad */
+@page { size: A4; margin: 12mm; }
+@page liggend { size: A4 landscape; margin: 9mm; }
+@media print {
+  :root, :root[data-theme="dark"] {
+    --paper: #ffffff; --sheet: #ffffff; --head: #eef1f5; --ink: #111820; --muted: #4f5b69;
+    --rule: #c9d0d8; --accent: #1d4e9e; --warn: #a3261b; --warn-bg: #fdf2f0; --cell: #e3e8ee;
+    --canopy: #f6e3c8;
+    --n3v3: #c62828; --n5v: #c25f00; --ngnd: #2b323b; --ni2c: #1565c0; --nuart: #7b2fa8;
+    --ni2s: #00808b; --nspi: #2e7d32; --nctl: #b0246c; --nink: #111820;
+    color-scheme: light;
+  }
+  /* gewone blokken: een raster breekt slecht over pagina's */
+  .page, section, .tekst, .kop, .twee, .blad, .regels { display: block; }
+  .page > * + * { margin-top: 20px; }
+  section > * + *, .tekst > * + *, .twee > * + *, .regels > * + * { margin-top: 10px; }
+  body { font-size: 10.5pt; }
+  .page { padding-block: 0; max-width: none; }
+  .schema { min-width: 0 !important; }
+  .blad { break-inside: avoid; border: 0; padding: 0; }
+  .blad figcaption { margin-top: 6px; }
+  .blad.liggend { page: liggend; }
+  .blad.liggend .schema { max-height: 168mm; }
+  .blad.smal .schema { max-height: 200mm; }
+  .tabel-wrap { overflow: visible; border: 0; }
+  tr, li { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
+  a { color: inherit; }
+  .scherm { display: none; }
+}
+</style>
+
+<div class="page">
+
+<header class="kop">
+  <p class="eyebrow">CanSat 2027 · assemblage</p>
+  <h1>Draadschema van de CanSat</h1>
+  <p class="lead">Voor wie de CanSat in elkaar zet. Je vindt hier alle draden, ook de batterij, de schakelaar, de buzzer en de antenne. De pinnen komen uit de vluchtcode. Wijk er niet van af, anders werkt de software niet meer.</p>
+  <dl class="titelblok">
+    <div><dt>Project</dt><dd>CanSat 2027</dd></div>
+    <div><dt>Tekening</dt><dd>Draadschema vlucht</dd></div>
+    <div><dt>Voor</dt><dd>Freddy (assemblage)</dd></div>
+    <div><dt>Revisie</dt><dd>A · 21-10-2026</dd></div>
+    <div><dt>Pinnen volgens</dt><dd><code>Cansat2027_teensy.ino</code></dd></div>
+  </dl>
+</header>
+
+<aside class="regels" aria-labelledby="regels-titel">
+  <h2 id="regels-titel">Vijf regels voor je begint</h2>
+  <ul>
+    <li>Alle modules krijgen 3,3 V van de pin <code>3.3V</code> van de Teensy. Zet nooit 5 V op een module.</li>
+    <li>Snij onderaan de Teensy het spoor tussen de pads <code>VIN</code> en <code>VUSB</code> door. Soldeer diode D1 erover.</li>
+    <li>Bij D1 en D2 wijst de ring (de kathode) naar <code>VIN</code>.</li>
+    <li>Zend nooit zonder antenne. De radio zendt meteen na het opstarten.</li>
+    <li>De pinnen volgen de vluchtcode. Verander je een pin, dan moet de code mee veranderen.</li>
+  </ul>
+</aside>
+
+<section aria-labelledby="schema-titel">
+  <h2 id="schema-titel">Het volledige schema</h2>
+  <figure class="blad liggend">
+    <div class="blad-scroll"><svg class="schema" viewBox="0 0 1180 916" role="img" aria-label="Volledig draadschema: Teensy 4.1 in het midden; links de voeding met batterij, PowerBoost, schakelaar en twee diodes, de buzzer met transistor en de radio; rechts de drie I2C-sensoren, de GPS en de microfoon." xmlns="http://www.w3.org/2000/svg"><defs><marker id="f1-pijl-n3v3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah n3v3"/></marker><marker id="f1-pijl-n5v" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah n5v"/></marker><marker id="f1-pijl-ngnd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ngnd"/></marker><marker id="f1-pijl-ni2c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ni2c"/></marker><marker id="f1-pijl-nuart" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nuart"/></marker><marker id="f1-pijl-ni2s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ni2s"/></marker><marker id="f1-pijl-nspi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nspi"/></marker><marker id="f1-pijl-nctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nctl"/></marker><marker id="f1-pijl-nink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nink"/></marker></defs><rect x="880" y="70" width="230" height="122" rx="6" class="box"/><path d="M880 104 L1110 104" class="boxrule"/><text x="890" y="86" class="tt" text-anchor="start">BMP390</text><text x="890" y="99" class="ts" text-anchor="start">Adafruit · I²C 0x77 · druk</text><line x1="868" y1="116" x2="880" y2="116" class="wire ni2c"/><rect x="877" y="113" width="6" height="6" rx="0" class="pad ni2c"/><text x="890" y="120" class="tp" text-anchor="start">SDI (= SDA)</text><line x1="868" y1="137" x2="880" y2="137" class="wire ni2c"/><rect x="877" y="134" width="6" height="6" rx="0" class="pad ni2c"/><text x="890" y="141" class="tp" text-anchor="start">SCK (= SCL)</text><line x1="868" y1="158" x2="880" y2="158" class="wire n3v3"/><rect x="877" y="155" width="6" height="6" rx="0" class="pad n3v3"/><text x="890" y="162" class="tp" text-anchor="start">VIN</text><line x1="868" y1="179" x2="880" y2="179" class="wire ngnd"/><rect x="877" y="176" width="6" height="6" rx="0" class="pad ngnd"/><text x="890" y="183" class="tp" text-anchor="start">GND</text><rect x="880" y="206" width="230" height="122" rx="6" class="box"/><path d="M880 240 L1110 240" class="boxrule"/><text x="890" y="222" class="tt" text-anchor="start">BNO055</text><text x="890" y="235" class="ts" text-anchor="start">Adafruit · I²C 0x28 · oriëntatie</text><line x1="868" y1="252" x2="880" y2="252" class="wire ni2c"/><rect x="877" y="249" width="6" height="6" rx="0" class="pad ni2c"/><text x="890" y="256" class="tp" text-anchor="start">SDA</text><line x1="868" y1="273" x2="880" y2="273" class="wire ni2c"/><rect x="877" y="270" width="6" height="6" rx="0" class="pad ni2c"/><text x="890" y="277" class="tp" text-anchor="start">SCL</text><line x1="868" y1="294" x2="880" y2="294" class="wire n3v3"/><rect x="877" y="291" width="6" height="6" rx="0" class="pad n3v3"/><text x="890" y="298" class="tp" text-anchor="start">VIN</text><line x1="868" y1="315" x2="880" y2="315" class="wire ngnd"/><rect x="877" y="312" width="6" height="6" rx="0" class="pad ngnd"/><text x="890" y="319" class="tp" text-anchor="start">GND</text><rect x="880" y="342" width="230" height="137" rx="6" class="box"/><path d="M880 376 L1110 376" class="boxrule"/><text x="890" y="358" class="tt" text-anchor="start">LSM6DSO</text><text x="890" y="371" class="ts" text-anchor="start">SparkFun · I²C 0x6B · trillingen</text><line x1="868" y1="388" x2="880" y2="388" class="wire ni2c"/><rect x="877" y="385" width="6" height="6" rx="0" class="pad ni2c"/><text x="890" y="392" class="tp" text-anchor="start">SDA</text><line x1="868" y1="409" x2="880" y2="409" class="wire ni2c"/><rect x="877" y="406" width="6" height="6" rx="0" class="pad ni2c"/><text x="890" y="413" class="tp" text-anchor="start">SCL</text><line x1="868" y1="430" x2="880" y2="430" class="wire n3v3"/><rect x="877" y="427" width="6" height="6" rx="0" class="pad n3v3"/><text x="890" y="434" class="tp" text-anchor="start">3V3</text><line x1="868" y1="451" x2="880" y2="451" class="wire ngnd"/><rect x="877" y="448" width="6" height="6" rx="0" class="pad ngnd"/><text x="890" y="455" class="tp" text-anchor="start">GND</text><text x="890" y="470" class="tn" text-anchor="start">SCX en SDX niet gebruiken</text><rect x="880" y="493" width="230" height="137" rx="6" class="box"/><path d="M880 527 L1110 527" class="boxrule"/><text x="890" y="509" class="tt" text-anchor="start">GPS PA1616D</text><text x="890" y="522" class="ts" text-anchor="start">Adafruit Ultimate GPS · UART</text><line x1="868" y1="539" x2="880" y2="539" class="wire nuart"/><rect x="877" y="536" width="6" height="6" rx="0" class="pad nuart"/><text x="890" y="543" class="tp" text-anchor="start">TX</text><line x1="868" y1="560" x2="880" y2="560" class="wire nuart"/><rect x="877" y="557" width="6" height="6" rx="0" class="pad nuart"/><text x="890" y="564" class="tp" text-anchor="start">RX</text><line x1="868" y1="581" x2="880" y2="581" class="wire n3v3"/><rect x="877" y="578" width="6" height="6" rx="0" class="pad n3v3"/><text x="890" y="585" class="tp" text-anchor="start">VIN</text><line x1="868" y1="602" x2="880" y2="602" class="wire ngnd"/><rect x="877" y="599" width="6" height="6" rx="0" class="pad ngnd"/><text x="890" y="606" class="tp" text-anchor="start">GND</text><text x="890" y="621" class="tn" text-anchor="start">CR1220-knoopcel in de houder</text><rect x="880" y="644" width="230" height="164" rx="6" class="box"/><path d="M880 678 L1110 678" class="boxrule"/><text x="890" y="660" class="tt" text-anchor="start">SPH0645</text><text x="890" y="673" class="ts" text-anchor="start">Adafruit · I²S · microfoon</text><line x1="868" y1="690" x2="880" y2="690" class="wire ni2s"/><rect x="877" y="687" width="6" height="6" rx="0" class="pad ni2s"/><text x="890" y="694" class="tp" text-anchor="start">BCLK</text><line x1="868" y1="711" x2="880" y2="711" class="wire ni2s"/><rect x="877" y="708" width="6" height="6" rx="0" class="pad ni2s"/><text x="890" y="715" class="tp" text-anchor="start">LRCL</text><line x1="868" y1="732" x2="880" y2="732" class="wire ni2s"/><rect x="877" y="729" width="6" height="6" rx="0" class="pad ni2s"/><text x="890" y="736" class="tp" text-anchor="start">DOUT</text><line x1="868" y1="753" x2="880" y2="753" class="wire ngnd"/><rect x="877" y="750" width="6" height="6" rx="0" class="pad ngnd"/><text x="890" y="757" class="tp" text-anchor="start">SEL</text><line x1="868" y1="774" x2="880" y2="774" class="wire n3v3"/><rect x="877" y="771" width="6" height="6" rx="0" class="pad n3v3"/><text x="890" y="778" class="tp" text-anchor="start">3V</text><line x1="868" y1="795" x2="880" y2="795" class="wire ngnd"/><rect x="877" y="792" width="6" height="6" rx="0" class="pad ngnd"/><text x="890" y="799" class="tp" text-anchor="start">GND</text><rect x="560" y="56" width="40" height="14" rx="2" class="box usb"/><text x="580" y="50" class="ts" text-anchor="middle">USB (laptop)</text><rect x="480" y="70" width="200" height="760" rx="8" class="box teensy"/><text x="580.0" y="92" class="tt big" text-anchor="middle">TEENSY 4.1</text><text x="580.0" y="106" class="ts" text-anchor="middle">PJRC · 3,3 V-logica</text><rect x="677" y="113" width="6" height="6" rx="0" class="pad ni2c"/><text x="670" y="120" class="tp strong" text-anchor="end">18 · SDA</text><rect x="677" y="134" width="6" height="6" rx="0" class="pad ni2c"/><text x="670" y="141" class="tp strong" text-anchor="end">19 · SCL</text><rect x="677" y="536" width="6" height="6" rx="0" class="pad nuart"/><text x="670" y="543" class="tp strong" text-anchor="end">0 · RX1</text><rect x="677" y="557" width="6" height="6" rx="0" class="pad nuart"/><text x="670" y="564" class="tp strong" text-anchor="end">1 · TX1</text><rect x="677" y="687" width="6" height="6" rx="0" class="pad ni2s"/><text x="670" y="694" class="tp strong" text-anchor="end">21 · BCLK1</text><rect x="677" y="708" width="6" height="6" rx="0" class="pad ni2s"/><text x="670" y="715" class="tp strong" text-anchor="end">20 · LRCLK1</text><rect x="677" y="729" width="6" height="6" rx="0" class="pad ni2s"/><text x="670" y="736" class="tp strong" text-anchor="end">8 · IN1</text><path d="M680 116 L868 116" class="wire ni2c"/><path d="M680 137 L868 137" class="wire ni2c"/><path d="M760 116 L760 388 L868 388" class="wire ni2c"/><path d="M790 137 L790 409 L868 409" class="wire ni2c"/><path d="M760 252 L868 252" class="wire ni2c"/><path d="M790 273 L868 273" class="wire ni2c"/><circle cx="760" cy="116" r="3.8" class="dot ni2c"/><circle cx="790" cy="137" r="3.8" class="dot ni2c"/><circle cx="760" cy="252" r="3.8" class="dot ni2c"/><circle cx="790" cy="273" r="3.8" class="dot ni2c"/><path d="M868 539 L768.0 539" class="wire nuart" marker-end="url(#f1-pijl-nuart)"/><path d="M768.0 539 L680 539" class="wire nuart"/><path d="M680 560 L780.0 560" class="wire nuart" marker-end="url(#f1-pijl-nuart)"/><path d="M780.0 560 L868 560" class="wire nuart"/><path d="M680 690 L780.0 690" class="wire ni2s" marker-end="url(#f1-pijl-ni2s)"/><path d="M780.0 690 L868 690" class="wire ni2s"/><path d="M680 711 L780.0 711" class="wire ni2s" marker-end="url(#f1-pijl-ni2s)"/><path d="M780.0 711 L868 711" class="wire ni2s"/><path d="M868 732 L768.0 732" class="wire ni2s" marker-end="url(#f1-pijl-ni2s)"/><path d="M768.0 732 L680 732" class="wire ni2s"/><rect x="833.3" y="149" width="34.7" height="18" rx="9" class="tag n3v3"/><text x="850.65" y="162" class="tagt n3v3" text-anchor="middle">3V3</text><rect x="833.3" y="170" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="850.65" y="183" class="tagt ngnd" text-anchor="middle">GND</text><rect x="833.3" y="285" width="34.7" height="18" rx="9" class="tag n3v3"/><text x="850.65" y="298" class="tagt n3v3" text-anchor="middle">3V3</text><rect x="833.3" y="306" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="850.65" y="319" class="tagt ngnd" text-anchor="middle">GND</text><rect x="833.3" y="421" width="34.7" height="18" rx="9" class="tag n3v3"/><text x="850.65" y="434" class="tagt n3v3" text-anchor="middle">3V3</text><rect x="833.3" y="442" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="850.65" y="455" class="tagt ngnd" text-anchor="middle">GND</text><rect x="833.3" y="572" width="34.7" height="18" rx="9" class="tag n3v3"/><text x="850.65" y="585" class="tagt n3v3" text-anchor="middle">3V3</text><rect x="833.3" y="593" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="850.65" y="606" class="tagt ngnd" text-anchor="middle">GND</text><rect x="833.3" y="744" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="850.65" y="757" class="tagt ngnd" text-anchor="middle">GND</text><rect x="833.3" y="765" width="34.7" height="18" rx="9" class="tag n3v3"/><text x="850.65" y="778" class="tagt n3v3" text-anchor="middle">3V3</text><rect x="833.3" y="786" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="850.65" y="799" class="tagt ngnd" text-anchor="middle">GND</text><rect x="477" y="131" width="6" height="6" rx="0" class="pad n5v"/><text x="490" y="138" class="tp strong" text-anchor="start">VUSB-pad</text><text x="490" y="152" class="tn" text-anchor="start">pads VIN–VUSB doorgesneden</text><rect x="477" y="165" width="6" height="6" rx="0" class="pad n5v"/><text x="490" y="172" class="tp strong" text-anchor="start">VIN</text><rect x="477" y="199" width="6" height="6" rx="0" class="pad n3v3"/><text x="490" y="206" class="tp strong" text-anchor="start">3.3V</text><text x="490" y="220" class="tn" text-anchor="start">samen max. 250 mA</text><rect x="477" y="233" width="6" height="6" rx="0" class="pad ngnd"/><text x="490" y="240" class="tp strong" text-anchor="start">GND</text><rect x="477" y="387" width="6" height="6" rx="0" class="pad nctl"/><text x="490" y="394" class="tp strong" text-anchor="start">14 · buzzer</text><line x1="464" y1="202" x2="480" y2="202" class="wire n3v3"/><rect x="429.3" y="193" width="34.7" height="18" rx="9" class="tag n3v3"/><text x="446.65000000000003" y="206" class="tagt n3v3" text-anchor="middle">3V3</text><line x1="464" y1="236" x2="480" y2="236" class="wire ngnd"/><rect x="429.3" y="227" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="446.65000000000003" y="240" class="tagt ngnd" text-anchor="middle">GND</text><rect x="196" y="92" width="48" height="12" rx="2" class="box usb"/><text x="220" y="86" class="ts" text-anchor="middle">micro-USB: laden</text><rect x="150" y="104" width="140" height="148" rx="6" class="box"/><path d="M150 138 L290 138" class="boxrule"/><text x="160" y="120" class="tt" text-anchor="start">PowerBoost 1000C</text><text x="160" y="133" class="ts" text-anchor="start">Adafruit · laden + 5,2 V</text><text x="160" y="172" class="tp" text-anchor="start">BAT</text><text x="280" y="172" class="tp" text-anchor="end">5V</text><text x="280" y="214" class="tp" text-anchor="end">GND</text><text x="220" y="242" class="tp" text-anchor="middle">EN</text><rect x="147" y="165" width="6" height="6" rx="0" class="pad nink"/><rect x="287" y="165" width="6" height="6" rx="0" class="pad n5v"/><rect x="287" y="207" width="6" height="6" rx="0" class="pad ngnd"/><rect x="217" y="249" width="6" height="6" rx="0" class="pad nctl"/><line x1="290" y1="210" x2="304" y2="210" class="wire ngnd"/><rect x="304" y="201" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="321.35" y="214" class="tagt ngnd" text-anchor="middle">GND</text><rect x="34" y="146" width="74" height="44" rx="5" class="box cell"/><rect x="108" y="160" width="6" height="16" rx="1" class="box cell"/><text x="71" y="165" class="tt" text-anchor="middle">LiPo</text><text x="71" y="181" class="ts" text-anchor="middle">3,7 V</text><path d="M114 163 L150 163" class="wire nink"/><path d="M114 173 L150 173" class="wire nink"/><text x="122" y="158" class="tp strong" text-anchor="middle">+</text><text x="122" y="188" class="tp strong" text-anchor="middle">−</text><text x="71" y="208" class="tn" text-anchor="middle">2000 mAh, beveiligd</text><text x="71" y="222" class="tn" text-anchor="middle">JST-PH-stekker</text><path d="M290 168 L326 168" class="wire n5v"/><polygon points="326,159 326,177 344,168" class="comp n5v fillsheet"/><line x1="344" y1="159" x2="344" y2="177" class="comp n5v"/><path d="M344 168 L480 168" class="wire n5v"/><text x="335" y="153" class="tp strong" text-anchor="middle">D2</text><text x="335" y="192" class="tn" text-anchor="middle">1N5817</text><path d="M480 134 L440 134 L440 142" class="wire n5v"/><polygon points="431,142 449,142 440,160" class="comp n5v fillsheet"/><line x1="431" y1="160" x2="449" y2="160" class="comp n5v"/><path d="M440 160 L440 168" class="wire n5v"/><text x="452" y="152" class="tp strong" text-anchor="start">D1</text><circle cx="440" cy="168" r="3.8" class="dot n5v"/><text x="392" y="160" class="tn n5vt" text-anchor="end">VIN 5 V</text><path d="M220 252 L220 266" class="wire nctl"/><circle cx="220" cy="270" r="3.5" class="contact nctl"/><circle cx="198" cy="300" r="3.5" class="contact ngnd"/><circle cx="242" cy="300" r="3.5" class="contact nctl"/><line x1="222" y1="273" x2="240" y2="296" class="wire nctl blade"/><text x="206" y="274" class="tp strong" text-anchor="end">S1</text><text x="190" y="304" class="tp" text-anchor="end">UIT</text><text x="250" y="304" class="tp" text-anchor="start">AAN (open)</text><path d="M198 304 L198 318" class="wire ngnd"/><rect x="180.65" y="318" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="198.0" y="331" class="tagt ngnd" text-anchor="middle">GND</text><circle cx="400" cy="168" r="3.8" class="dot n5v"/><path d="M400 168 L400 300" class="wire n5v"/><rect x="385" y="300" width="30" height="36" rx="4" class="box buz"/><text x="400" y="323" class="tp strong" text-anchor="middle">BZ</text><text x="420" y="300" class="tp strong" text-anchor="start">+</text><text x="378" y="316" class="tp strong" text-anchor="end">BZ1</text><text x="378" y="330" class="tn" text-anchor="end">actief, 5 V</text><path d="M400 296 L432 296 L432 308" class="wire nink"/><polygon points="423,327 441,327 432,309" class="comp nink fillsheet"/><line x1="423" y1="309" x2="441" y2="309" class="comp nink"/><path d="M432 328 L432 344 L400 344" class="wire nink"/><text x="442" y="322" class="tp strong" text-anchor="start">D3</text><circle cx="400" cy="296" r="3.8" class="dot n5v"/><path d="M400 336 L400 372" class="wire nink"/><circle cx="400" cy="344" r="3.8" class="dot nink"/><circle cx="404" cy="390" r="17" class="comp fillsheet"/><line x1="412" y1="378" x2="412" y2="402" class="comp"/><line x1="412" y1="383" x2="400" y2="372" class="comp"/><path d="M412 397 L401 408" class="comp" marker-end="url(#f1-pijl-nink)"/><path d="M400 407 L400 436" class="wire ngnd"/><text x="382" y="386" class="tp strong" text-anchor="end">Q1</text><text x="382" y="400" class="tn" text-anchor="end">BC337</text><path d="M412 390 L430 390" class="wire nctl"/><circle cx="430" cy="390" r="3.8" class="dot nctl"/><rect x="438" y="384" width="28" height="12" rx="1" class="comp nctl fillsheet"/><path d="M430 390 L438 390" class="wire nctl"/><path d="M466 390 L480 390" class="wire nctl"/><text x="452" y="380" class="tn" text-anchor="middle">R1 1k</text><rect x="424" y="400" width="12" height="24" rx="1" class="comp nctl fillsheet"/><path d="M430 390 L430 400" class="wire nctl"/><path d="M430 424 L430 436 L400 436" class="wire ngnd"/><text x="440" y="416" class="tn" text-anchor="start">R2</text><text x="440" y="429" class="tn" text-anchor="start">10k</text><circle cx="400" cy="436" r="3.8" class="dot ngnd"/><path d="M400 436 L400 448" class="wire ngnd"/><rect x="382.65" y="448" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="400.0" y="461" class="tagt ngnd" text-anchor="middle">GND</text><rect x="230" y="500" width="180" height="206" rx="6" class="box"/><path d="M230 534 L410 534" class="boxrule"/><text x="240" y="516" class="tt" text-anchor="start">RFM95W</text><text x="240" y="529" class="ts" text-anchor="start">Adafruit · SPI · 868 MHz</text><line x1="410" y1="546" x2="422" y2="546" class="wire n3v3"/><rect x="407" y="543" width="6" height="6" rx="0" class="pad n3v3"/><text x="400" y="550" class="tp" text-anchor="end">VIN</text><line x1="410" y1="567" x2="422" y2="567" class="wire ngnd"/><rect x="407" y="564" width="6" height="6" rx="0" class="pad ngnd"/><text x="400" y="571" class="tp" text-anchor="end">GND</text><line x1="410" y1="588" x2="422" y2="588" class="wire nspi"/><rect x="407" y="585" width="6" height="6" rx="0" class="pad nspi"/><text x="400" y="592" class="tp" text-anchor="end">SCK</text><line x1="410" y1="609" x2="422" y2="609" class="wire nspi"/><rect x="407" y="606" width="6" height="6" rx="0" class="pad nspi"/><text x="400" y="613" class="tp" text-anchor="end">MISO</text><line x1="410" y1="630" x2="422" y2="630" class="wire nspi"/><rect x="407" y="627" width="6" height="6" rx="0" class="pad nspi"/><text x="400" y="634" class="tp" text-anchor="end">MOSI</text><line x1="410" y1="651" x2="422" y2="651" class="wire nspi"/><rect x="407" y="648" width="6" height="6" rx="0" class="pad nspi"/><text x="400" y="655" class="tp" text-anchor="end">CS</text><line x1="410" y1="672" x2="422" y2="672" class="wire nspi"/><rect x="407" y="669" width="6" height="6" rx="0" class="pad nspi"/><text x="400" y="676" class="tp" text-anchor="end">RST</text><line x1="410" y1="693" x2="422" y2="693" class="wire nspi"/><rect x="407" y="690" width="6" height="6" rx="0" class="pad nspi"/><text x="400" y="697" class="tp" text-anchor="end">G0</text><rect x="477" y="585" width="6" height="6" rx="0" class="pad nspi"/><text x="490" y="592" class="tp strong" text-anchor="start">13 · SCK</text><path d="M480 588 L445.0 588" class="wire nspi" marker-end="url(#f1-pijl-nspi)"/><path d="M445.0 588 L422 588" class="wire nspi"/><rect x="477" y="606" width="6" height="6" rx="0" class="pad nspi"/><text x="490" y="613" class="tp strong" text-anchor="start">12 · MISO</text><path d="M422 609 L457.0 609" class="wire nspi" marker-end="url(#f1-pijl-nspi)"/><path d="M457.0 609 L480 609" class="wire nspi"/><rect x="477" y="627" width="6" height="6" rx="0" class="pad nspi"/><text x="490" y="634" class="tp strong" text-anchor="start">11 · MOSI</text><path d="M480 630 L445.0 630" class="wire nspi" marker-end="url(#f1-pijl-nspi)"/><path d="M445.0 630 L422 630" class="wire nspi"/><rect x="477" y="648" width="6" height="6" rx="0" class="pad nspi"/><text x="490" y="655" class="tp strong" text-anchor="start">10 · CS</text><path d="M480 651 L445.0 651" class="wire nspi" marker-end="url(#f1-pijl-nspi)"/><path d="M445.0 651 L422 651" class="wire nspi"/><rect x="477" y="669" width="6" height="6" rx="0" class="pad nspi"/><text x="490" y="676" class="tp strong" text-anchor="start">9 · RST</text><path d="M480 672 L445.0 672" class="wire nspi" marker-end="url(#f1-pijl-nspi)"/><path d="M445.0 672 L422 672" class="wire nspi"/><rect x="477" y="690" width="6" height="6" rx="0" class="pad nspi"/><text x="490" y="697" class="tp strong" text-anchor="start">2 · G0</text><path d="M422 693 L457.0 693" class="wire nspi" marker-end="url(#f1-pijl-nspi)"/><path d="M457.0 693 L480 693" class="wire nspi"/><rect x="422" y="537" width="34.7" height="18" rx="9" class="tag n3v3"/><text x="439.35" y="550" class="tagt n3v3" text-anchor="middle">3V3</text><rect x="422" y="558" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="439.35" y="571" class="tagt ngnd" text-anchor="middle">GND</text><rect x="227" y="601" width="6" height="6" rx="0" class="pad nink"/><text x="240" y="608" class="tp" text-anchor="start">ANT</text><path d="M230 604 L200 604 L200 556" class="wire nink"/><polygon points="186,542 214,542 200,558" class="comp nink fillsheet"/><text x="184" y="548" class="tp strong" text-anchor="end">antenne</text><text x="184" y="562" class="tn" text-anchor="end">2 × 8,2 cm, zie fig. 4</text><text x="580.0" y="800" class="tp" text-anchor="middle">microSD (ingebouwd)</text><text x="580.0" y="815" class="tn" text-anchor="middle">kaart erin, tape erover</text><text x="24" y="752" class="tl strong" text-anchor="start">LEGENDE</text><line x1="24" y1="770" x2="50" y2="770" class="wire n3v3"/><text x="58" y="774" class="tl" text-anchor="start">3V3: 3.3V-pin van de Teensy</text><line x1="246" y1="770" x2="272" y2="770" class="wire n5v"/><text x="280" y="774" class="tl" text-anchor="start">VIN: 5 V</text><line x1="24" y1="791" x2="50" y2="791" class="wire ngnd"/><text x="58" y="795" class="tl" text-anchor="start">GND: alles aan elkaar</text><line x1="246" y1="791" x2="272" y2="791" class="wire ni2c"/><text x="280" y="795" class="tl" text-anchor="start">I²C: SDA en SCL</text><line x1="24" y1="812" x2="50" y2="812" class="wire nuart"/><text x="58" y="816" class="tl" text-anchor="start">UART: GPS</text><line x1="246" y1="812" x2="272" y2="812" class="wire ni2s"/><text x="280" y="816" class="tl" text-anchor="start">I²S: microfoon</text><line x1="24" y1="833" x2="50" y2="833" class="wire nspi"/><text x="58" y="837" class="tl" text-anchor="start">SPI: radio</text><line x1="246" y1="833" x2="272" y2="833" class="wire nctl"/><text x="280" y="837" class="tl" text-anchor="start">stuurdraad (EN, pin 14)</text><circle cx="37" cy="868" r="3.8" class="dot nink"/><text x="58" y="872" class="tl" text-anchor="start">= verbonden; kruising zonder bolletje = niet verbonden</text><path d="M24 893 L46 893" class="wire nink" marker-end="url(#f1-pijl-nink)"/><text x="58" y="897" class="tl" text-anchor="start">= richting van het signaal</text><rect x="700" y="846" width="468" height="62" rx="0" class="box titleblock"/><line x1="700" y1="877" x2="1168" y2="877" class="boxrule"/><line x1="1040" y1="846" x2="1040" y2="908" class="boxrule"/><text x="710" y="867" class="tt" text-anchor="start">CanSat 2027 · draadschema vlucht</text><text x="710" y="898" class="ts" text-anchor="start">pinnen: vluchtcode Cansat2027_teensy.ino</text><text x="1050" y="867" class="ts" text-anchor="start">Rev. A · blad 1/1</text><text x="1050" y="898" class="ts" text-anchor="start">21-10-2026</text></svg></div>
+    <figcaption><b>Fig. 1</b>Alles wat in de CanSat komt. Links de voeding, de buzzer en de radio. Rechts de drie sensoren op de I²C-bus, de GPS en de microfoon. Een kaartje <code>3V3</code> of <code>GND</code> betekent: verbind met die lijn.<span class="scherm"> Op een smal scherm kan je de tekening opzij schuiven.</span></figcaption>
+  </figure>
+  <div class="tekst">
+    <p>Elke kleur is een soort verbinding. Een pijl toont de richting van het signaal. De drie I²C-sensoren hangen samen aan dezelfde twee draden: SDA (pin 18) en SCL (pin 19). Alle GND-punten zijn met elkaar verbonden.</p>
+  </div>
+</section>
+
+<section aria-labelledby="tabel-titel">
+  <h2 id="tabel-titel">Aansluitingen per onderdeel</h2>
+  <div class="tekst"><p>Per bordje: welke pin waarheen. Pinnen die niet in de tabel staan, sluit je niet aan.</p></div>
+  <div class="tabel-wrap">
+    <table>
+      <thead><tr><th scope="col">Pin op het bordje</th><th scope="col">Gaat naar</th><th scope="col">Opmerking</th></tr></thead>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">Teensy 4.1 <span>PJRC</span></th></tr>
+        <tr><td class="pin"><i class="sw n5v"></i>VIN</td><td class="naar">D2 en D1 (kathode)</td><td>Hier komt ± 4,9 V binnen.</td></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>3.3V</td><td class="naar">3V3 van alle modules</td><td>Samen hoogstens 250 mA. Wij gebruiken ± 90 mA.</td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">alle GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw n5v"></i>pads VIN–VUSB</td><td class="naar">doorsnijden, D1 erover</td><td>Onderkant. Anode van D1 op VUSB, kathode op VIN.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">BMP390 <span>Adafruit · druk en temperatuur · I²C-adres 0x77</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>VIN</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SDI</td><td class="naar">pin 18 (SDA)</td><td>Op dit bordje heet SDA “SDI”.</td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SCK</td><td class="naar">pin 19 (SCL)</td><td>Op dit bordje heet SCL “SCK”.</td></tr>
+        <tr><td class="pin">3Vo, SDO, CS, INT</td><td class="naar">niets</td><td></td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">BNO055 <span>Adafruit · oriëntatie · I²C-adres 0x28</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>VIN</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SDA</td><td class="naar">pin 18</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SCL</td><td class="naar">pin 19</td><td></td></tr>
+        <tr><td class="pin">3Vo, RST, INT, ADR, PS0, PS1</td><td class="naar">niets</td><td>ADR los laten: dan is het adres 0x28.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">LSM6DSO <span>SparkFun · trillingen en schokken · I²C-adres 0x6B</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>3V3</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SDA</td><td class="naar">pin 18</td><td>Onderste rij van het bordje.</td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SCL</td><td class="naar">pin 19</td><td>Onderste rij van het bordje.</td></tr>
+        <tr><td class="pin">SDO, CS</td><td class="naar">niets</td><td>Anders verandert het adres of schakelt de chip naar SPI.</td></tr>
+        <tr><td class="pin">INT1, INT2, OCS, SCX, SDX, SDOX</td><td class="naar">niets</td><td>Bovenste rij. SCX en SDX zijn níet SCL en SDA.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">GPS PA1616D <span>Adafruit Ultimate GPS · UART, 9600 baud</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>VIN</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nuart"></i>TX</td><td class="naar">pin 0 (RX1)</td><td>Zenden van de GPS gaat naar ontvangen van de Teensy.</td></tr>
+        <tr><td class="pin"><i class="sw nuart"></i>RX</td><td class="naar">pin 1 (TX1)</td><td></td></tr>
+        <tr><td class="pin">3.3V-uitgang, EN, VBAT, FIX, PPS</td><td class="naar">niets</td><td>Steek een CR1220-knoopcel in de houder.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">SPH0645 <span>Adafruit · microfoon · I²S</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>3V</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2s"></i>BCLK</td><td class="naar">pin 21</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2s"></i>LRCL</td><td class="naar">pin 20</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2s"></i>DOUT</td><td class="naar">pin 8</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>SEL</td><td class="naar">GND</td><td>Kiest het linkerkanaal.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">RFM95W <span>Adafruit · radio 868 MHz · SPI</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>VIN</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>SCK</td><td class="naar">pin 13</td><td>Pin 13 is ook het lampje van de Teensy. Het flikkert tijdens het zenden.</td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>MISO</td><td class="naar">pin 12</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>MOSI</td><td class="naar">pin 11</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>CS</td><td class="naar">pin 10</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>RST</td><td class="naar">pin 9</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>G0</td><td class="naar">pin 2</td><td>Meldt “pakket verzonden”.</td></tr>
+        <tr><td class="pin">ANT</td><td class="naar">antenne</td><td>Zie <a href="#antenne-titel">de LoRa-antenne</a>.</td></tr>
+        <tr><td class="pin">EN, G1–G5</td><td class="naar">niets</td><td></td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">PowerBoost 1000C <span>Adafruit · laadt de batterij en maakt 5,2 V</span></th></tr>
+        <tr><td class="pin">BAT (JST)</td><td class="naar">LiPo</td><td>Kijk eerst of + en − kloppen.</td></tr>
+        <tr><td class="pin"><i class="sw n5v"></i>5V</td><td class="naar">anode van D2</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nctl"></i>EN</td><td class="naar">midden van S1</td><td></td></tr>
+        <tr><td class="pin">micro-USB</td><td class="naar">van buiten bereikbaar</td><td>Om te laden. De grote USB-A-poort heb je niet nodig.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">Schakelaar S1 <span>schuifschakelaar, 1 pool, 2 standen</span></th></tr>
+        <tr><td class="pin"><i class="sw nctl"></i>midden</td><td class="naar">EN van de PowerBoost</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>zijkant 1</td><td class="naar">GND</td><td>Deze stand is UIT.</td></tr>
+        <tr><td class="pin">zijkant 2</td><td class="naar">niets</td><td>Deze stand is AAN.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">Buzzer <span>BZ1, Q1, R1, R2, D3</span></th></tr>
+        <tr><td class="pin"><i class="sw n5v"></i>BZ1 +</td><td class="naar">VIN</td><td></td></tr>
+        <tr><td class="pin">BZ1 −</td><td class="naar">collector van Q1</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>Q1 emitter</td><td class="naar">GND</td><td>Q1 = BC337-40 of 2N2222A.</td></tr>
+        <tr><td class="pin"><i class="sw nctl"></i>Q1 basis</td><td class="naar">R1 (1 kΩ) naar pin 14</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>Q1 basis</td><td class="naar">R2 (10 kΩ) naar GND</td><td>Houdt de buzzer stil tijdens het opstarten.</td></tr>
+        <tr><td class="pin">D3 (1N4148)</td><td class="naar">over de buzzer</td><td>Ring aan de + van de buzzer.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="pinnen-titel">
+  <h2 id="pinnen-titel">Waar zitten de pinnen op de Teensy?</h2>
+  <div class="tekst">
+    <p>Zo zie je de Teensy van bovenaf, met de USB-poort boven. De gekleurde pinnen gebruik je. De Teensy heeft meer GND- en 3.3V-pinnen. Die zijn binnenin verbonden: één van elk volstaat.</p>
+  </div>
+  <figure class="blad smal">
+    <div class="blad-scroll"><svg class="schema" viewBox="0 0 760 660" role="img" aria-label="Bovenaanzicht van de Teensy 4.1 met de USB-poort boven. De gebruikte pinnen zijn gekleurd en benoemd." xmlns="http://www.w3.org/2000/svg"><defs><marker id="f2-pijl-n3v3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah n3v3"/></marker><marker id="f2-pijl-n5v" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah n5v"/></marker><marker id="f2-pijl-ngnd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ngnd"/></marker><marker id="f2-pijl-ni2c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ni2c"/></marker><marker id="f2-pijl-nuart" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nuart"/></marker><marker id="f2-pijl-ni2s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ni2s"/></marker><marker id="f2-pijl-nspi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nspi"/></marker><marker id="f2-pijl-nctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nctl"/></marker><marker id="f2-pijl-nink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nink"/></marker></defs><rect x="310" y="64" width="140" height="570" rx="10" class="box board"/><rect x="358.0" y="46" width="44" height="22" rx="3" class="box usb"/><text x="380.0" y="40" class="ts" text-anchor="middle">USB</text><text x="380.0" y="346" class="tt big" text-anchor="middle">TEENSY</text><text x="380.0" y="366" class="tt big" text-anchor="middle">4.1</text><text x="380.0" y="386" class="ts" text-anchor="middle">bovenkant</text><circle cx="326" cy="104" r="6" class="pin ngnd"/><text x="300" y="108" class="tp strong" text-anchor="end">GND</text><line x1="258" y1="104" x2="266" y2="104" class="wire ngnd"/><text x="252" y="108" class="tp ngndt" text-anchor="end">GND</text><circle cx="326" cy="126" r="6" class="pin nuart"/><text x="300" y="130" class="tp strong" text-anchor="end">0</text><line x1="258" y1="126" x2="266" y2="126" class="wire nuart"/><text x="252" y="130" class="tp nuartt" text-anchor="end">GPS TX</text><circle cx="326" cy="148" r="6" class="pin nuart"/><text x="300" y="152" class="tp strong" text-anchor="end">1</text><line x1="258" y1="148" x2="266" y2="148" class="wire nuart"/><text x="252" y="152" class="tp nuartt" text-anchor="end">GPS RX</text><circle cx="326" cy="170" r="6" class="pin nspi"/><text x="300" y="174" class="tp strong" text-anchor="end">2</text><line x1="258" y1="170" x2="266" y2="170" class="wire nspi"/><text x="252" y="174" class="tp nspit" text-anchor="end">radio G0</text><circle cx="326" cy="192" r="4" class="pin nink unused"/><text x="300" y="196" class="tp dim" text-anchor="end">3</text><circle cx="326" cy="214" r="4" class="pin nink unused"/><text x="300" y="218" class="tp dim" text-anchor="end">4</text><circle cx="326" cy="236" r="4" class="pin nink unused"/><text x="300" y="240" class="tp dim" text-anchor="end">5</text><circle cx="326" cy="258" r="4" class="pin nink unused"/><text x="300" y="262" class="tp dim" text-anchor="end">6</text><circle cx="326" cy="280" r="4" class="pin nink unused"/><text x="300" y="284" class="tp dim" text-anchor="end">7</text><circle cx="326" cy="302" r="6" class="pin ni2s"/><text x="300" y="306" class="tp strong" text-anchor="end">8</text><line x1="258" y1="302" x2="266" y2="302" class="wire ni2s"/><text x="252" y="306" class="tp ni2st" text-anchor="end">microfoon DOUT</text><circle cx="326" cy="324" r="6" class="pin nspi"/><text x="300" y="328" class="tp strong" text-anchor="end">9</text><line x1="258" y1="324" x2="266" y2="324" class="wire nspi"/><text x="252" y="328" class="tp nspit" text-anchor="end">radio RST</text><circle cx="326" cy="346" r="6" class="pin nspi"/><text x="300" y="350" class="tp strong" text-anchor="end">10</text><line x1="258" y1="346" x2="266" y2="346" class="wire nspi"/><text x="252" y="350" class="tp nspit" text-anchor="end">radio CS</text><circle cx="326" cy="368" r="6" class="pin nspi"/><text x="300" y="372" class="tp strong" text-anchor="end">11</text><line x1="258" y1="368" x2="266" y2="368" class="wire nspi"/><text x="252" y="372" class="tp nspit" text-anchor="end">radio MOSI</text><circle cx="326" cy="390" r="6" class="pin nspi"/><text x="300" y="394" class="tp strong" text-anchor="end">12</text><line x1="258" y1="390" x2="266" y2="390" class="wire nspi"/><text x="252" y="394" class="tp nspit" text-anchor="end">radio MISO</text><circle cx="326" cy="412" r="4" class="pin nink unused"/><text x="300" y="416" class="tp dim" text-anchor="end">3.3V</text><circle cx="326" cy="434" r="4" class="pin nink unused"/><text x="300" y="438" class="tp dim" text-anchor="end">24</text><circle cx="326" cy="456" r="4" class="pin nink unused"/><text x="300" y="460" class="tp dim" text-anchor="end">25</text><circle cx="326" cy="478" r="4" class="pin nink unused"/><text x="300" y="482" class="tp dim" text-anchor="end">26</text><circle cx="326" cy="500" r="4" class="pin nink unused"/><text x="300" y="504" class="tp dim" text-anchor="end">27</text><circle cx="326" cy="522" r="4" class="pin nink unused"/><text x="300" y="526" class="tp dim" text-anchor="end">28</text><circle cx="326" cy="544" r="4" class="pin nink unused"/><text x="300" y="548" class="tp dim" text-anchor="end">29</text><circle cx="326" cy="566" r="4" class="pin nink unused"/><text x="300" y="570" class="tp dim" text-anchor="end">30</text><circle cx="326" cy="588" r="4" class="pin nink unused"/><text x="300" y="592" class="tp dim" text-anchor="end">31</text><circle cx="326" cy="610" r="4" class="pin nink unused"/><text x="300" y="614" class="tp dim" text-anchor="end">32</text><circle cx="434" cy="104" r="6" class="pin n5v"/><text x="460" y="108" class="tp strong" text-anchor="start">VIN</text><line x1="496" y1="104" x2="504" y2="104" class="wire n5v"/><text x="510" y="108" class="tp n5vt" text-anchor="start">D1 + D2 (5 V)</text><circle cx="434" cy="126" r="6" class="pin ngnd"/><text x="460" y="130" class="tp strong" text-anchor="start">GND</text><line x1="496" y1="126" x2="504" y2="126" class="wire ngnd"/><text x="510" y="130" class="tp ngndt" text-anchor="start">GND</text><circle cx="434" cy="148" r="6" class="pin n3v3"/><text x="460" y="152" class="tp strong" text-anchor="start">3.3V</text><line x1="496" y1="148" x2="504" y2="148" class="wire n3v3"/><text x="510" y="152" class="tp n3v3t" text-anchor="start">3V3 naar alle modules</text><circle cx="434" cy="170" r="4" class="pin nink unused"/><text x="460" y="174" class="tp dim" text-anchor="start">23</text><circle cx="434" cy="192" r="4" class="pin nink unused"/><text x="460" y="196" class="tp dim" text-anchor="start">22</text><circle cx="434" cy="214" r="6" class="pin ni2s"/><text x="460" y="218" class="tp strong" text-anchor="start">21</text><line x1="496" y1="214" x2="504" y2="214" class="wire ni2s"/><text x="510" y="218" class="tp ni2st" text-anchor="start">microfoon BCLK</text><circle cx="434" cy="236" r="6" class="pin ni2s"/><text x="460" y="240" class="tp strong" text-anchor="start">20</text><line x1="496" y1="236" x2="504" y2="236" class="wire ni2s"/><text x="510" y="240" class="tp ni2st" text-anchor="start">microfoon LRCL</text><circle cx="434" cy="258" r="6" class="pin ni2c"/><text x="460" y="262" class="tp strong" text-anchor="start">19</text><line x1="496" y1="258" x2="504" y2="258" class="wire ni2c"/><text x="510" y="262" class="tp ni2ct" text-anchor="start">SCL (I²C)</text><circle cx="434" cy="280" r="6" class="pin ni2c"/><text x="460" y="284" class="tp strong" text-anchor="start">18</text><line x1="496" y1="280" x2="504" y2="280" class="wire ni2c"/><text x="510" y="284" class="tp ni2ct" text-anchor="start">SDA (I²C)</text><circle cx="434" cy="302" r="4" class="pin nink unused"/><text x="460" y="306" class="tp dim" text-anchor="start">17</text><circle cx="434" cy="324" r="4" class="pin nink unused"/><text x="460" y="328" class="tp dim" text-anchor="start">16</text><circle cx="434" cy="346" r="4" class="pin nink unused"/><text x="460" y="350" class="tp dim" text-anchor="start">15</text><circle cx="434" cy="368" r="6" class="pin nctl"/><text x="460" y="372" class="tp strong" text-anchor="start">14</text><line x1="496" y1="368" x2="504" y2="368" class="wire nctl"/><text x="510" y="372" class="tp nctlt" text-anchor="start">buzzer, via R1</text><circle cx="434" cy="390" r="6" class="pin nspi"/><text x="460" y="394" class="tp strong" text-anchor="start">13</text><line x1="496" y1="390" x2="504" y2="390" class="wire nspi"/><text x="510" y="394" class="tp nspit" text-anchor="start">radio SCK</text><circle cx="434" cy="412" r="4" class="pin nink unused"/><text x="460" y="416" class="tp dim" text-anchor="start">GND</text><circle cx="434" cy="434" r="4" class="pin nink unused"/><text x="460" y="438" class="tp dim" text-anchor="start">41</text><circle cx="434" cy="456" r="4" class="pin nink unused"/><text x="460" y="460" class="tp dim" text-anchor="start">40</text><circle cx="434" cy="478" r="4" class="pin nink unused"/><text x="460" y="482" class="tp dim" text-anchor="start">39</text><circle cx="434" cy="500" r="4" class="pin nink unused"/><text x="460" y="504" class="tp dim" text-anchor="start">38</text><circle cx="434" cy="522" r="4" class="pin nink unused"/><text x="460" y="526" class="tp dim" text-anchor="start">37</text><circle cx="434" cy="544" r="4" class="pin nink unused"/><text x="460" y="548" class="tp dim" text-anchor="start">36</text><circle cx="434" cy="566" r="4" class="pin nink unused"/><text x="460" y="570" class="tp dim" text-anchor="start">35</text><circle cx="434" cy="588" r="4" class="pin nink unused"/><text x="460" y="592" class="tp dim" text-anchor="start">34</text><circle cx="434" cy="610" r="4" class="pin nink unused"/><text x="460" y="614" class="tp dim" text-anchor="start">33</text><text x="380" y="658" class="tn" text-anchor="middle">Controleer met het pinout-kaartje van PJRC.</text></svg></div>
+    <figcaption><b>Fig. 2</b>Teensy 4.1 van bovenaf. Links GND, 0 tot 12, 3.3V, 24 tot 32. Rechts VIN, GND, 3.3V, 23 tot 13, GND, 41 tot 33. Leg het pinout-kaartje van PJRC ernaast als controle.</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="voeding-titel">
+  <h2 id="voeding-titel">Voeding: batterij, PowerBoost en twee diodes</h2>
+  <div class="tekst">
+    <p>Eén LiPo-cel voedt alles. De PowerBoost laadt die cel op en maakt er 5,2 V van. Die spanning gaat via diode D2 naar <code>VIN</code> van de Teensy. De Teensy maakt zelf 3,3 V voor alle modules.</p>
+  </div>
+  <figure class="blad liggend">
+    <div class="blad-scroll"><svg class="schema" viewBox="0 0 1000 400" role="img" aria-label="Voeding: LiPo naar PowerBoost 1000C; de 5V-uitgang gaat via diode D2 naar VIN; de USB-poort via diode D1 over de doorgesneden pads naar VIN; schakelaar S1 legt EN aan GND om uit te schakelen." xmlns="http://www.w3.org/2000/svg"><defs><marker id="f3-pijl-n3v3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah n3v3"/></marker><marker id="f3-pijl-n5v" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah n5v"/></marker><marker id="f3-pijl-ngnd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ngnd"/></marker><marker id="f3-pijl-ni2c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ni2c"/></marker><marker id="f3-pijl-nuart" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nuart"/></marker><marker id="f3-pijl-ni2s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ni2s"/></marker><marker id="f3-pijl-nspi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nspi"/></marker><marker id="f3-pijl-nctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nctl"/></marker><marker id="f3-pijl-nink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nink"/></marker></defs><rect x="30" y="160" width="92" height="56" rx="6" class="box cell"/><rect x="122" y="178" width="7" height="20" rx="1" class="box cell"/><text x="76" y="184" class="tt" text-anchor="middle">LiPo 3,7 V</text><text x="76" y="202" class="ts" text-anchor="middle">2000 mAh</text><text x="76" y="236" class="tn" text-anchor="middle">met beveiliging</text><path d="M129 183 L200 183" class="wire nink"/><path d="M129 193 L200 193" class="wire nink"/><text x="164" y="176" class="tp strong" text-anchor="middle">+</text><text x="164" y="211" class="tp strong" text-anchor="middle">−</text><text x="164" y="230" class="tn" text-anchor="middle">JST-PH</text><rect x="280" y="76" width="50" height="14" rx="2" class="box usb"/><text x="305" y="70" class="ts" text-anchor="middle">micro-USB: laden (1 A)</text><rect x="200" y="90" width="210" height="210" rx="8" class="box"/><path d="M200 130 L410 130" class="boxrule"/><text x="212" y="109" class="tt" text-anchor="start">PowerBoost 1000C</text><text x="212" y="124" class="ts" text-anchor="start">Adafruit · laadt en maakt 5,2 V</text><text x="212" y="192" class="tp" text-anchor="start">BAT</text><text x="398" y="134" class="tp" text-anchor="end">5V</text><text x="398" y="254" class="tp" text-anchor="end">GND</text><text x="305" y="288" class="tp" text-anchor="middle">EN</text><rect x="197" y="185" width="6" height="6" rx="0" class="pad nink"/><rect x="407" y="127" width="6" height="6" rx="0" class="pad n5v"/><rect x="407" y="247" width="6" height="6" rx="0" class="pad ngnd"/><rect x="302" y="297" width="6" height="6" rx="0" class="pad nctl"/><path d="M410 130 L520 130" class="wire n5v"/><circle cx="452" cy="130" r="5" class="tp-ring n5v"/><text x="452" y="112" class="tp strong" text-anchor="middle">TP1</text><polygon points="521,121 521,139 539,130" class="comp n5v fillsheet"/><line x1="539" y1="121" x2="539" y2="139" class="comp n5v"/><text x="530" y="112" class="tp strong" text-anchor="middle">D2</text><text x="530" y="154" class="tn" text-anchor="middle">1N5817</text><path d="M539 130 L760 130" class="wire n5v"/><circle cx="640" cy="130" r="3.8" class="dot n5v"/><circle cx="700" cy="130" r="5" class="tp-ring n5v"/><text x="700" y="112" class="tp strong" text-anchor="middle">TP2</text><rect x="850" y="46" width="40" height="14" rx="2" class="box usb"/><text x="870" y="40" class="ts" text-anchor="middle">USB (laptop)</text><rect x="760" y="60" width="220" height="270" rx="8" class="box teensy"/><text x="968" y="82" class="tt" text-anchor="end">TEENSY 4.1</text><text x="774" y="94" class="tp strong" text-anchor="start">VUSB-pad</text><text x="774" y="134" class="tp strong" text-anchor="start">VIN</text><text x="774" y="214" class="tp strong" text-anchor="start">3.3V</text><text x="774" y="254" class="tp strong" text-anchor="start">GND</text><rect x="757" y="87" width="6" height="6" rx="0" class="pad n5v"/><rect x="757" y="127" width="6" height="6" rx="0" class="pad n5v"/><rect x="757" y="207" width="6" height="6" rx="0" class="pad n3v3"/><rect x="757" y="247" width="6" height="6" rx="0" class="pad ngnd"/><path d="M850 90 L876 90 L876 104" class="wire n5v trace"/><path d="M876 116 L876 130 L850 130" class="wire n5v trace"/><line x1="867" y1="107" x2="885" y2="101" class="cut"/><line x1="867" y1="119" x2="885" y2="113" class="cut"/><text x="894" y="107" class="tn" text-anchor="start">spoor</text><text x="894" y="120" class="tn" text-anchor="start">doorsnijden</text><path d="M760 90 L640 90 L640 99" class="wire n5v"/><polygon points="631,99 649,99 640,117" class="comp n5v fillsheet"/><line x1="631" y1="117" x2="649" y2="117" class="comp n5v"/><path d="M640 117 L640 130" class="wire n5v"/><text x="626" y="98" class="tp strong" text-anchor="end">D1</text><text x="626" y="112" class="tn" text-anchor="end">1N5817</text><path d="M760 210 L640 210" class="wire n3v3"/><circle cx="700" cy="210" r="5" class="tp-ring n3v3"/><text x="700" y="196" class="tp strong" text-anchor="middle">TP3</text><rect x="481.1" y="201" width="158.9" height="18" rx="9" class="tag n3v3"/><text x="560.5500000000001" y="214" class="tagt n3v3" text-anchor="middle">3V3 naar alle modules</text><path d="M410 250 L760 250" class="wire ngnd"/><text x="585" y="244" class="tn" text-anchor="middle">GND (gemeenschappelijk)</text><path d="M305 300 L305 318" class="wire nctl"/><circle cx="305" cy="322" r="3.5" class="contact nctl"/><circle cx="279" cy="356" r="3.5" class="contact ngnd"/><circle cx="331" cy="356" r="3.5" class="contact nctl"/><line x1="307" y1="325" x2="329" y2="352" class="wire nctl blade"/><text x="291" y="326" class="tp strong" text-anchor="end">S1</text><text x="269" y="360" class="tp strong" text-anchor="end">UIT</text><text x="341" y="360" class="tp" text-anchor="start">AAN: contact open, EN hoog</text><path d="M279 360 L279 372" class="wire ngnd"/><rect x="261.65" y="372" width="34.7" height="18" rx="9" class="tag ngnd"/><text x="279.0" y="385" class="tagt ngnd" text-anchor="middle">GND</text><text x="422" y="180" class="tn" text-anchor="start">TP1: 5,0–5,2 V bij AAN, 0 V bij UIT</text><text x="700" y="160" class="tn" text-anchor="middle">TP2: ± 4,9 V</text><text x="700" y="236" class="tn" text-anchor="middle">TP3: 3,3 V</text></svg></div>
+    <figcaption><b>Fig. 3</b>De voeding met de drie meetpunten. S1 legt EN aan GND om de 5 V uit te schakelen. Het spoor tussen VUSB en VIN is doorgesneden; D1 laat de stroom van de USB-poort nog wel door naar VIN.</figcaption>
+  </figure>
+  <div class="twee">
+    <div class="tekst">
+      <h3>Waarom de pads doorsnijden?</h3>
+      <p>Op de Teensy zijn <code>VIN</code> en <code>VUSB</code> standaard verbonden. Hangt er een batterij aan VIN en steek je ook een USB-kabel in, dan laadt de laptop de batterij zonder controle, of voedt de batterij de laptop. PJRC raadt daarom aan om het spoor door te snijden.</p>
+      <p>Met D1 en D2 kan alles veilig samen. Alleen USB: de Teensy draait, voor tests op de werkbank. Alleen de batterij: de CanSat vliegt. Beide samen mag ook.</p>
+      <h3>Zo doe je het</h3>
+      <ol>
+        <li>Zoek aan de onderkant de twee pads met het dunne spoor ertussen (zie het pinout-kaartje van PJRC).</li>
+        <li>Snij het spoor door met een scherp mesje.</li>
+        <li>Meet met de multimeter: tussen VIN en VUSB mag geen doorgang meer zijn.</li>
+        <li>Steek de USB-kabel in. De pad met 5 V is VUSB.</li>
+        <li>Soldeer D1 over de pads: anode op VUSB, kathode (ring) op VIN. Een SMD-diode (SS14) past precies.</li>
+      </ol>
+    </div>
+    <div class="tekst">
+      <h3>Meetpunten</h3>
+      <div class="tabel-wrap">
+        <table>
+          <thead><tr><th scope="col">Punt</th><th scope="col">Waar</th><th scope="col">Verwacht</th></tr></thead>
+          <tbody>
+            <tr><td class="pin">TP1</td><td>5V van de PowerBoost</td><td>5,0–5,2 V bij AAN, 0 V bij UIT</td></tr>
+            <tr><td class="pin">TP2</td><td>VIN van de Teensy</td><td>± 4,9 V op de batterij, ± 4,7 V met alleen USB</td></tr>
+            <tr><td class="pin">TP3</td><td>3.3V van de Teensy</td><td>3,3 V</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Veilig met een LiPo</h3>
+      <ul>
+        <li>Kijk de stekker na vóór je hem insteekt. Niet elk merk zet + en − op dezelfde plaats. Verkeerd = PowerBoost stuk.</li>
+        <li>Laad onder toezicht. Gebruik geen opgezwollen of beschadigde cel.</li>
+        <li>Laden mag met de schakelaar op UIT.</li>
+        <li>Ligt de CanSat lang stil? Trek de batterijstekker uit.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="tekst">
+    <h3>Waarom 2000 mAh?</h3>
+    <p>ESA eist dat de CanSat 4 uur na elkaar kan aanstaan. Dit verbruikt hij:</p>
+  </div>
+  <div class="tabel-wrap" style="max-width: 74ch">
+    <table>
+      <thead><tr><th scope="col">Verbruiker</th><th scope="col" class="getal">Stroom</th></tr></thead>
+      <tbody>
+        <tr><td>Teensy 4.1 (600 MHz)</td><td class="getal">± 100 mA</td></tr>
+        <tr><td>GPS PA1616D</td><td class="getal">± 29 mA</td></tr>
+        <tr><td>BNO055</td><td class="getal">± 12 mA</td></tr>
+        <tr><td>RFM95W, 1 pakket per seconde (± 45 mA tijdens het zenden)</td><td class="getal">± 12 mA</td></tr>
+        <tr><td>microSD (schrijven)</td><td class="getal">± 10 mA</td></tr>
+        <tr><td>BMP390, LSM6DSO en SPH0645 samen</td><td class="getal">± 2 mA</td></tr>
+        <tr class="totaal"><td>Totaal op VIN</td><td class="getal">± 165 mA</td></tr>
+        <tr><td>Uit de batterij, met de verliezen van PowerBoost en D2</td><td class="getal">± 0,27 A</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tekst">
+    <p>Een cel van 2000 mAh houdt dat ± 7 uur vol, in de kou wat minder. Een cel van 1200 mAh haalt de 4 uur maar net. De cel van 2000 mAh (60 × 36 × 7 mm, 34 g) past rechtop in het blik.</p>
+  </div>
+</section>
+
+<section aria-labelledby="schakelaar-titel">
+  <h2 id="schakelaar-titel">Schakelaar</h2>
+  <div class="tekst">
+    <p><strong>Bestellen:</strong> een kleine schuifschakelaar met 1 pool en 2 standen (SPDT). Bijvoorbeeld C&amp;K OS102011MS2QN1 of E-Switch EG1218. Er loopt bijna geen stroom door: de schakelaar zit op de pin EN van de PowerBoost, niet in de batterijdraad.</p>
+    <p><strong>Aansluiten:</strong> de middelste pin aan EN. Eén buitenste pin aan GND. De andere buitenste pin blijft vrij.</p>
+    <ul>
+      <li>Naar de GND-kant geschoven: UIT. EN ligt aan GND en de PowerBoost geeft geen 5 V.</li>
+      <li>Weg van GND: AAN. EN hangt los en de PowerBoost trekt hem zelf hoog.</li>
+      <li>In de stand AAN raakt het contact niets. Trillingen kunnen de CanSat dus niet uitzetten.</li>
+    </ul>
+    <p><strong>Plaats:</strong> ESA vraagt een hoofdschakelaar die je makkelijk bereikt. Zet hem in de wand, een beetje verzonken, zodat hij niet blijft haken bij het inladen. Schrijf AAN en UIT op het blik.</p>
+  </div>
+</section>
+
+<section aria-labelledby="buzzer-titel">
+  <h2 id="buzzer-titel">Buzzer</h2>
+  <div class="twee">
+    <div class="tekst">
+      <p><strong>Bestellen:</strong> een <em>actieve</em> buzzer van 5 V, met een ingebouwde oscillator. Die piept zodra er spanning op staat.</p>
+      <ul>
+        <li>Diameter 12 mm, pinafstand 7,6 mm.</li>
+        <li>Minstens 85 dB op 10 cm, hoogstens 30 mA.</li>
+        <li>Bijvoorbeeld de TMB12A05 (werkt van 3 tot 7 V, 85–95 dB op 10 cm) of de Adafruit 1536 (3–5 V, 2 kHz). Neem er twee.</li>
+        <li>Geen passieve piëzo. De code zet pin 14 gewoon aan en uit. Een passieve piëzo geeft dan alleen een tikje.</li>
+      </ul>
+      <p><strong>Schakeling</strong> (fig. 1, links): een pin van de Teensy kan geen 30 mA leveren. Transistor Q1 schakelt de buzzer. R2 houdt hem stil terwijl de Teensy opstart. D3 beschermt Q1 als de buzzer een spoeltje heeft.</p>
+      <p class="noot">BC337 en 2N2222A hebben C, B en E in een andere volgorde. Kijk de datasheet na voor je soldeert.</p>
+    </div>
+    <div class="tekst">
+      <h3>Wat je hoort</h3>
+      <div class="tabel-wrap">
+        <table>
+          <thead><tr><th scope="col">Signaal</th><th scope="col">Betekenis</th></tr></thead>
+          <tbody>
+            <tr><td class="kort">3 korte piepjes</td><td>De CanSat is opgestart.</td></tr>
+            <tr><td class="kort">3 lange piepjes</td><td>Een sensor, de radio of de SD-kaart werd niet gevonden. Eén reeks per onderdeel.</td></tr>
+            <tr><td class="kort">stil</td><td>Tijdens de vlucht. Anders stoort de buzzer de microfoon.</td></tr>
+            <tr><td class="kort">3 s aan, 7 s uit</td><td>6 minuten na de lancering: terugvindsignaal.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Maak een gaatje in de wand bij de buzzer. Anders hoor je hem nauwelijks.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="antenne-titel">
+  <h2 id="antenne-titel">LoRa-antenne</h2>
+  <div class="tekst">
+    <p>De radio werkt op 868 MHz. Een kwart van de golflengte is daar 8,6 cm. In de praktijk werkt een draad van 8,2 cm het best. Dat is dezelfde lengte als bij de ultieme test.</p>
+  </div>
+  <figure class="blad smal">
+    <div class="blad-scroll"><svg class="schema" viewBox="0 0 700 560" role="img" aria-label="Zijaanzicht van de CanSat onder de parachute: GPS bovenaan met de patch naar boven; de radio onderaan; een draad van 8,2 cm aan ANT steekt recht naar beneden uit de bodem; een draad van 8,2 cm aan GND loopt binnen tegen de wand naar boven." xmlns="http://www.w3.org/2000/svg"><defs><marker id="f4-pijl-n3v3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah n3v3"/></marker><marker id="f4-pijl-n5v" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah n5v"/></marker><marker id="f4-pijl-ngnd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ngnd"/></marker><marker id="f4-pijl-ni2c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ni2c"/></marker><marker id="f4-pijl-nuart" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nuart"/></marker><marker id="f4-pijl-ni2s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah ni2s"/></marker><marker id="f4-pijl-nspi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nspi"/></marker><marker id="f4-pijl-nctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nctl"/></marker><marker id="f4-pijl-nink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah nink"/></marker></defs><path d="M120 66 Q240 -14 360 66 Z" class="canopy"/><line x1="120" y1="66" x2="193.2" y2="150" class="shroud"/><line x1="200" y1="66" x2="193.2" y2="150" class="shroud"/><line x1="280" y1="66" x2="286.8" y2="150" class="shroud"/><line x1="360" y1="66" x2="286.8" y2="150" class="shroud"/><text x="368" y="50" class="tl" text-anchor="start">parachute</text><rect x="187.2" y="150" width="105.60000000000001" height="184.0" rx="6" class="box can"/><text x="300.8" y="350.0" class="tn" text-anchor="start">blik: Ø 66 mm, 115 mm hoog</text><rect x="201.2" y="164" width="77.60000000000001" height="6" rx="0" class="comp fillsheet"/><rect x="230" y="156" width="20" height="8" rx="0" class="comp patch"/><line x1="280.8" y1="162" x2="318.8" y2="162" class="leader"/><text x="322.8" y="166" class="tl" text-anchor="start">GPS: patch naar boven, niets erboven</text><rect x="201.2" y="216" width="65.60000000000001" height="5" rx="0" class="comp fillsheet"/><path d="M234 216 L234 192" class="wire nink" marker-end="url(#f4-pijl-nink)"/><text x="242" y="202" class="tp strong" text-anchor="start">Z</text><line x1="268.8" y1="218" x2="318.8" y2="218" class="leader"/><text x="322.8" y="222" class="tl" text-anchor="start">BNO055 en LSM6DSO plat, Z naar boven</text><rect x="288.8" y="241" width="8" height="14" rx="0" class="comp nctl fillsheet"/><line x1="298.8" y1="248" x2="318.8" y2="248" class="leader"/><text x="322.8" y="252" class="tl" text-anchor="start">schakelaar in de wand, bereikbaar</text><rect x="268.8" y="262" width="14" height="56" rx="0" class="comp cellfill"/><line x1="284.8" y1="290" x2="318.8" y2="290" class="leader"/><text x="322.8" y="294" class="tl" text-anchor="start">LiPo rechtop, vastgezet</text><rect x="210" y="312.0" width="60" height="7" rx="0" class="comp fillsheet"/><line x1="272" y1="315.0" x2="318.8" y2="315.0" class="leader"/><text x="322.8" y="319.0" class="tl" text-anchor="start">RFM95W onderaan</text><path d="M220 319.0 L220 465.20000000000005" class="wire antwire"/><circle cx="220" cy="334.0" r="3" class="comp fillsheet"/><path d="M214 315.0 L195.2 315.0 L195.2 183.79999999999998" class="wire counter"/><line x1="246" y1="334.0" x2="246" y2="465.20000000000005" class="dim-line"/><line x1="240" y1="334.0" x2="252" y2="334.0" class="dim-line"/><line x1="240" y1="465.20000000000005" x2="252" y2="465.20000000000005" class="dim-line"/><text x="258" y="395.6" class="tp strong" text-anchor="start">8,2 cm aan ANT,</text><text x="258" y="411.6" class="tl" text-anchor="start">recht naar beneden</text><line x1="177.2" y1="183.79999999999998" x2="177.2" y2="315.0" class="dim-line"/><line x1="171.2" y1="183.79999999999998" x2="183.2" y2="183.79999999999998" class="dim-line"/><line x1="171.2" y1="315.0" x2="183.2" y2="315.0" class="dim-line"/><text x="169.2" y="243.39999999999998" class="tp strong" text-anchor="end">8,2 cm aan GND,</text><text x="169.2" y="259.4" class="tl" text-anchor="end">binnen tegen de wand</text><text x="220" y="495.20000000000005" class="tn" text-anchor="middle">naar de grond</text><path d="M220 501.20000000000005 L220 519.2" class="wire nink" marker-end="url(#f4-pijl-nink)"/></svg></div>
+    <figcaption><b>Fig. 4</b>Zo hangt de CanSat onder de parachute. De antenne steekt onderaan uit, weg van de koorden. De GPS ligt bovenaan, met de patch naar de lucht.</figcaption>
+  </figure>
+  <div class="twee">
+    <div class="tekst">
+      <h3>Aanbevolen: een dipool van twee draden</h3>
+      <ul>
+        <li>Draad 1, 8,2 cm, aan <code>ANT</code>. Recht naar beneden, door de bodem naar buiten.</li>
+        <li>Draad 2, 8,2 cm, aan de GND-pad naast <code>ANT</code>. Binnen in het blik recht naar boven, tegen de wand.</li>
+        <li>Gebruik stijve draad: koperdraad van 0,8 tot 1 mm, of verenstaal. Zet krimpkous rond de doorvoer in de bodem.</li>
+        <li>Is de wand van metaal? Verbind de wand dan met GND en laat alleen draad 1 naar buiten steken. De wand doet dan het werk van draad 2.</li>
+      </ul>
+      <h3>Waarom onderaan?</h3>
+      <p>De CanSat hangt onder de parachute. Een antenne bovenaan raakt in de koorden. Onderaan hangt ze vrij en recht.</p>
+    </div>
+    <div class="tekst">
+      <h3>Regels</h3>
+      <ul>
+        <li>ESA: antennes mogen alleen boven- of onderaan uitsteken, niet aan de zijkant. Vraag aan de organisatie hoeveel er mag uitsteken.</li>
+        <li>Hou minstens 2 cm afstand van metaal: batterij, Teensy, schroeven.</li>
+        <li>De GPS bovenaan, de radio-antenne onderaan. Zo zitten ze elkaar niet in de weg.</li>
+        <li>Zend nooit zonder antenne. Zonder antenne kan de RFM95W stukgaan.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="twee">
+    <div class="tekst">
+      <h3>Steviger alternatief</h3>
+      <p>De print van de RFM95W heeft plaats voor een u.FL-connector. Soldeer die erop. Gebruik een kabeltje van u.FL naar SMA, met een SMA-doorvoer in de bodem. Daarop schroef je een korte, buigzame antenne voor 868 MHz. Plooit hij bij de landing, dan vervang je hem.</p>
+    </div>
+    <div class="tekst">
+      <h3>Het grondstation</h3>
+      <ul>
+        <li>De antenne van de ontvanger moet ook voor 868 MHz zijn. Een Yagi voor 433 MHz werkt niet op 868 MHz.</li>
+        <li>De antenne van de CanSat hangt verticaal. Zet de antenne van het grondstation ook verticaal. Bij een Yagi staan de elementen dan rechtop.</li>
+        <li>Legt de organisatie 433 MHz op? Dan heb je de RFM96W (433 MHz) nodig, in de CanSat én in de ontvanger, met een antenne van 16,5 cm. De RFM95W kan geen 433 MHz.</li>
+        <li>Doe na de montage opnieuw de afstandstest van 100 m, met alles in het blik.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="gps-titel">
+  <h2 id="gps-titel">GPS</h2>
+  <div class="tekst">
+    <ul>
+      <li>Leg de GPS bovenaan, met de patch-antenne naar boven. Dat is het vierkante blokje op de module. Er mag geen batterij of print boven liggen.</li>
+      <li>Steek een CR1220-knoopcel in de houder op de achterkant. Dan onthoudt de GPS de satellieten en vindt hij sneller een positie.</li>
+      <li>De GPS heeft vrij zicht op de lucht nodig. Binnen vindt hij meestal niets.</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="montage-titel">
+  <h2 id="montage-titel">Montage in het blik</h2>
+  <div class="tekst">
+    <ul>
+      <li>Geen breadboard in de vlucht. Soldeer alles op een gaatjesprint of op een eigen print.</li>
+      <li>Gebruik soepele, gevlochten draad (siliconendraad, AWG 26) en hou de draden kort. Massieve draad breekt door trillingen.</li>
+      <li>Hou de I²C-draden korter dan 15 cm. Hebben de drie I²C-sensoren een Qwiic- of STEMMA QT-connector? Dan kan je ze met zulke kabeltjes aan elkaar hangen: minder kans op verwisselde draden. Zet de stekkers vast met een druppel lijm.</li>
+      <li>ESA vraagt dat de CanSat 20 g verdraagt. Dan duwt de batterij van 34 g even hard als 680 g. Zet ze vast met een bandje of een klem, niet alleen met dubbelzijdige tape.</li>
+      <li>Leg de BNO055 en de LSM6DSO plat, evenwijdig met het deksel. De onderdelen wijzen naar boven als de CanSat rechtop staat. De software verwacht dat: in rust geeft de BNO055 dan <code>grav_z</code> ≈ +9,8 en de LSM6DSO <code>acc_peak_g</code> ≈ 1,00.</li>
+      <li>Schroef de LSM6DSO stevig vast, zonder schuim. Hij moet de trillingen van het blik meten, niet die van het schuim.</li>
+      <li>De Teensy is 61 mm lang. Plat past hij nauwelijks in het blik: zet hem rechtop.</li>
+      <li>Steek de microSD-kaart erin en kleef er een stukje kaptontape over.</li>
+      <li>Van buiten bereikbaar: de schakelaar, de micro-USB van de PowerBoost (laden) en de USB-poort van de Teensy (programmeren en testen). Zo niet, dan moet de batterij snel uit te nemen zijn. Dat is een eis van ESA.</li>
+      <li>Maak gaatjes in de wand bij de microfoon en bij de buzzer.</li>
+      <li>ESA vraagt een massa van 300 tot 350 g. De batterij, de PowerBoost, de buzzer en de schakelaar wegen samen ± 45 g. Weeg de CanSat opnieuw.</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="bestel-titel">
+  <h2 id="bestel-titel">Bestellijst</h2>
+  <div class="tekst"><p>De onderdelen van Adafruit en SparkFun vind je bijvoorbeeld bij Kiwi Electronics. De kleine onderdelen ook bij Farnell, Mouser of Conrad.</p></div>
+  <div class="tabel-wrap">
+    <table>
+      <thead><tr><th scope="col">Onderdeel</th><th scope="col">Voorbeeld</th><th scope="col" class="getal">Aantal</th><th scope="col">Waarvoor</th></tr></thead>
+      <tbody>
+        <tr><td>LiPo 3,7 V, 2000 mAh, met beveiliging en JST-PH-stekker</td><td>Adafruit 2011</td><td class="getal">1</td><td>voeding</td></tr>
+        <tr><td>Laad- en boostprint</td><td>Adafruit PowerBoost 1000C (2465)</td><td class="getal">1</td><td>laden en 5,2 V</td></tr>
+        <tr><td>Schottky-diode 1 A</td><td>1N5817, of SMD: SS14</td><td class="getal">3</td><td>D1, D2 en 1 reserve</td></tr>
+        <tr><td>Actieve buzzer 5 V, Ø 12 mm</td><td>TMB12A05 of Adafruit 1536</td><td class="getal">2</td><td>BZ1</td></tr>
+        <tr><td>NPN-transistor</td><td>BC337-40 of 2N2222A</td><td class="getal">2</td><td>Q1</td></tr>
+        <tr><td>Weerstand ¼ W, 1 kΩ</td><td>—</td><td class="getal">2</td><td>R1</td></tr>
+        <tr><td>Weerstand ¼ W, 10 kΩ</td><td>—</td><td class="getal">2</td><td>R2</td></tr>
+        <tr><td>Signaaldiode</td><td>1N4148</td><td class="getal">2</td><td>D3</td></tr>
+        <tr><td>Schuifschakelaar SPDT</td><td>C&amp;K OS102011MS2QN1 of E-Switch EG1218</td><td class="getal">2</td><td>S1</td></tr>
+        <tr><td>Knoopcel</td><td>CR1220</td><td class="getal">1</td><td>GPS</td></tr>
+        <tr><td>microSD-kaart 4–32 GB</td><td>goed merk, FAT32</td><td class="getal">1</td><td>gegevens</td></tr>
+        <tr><td>Antennedraad</td><td>koperdraad 0,8–1 mm, 30 cm</td><td class="getal">1</td><td>dipool</td></tr>
+        <tr><td>Optie: u.FL-connector, kabeltje u.FL naar SMA, 868 MHz-antenne met SMA</td><td>—</td><td class="getal">1</td><td>steviger antenne</td></tr>
+        <tr><td>Optie: Qwiic- of STEMMA QT-kabeltjes, 50–100 mm</td><td>—</td><td class="getal">3</td><td>I²C-sensoren</td></tr>
+        <tr><td>Montage: siliconendraad AWG 26 in 7 kleuren, krimpkous, gaatjesprint, afstandsbusjes M2,5, kaptontape, kabelbinders</td><td>—</td><td class="getal"></td><td>bouwen</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="controle-titel">
+  <h2 id="controle-titel">Controle na het solderen</h2>
+  <div class="tekst">
+    <p>Doe dit in deze volgorde. Stop bij de eerste fout.</p>
+    <ol>
+      <li>Kijk alles na met een loep: geen soldeerbruggen, geen losse draden.</li>
+      <li>Multimeter op de piepstand, zonder batterij en zonder USB. Geen doorgang tussen 3.3V en GND, tussen VIN en GND, en tussen VIN en VUSB.</li>
+      <li>Batterij erin (let op + en −), schakelaar op UIT. TP1 is 0 V.</li>
+      <li>Schakelaar op AAN. TP1 is 5,0–5,2 V, TP2 ± 4,9 V, TP3 3,3 V.</li>
+      <li>De buzzer geeft 3 korte piepjes. Hoor je lange piepjes? Dan ontbreekt er iets.</li>
+      <li>Open de Serial Monitor (115200 baud) en herstart. BMP390, BNO055, LSM6DSO, LoRa en SD staan op OK.</li>
+      <li>CanSat rechtop en stil: <code>grav_z</code> ≈ +9,8 en <code>acc_peak_g</code> ≈ 1,00. De trillingsbanden zijn niet 0.</li>
+      <li>Schakelaar op UIT, alleen de USB-kabel: de Teensy start ook. TP2 is ± 4,7 V.</li>
+      <li>De ontvanger krijgt pakketten. Doe de afstandstest van 100 m.</li>
+      <li>Duurtest: laat de CanSat 4 uur aanstaan op de batterij en log alles.</li>
+      <li>Weeg de CanSat: 300 tot 350 g.</li>
+    </ol>
+  </div>
+</section>
+
+<section aria-labelledby="bronnen-titel">
+  <h2 id="bronnen-titel">Bronnen</h2>
+  <div class="tekst">
+    <ul>
+      <li><a href="https://www.esa.int/Education/CanSat/What_is_a_CanSat">ESA: What is a CanSat</a>: 4 uur aan, hoofdschakelaar, bereikbare batterij, antennes alleen boven of onder, 300–350 g.</li>
+      <li><a href="https://www.pjrc.com/teensy/schematic.html">PJRC: schema van de Teensy 4.1</a>: de pads tussen VIN en VUSB.</li>
+      <li><a href="https://forum.pjrc.com/showthread.php?p=24424">PJRC-forum</a>: Paul Stoffregen over het doorsnijden bij batterij en USB samen.</li>
+      <li><a href="https://protosupplies.com/learn/prototyping-system-for-teensy-4-1-powering-up-the-system/">ProtoSupplies</a>: twee diodes, kathode naar VIN.</li>
+      <li><a href="https://www.adafruit.com/product/2465">Adafruit PowerBoost 1000C</a>: EN, 5,2 V, laden met 1 A.</li>
+      <li><a href="https://www.adafruit.com/product/2011">Adafruit LiPo 2000 mAh</a>: 60 × 36 × 7 mm, 34 g.</li>
+      <li><a href="https://www.adafruit.com/product/5440">Adafruit Ultimate GPS PA1616D</a>: houder voor de CR1220, ± 29 mA.</li>
+      <li><a href="https://www.electrokit.com/en/active-piezo-buzzer-95db-5vdc-pcb-12x9.5mm">Electrokit: TMB12A05</a>: 5 V, hoogstens 30 mA.</li>
+      <li>De pinnen: <code>vluchtcode/Cansat2027_teensy.ino</code> in de repository van het project.</li>
+    </ul>
+  </div>
+</section>
+
+</div>
