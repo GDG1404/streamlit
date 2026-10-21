@@ -1,0 +1,414 @@
+<title>CanSat 2027 breadboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* layout: één leeskolom (± 74 tekens) met de tekening op volle breedte, zoals een blad van een technische tekening */
+:root {
+  --paper: #f2f4f6; --sheet: #ffffff; --head: #eaeef3; --ink: #18212b; --muted: #576372;
+  --rule: #d2d8df; --accent: #1d4e9e; --warn: #a3261b; --warn-bg: #fcf0ee; --ok: #2b7a3d;
+  --display: "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+  /* de draden: echte kleuren van de draadjes, gelijk in beide thema's */
+  --w3v3: #e0352b; --wgnd: #2559d8; --wsda: #2b9b46; --wscl: #f0c419; --wgps: #8e44ad; --wspi: #ef7d12;
+  /* het breadboard zelf (een voorwerp: blijft licht, wordt in het donker wat gedimd) */
+  --bb-bg: #ecebe6; --bb: #f7f5ef; --bb-edge: #d6d0c2; --hole: #4a463e; --groove: #e6e2d6;
+  --bb-ink: #7a7468; --bb-text: #26231e; --rail-red: #d4372c; --rail-blue: #2e62d4;
+  --pcb-teensy: #1f6b44; --pcb-ada: #23282f; --pcb-sfe: #c43a2e; --silk: #f5f7f3; --silk-dim: #b9c4bc;
+  --pin: #d8a92f; --metal: #c8ccd2; --chip: #111417; --patch: #d9c7a0; --copper: #b5651d;
+  --wedge: rgba(20, 16, 10, .55); --plug: #1d1f22; --bb-dim: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1216; --sheet: #151b21; --head: #1b232b; --ink: #e4e9ef; --muted: #9aa6b3;
+    --rule: #2c353f; --accent: #8fb3ff; --warn: #ff8f80; --warn-bg: #2a1816; --ok: #6fcf7d;
+    --bb-dim: brightness(.86);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1216; --sheet: #151b21; --head: #1b232b; --ink: #e4e9ef; --muted: #9aa6b3;
+  --rule: #2c353f; --accent: #8fb3ff; --warn: #ff8f80; --warn-bg: #2a1816; --ok: #6fcf7d;
+  --bb-dim: brightness(.86);
+  color-scheme: dark;
+}
+
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.page {
+  max-width: 1220px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 72px;
+  display: grid; gap: 44px;
+}
+.tekst { max-width: 74ch; display: grid; gap: 14px; min-width: 0; }
+section { display: grid; gap: 18px; min-width: 0; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(34px, 6vw, 52px); line-height: 1.02; letter-spacing: .01em; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 30px; line-height: 1.1; padding-top: 14px; border-top: 2px solid var(--ink); }
+h3 { font-size: 17px; font-weight: 600; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: grid; gap: 6px; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code { font-family: var(--mono); font-size: .88em; background: var(--head); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+strong { font-weight: 600; }
+
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.lead { font-size: 18px; max-width: 64ch; }
+.kop { display: grid; gap: 16px; }
+.titelblok { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); border: 1.5px solid var(--ink); background: var(--sheet); margin: 6px 0 0; }
+.titelblok div { padding: 8px 12px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); min-width: 0; }
+.titelblok dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.titelblok dd { margin: 2px 0 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+
+/* kleurcode van de draden */
+.kleuren { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 10px; }
+.kleuren li { display: grid; grid-template-columns: 34px 1fr; gap: 2px 12px; align-items: center; background: var(--sheet); border: 1px solid var(--rule); padding: 10px 12px; }
+.kleuren .draadje { grid-row: span 2; height: 8px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px rgba(20,16,10,.45); }
+.kleuren b { font-family: var(--display); font-weight: 600; font-size: 19px; letter-spacing: .02em; line-height: 1.1; }
+.kleuren span { font-size: 13.5px; color: var(--muted); line-height: 1.3; }
+.k-3v3 { background: var(--w3v3); } .k-gnd { background: var(--wgnd); } .k-sda { background: var(--wsda); }
+.k-scl { background: var(--wscl); } .k-gps { background: var(--wgps); } .k-spi { background: var(--wspi); }
+
+/* tekeningen */
+.blad { margin: 0; background: var(--sheet); border: 1px solid var(--rule); display: grid; gap: 10px; padding: 12px 12px 14px; min-width: 0; }
+.blad-scroll { overflow-x: auto; }
+figcaption { font-size: 14px; color: var(--muted); max-width: 92ch; padding: 0 4px; }
+figcaption b { color: var(--ink); font-family: var(--mono); font-weight: 600; margin-right: 6px; }
+
+svg.bb { display: block; width: 100%; height: auto; min-width: 900px; filter: var(--bb-dim); font-family: var(--mono); }
+svg.bb.klein { min-width: 0; max-width: 560px; }
+.blad.smal { max-width: 600px; }
+.bb .goed-t { fill: #2b7a3d; font-family: var(--body); font-size: 13px; font-weight: 600; }
+.bb .fout-t { fill: #b3261e; font-family: var(--body); font-size: 13px; font-weight: 600; }
+.bb .bb-bg { fill: var(--bb-bg); }
+.bb .bb-board { fill: var(--bb); stroke: var(--bb-edge); stroke-width: 1.5; }
+.bb .bb-gaten { stroke: var(--hole); stroke-width: 5.4; stroke-dasharray: 5.4 10.6; }
+.bb .bb-railgaten { stroke: var(--hole); stroke-width: 5.4; stroke-dasharray: 5.4 10.6 5.4 10.6 5.4 10.6 5.4 10.6 5.4 26.6; }
+.bb .bb-hole { fill: var(--hole); }
+.bb .bb-groove { fill: var(--groove); }
+.bb .bb-red { stroke: var(--rail-red); stroke-width: 2; }
+.bb .bb-blue { stroke: var(--rail-blue); stroke-width: 2; }
+.bb .bb-num { fill: var(--bb-ink); font-size: 8.5px; }
+.bb .bb-sign { font-size: 13px; font-weight: 600; }
+.bb .bb-signred { fill: var(--rail-red); } .bb .bb-signblue { fill: var(--rail-blue); }
+.bb .tape-sda { fill: var(--wsda); } .bb .tape-scl { fill: var(--wscl); }
+.bb .tape-t { fill: #fff; font-size: 7.5px; font-weight: 600; }
+.bb .tape-scl + .tape-t, .bb .tape-scl ~ .tape-t { fill: #fff; }
+.bb .pcb { stroke: rgba(0,0,0,.35); stroke-width: 1; }
+.bb .pcb-teensy { fill: var(--pcb-teensy); } .bb .pcb-ada { fill: var(--pcb-ada); } .bb .pcb-sfe { fill: var(--pcb-sfe); }
+.bb .pin { fill: var(--pin); stroke: rgba(0,0,0,.45); stroke-width: .8; }
+.bb .silk { fill: var(--silk); font-size: 7.6px; font-weight: 600; }
+.bb .silk.dim { fill: var(--silk-dim); font-weight: 400; opacity: .75; }
+.bb .silk.sm { font-size: 5.6px; letter-spacing: -.02em; }
+.bb.klein .silk { font-size: 8px; }
+.bb .metal { fill: var(--metal); stroke: rgba(0,0,0,.35); stroke-width: .8; }
+.bb .chip { fill: var(--chip); }
+.bb .plugbody { fill: #3a3d42; }
+.bb .kabel { fill: none; stroke: #3a3d42; stroke-width: 7; stroke-linecap: round; }
+.bb .stemma { fill: #f1efe8; stroke: rgba(0,0,0,.4); stroke-width: .6; }
+.bb .patch { fill: var(--patch); stroke: rgba(0,0,0,.35); }
+.bb .patchdot { fill: #b8a57b; }
+.bb .pcb-title { fill: var(--silk); font-family: var(--display); font-weight: 600; font-size: 15px; letter-spacing: .06em; }
+.bb .pcb-title.dark, .bb .pcb-sub.dark { fill: #2a2f36; }
+.bb .pcb-sub { fill: var(--silk-dim); font-size: 8px; }
+.bb .w-halo { fill: none; stroke: var(--bb); stroke-width: 9; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+.bb .w-rand { fill: none; stroke: var(--wedge); stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; }
+.bb .w { fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.bb .w-3v3 { stroke: var(--w3v3); } .bb .w-gnd { stroke: var(--wgnd); } .bb .w-sda { stroke: var(--wsda); }
+.bb .w-scl { stroke: var(--wscl); } .bb .w-gps { stroke: var(--wgps); } .bb .w-spi { stroke: var(--wspi); }
+.bb .plug { fill: var(--plug); }
+.bb .antpad { fill: var(--copper); stroke: #6d3a0e; }
+.bb .antwire { fill: #e6a15a; stroke: #6d3a0e; stroke-width: 1.4; }
+.bb .antring { fill: none; stroke: var(--copper); stroke-width: 1.4; stroke-dasharray: 3 2.5; }
+.bb .ant-t { fill: var(--bb-text); font-family: var(--body); font-size: 11px; font-weight: 600; }
+.bb .rt-3v3 { fill: var(--w3v3); } .bb .rt-gnd { fill: var(--wgnd); } .bb .rt-sda { fill: var(--wsda); }
+.bb .rt-scl { fill: var(--wscl); } .bb .rt-vrij { fill: #9aa3ad; }
+.bb .railtag-t { fill: #fff; font-size: 9.5px; font-weight: 600; }
+.bb .badge { fill: #18212b; stroke: #ffffff; stroke-width: 2; }
+.bb .badge-t { fill: #ffffff; font-family: var(--body); font-size: 12px; font-weight: 600; }
+.bb .kruis { stroke: var(--rail-red); stroke-width: 3; stroke-linecap: round; }
+
+/* de vier railparen */
+.rails { display: grid; gap: 8px; }
+.rail { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 4px 18px; background: var(--sheet); border: 1px solid var(--rule); padding: 10px 14px; align-items: start; }
+.rail > * { min-width: 0; }
+.rail .waar { font-family: var(--display); font-weight: 600; font-size: 19px; line-height: 1.15; }
+.rail .waar small { display: block; font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); }
+.rijen { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font-size: 14.5px; }
+.chip i { display: inline-block; width: 22px; height: 7px; border-radius: 4px; box-shadow: inset 0 0 0 1.5px rgba(20,16,10,.45); }
+.rail .uitleg { grid-column: 2; font-size: 14px; color: var(--muted); }
+.rail.vrij { opacity: .75; }
+
+/* trucjes */
+.trucs { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 12px; }
+.trucs li { background: var(--sheet); border: 1px solid var(--rule); padding: 12px 14px; display: grid; gap: 4px; min-width: 0; }
+.trucs b { font-weight: 600; }
+.trucs span { font-size: 15px; }
+
+/* stappen */
+.stappen { list-style: none; padding: 0; display: grid; gap: 14px; counter-reset: stap; }
+.stap { background: var(--sheet); border: 1px solid var(--rule); display: grid; grid-template-columns: 44px 1fr; gap: 0 14px; padding: 14px 16px 14px 12px; min-width: 0; }
+.stap::before { counter-increment: stap; content: counter(stap); width: 30px; height: 30px; border-radius: 50%; background: #18212b; color: #fff; font-weight: 600; font-size: 15px; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--sheet), 0 0 0 3.5px var(--ink); margin: 2px 0 0 4px; }
+.stap > div { display: grid; gap: 8px; min-width: 0; }
+.stap h3 { font-size: 18px; }
+.stap p { max-width: 70ch; }
+.tabel-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid var(--rule); }
+thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--head); }
+td.pin { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+td.kleur { white-space: nowrap; }
+th:first-child, td:first-child { width: 8.5em; }
+th:last-child, td.kleur { width: 7.5em; }
+td.kleur i { display: inline-block; width: 18px; height: 6px; border-radius: 3px; vertical-align: middle; margin-right: 7px; box-shadow: inset 0 0 0 1.2px rgba(20,16,10,.45); }
+tr.vrij td { color: var(--muted); }
+
+.let-op { border: 1.5px solid var(--warn); background: var(--warn-bg); padding: 14px 18px; display: grid; gap: 8px; max-width: 74ch; }
+.let-op h2 { border: 0; padding: 0; font-size: 24px; color: var(--warn); }
+.twee { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px 36px; align-items: start; }
+.twee > * { min-width: 0; }
+.noot { font-size: 14px; color: var(--muted); }
+
+@media (max-width: 520px) {
+  body { font-size: 15.5px; }
+  h2 { font-size: 26px; }
+  .rail { grid-template-columns: 1fr; }
+  .rail .uitleg { grid-column: 1; }
+  .stap { grid-template-columns: 1fr; gap: 10px; }
+  th, td { padding: 6px 8px; }
+}
+
+/* afdrukken en PDF: altijd licht; de grote tekening op een liggend blad */
+@page { size: A4; margin: 12mm; }
+@page liggend { size: A4 landscape; margin: 8mm; }
+@media print {
+  :root, :root[data-theme="dark"] {
+    --paper: #ffffff; --sheet: #ffffff; --head: #eef1f5; --ink: #111820; --muted: #4f5b69;
+    --rule: #c9d0d8; --accent: #1d4e9e; --warn: #a3261b; --warn-bg: #fdf2f0; --ok: #2b7a3d;
+    --bb-dim: none;
+    color-scheme: light;
+  }
+  .page, section, .tekst, .kop, .twee, .blad, .let-op, .rails, .stappen, .stap > div { display: block; }
+  .page > * + * { margin-top: 18px; }
+  section > * + *, .tekst > * + *, .twee > * + *, .let-op > * + *, .rails > * + *, .stappen > * + *, .stap > div > * + * { margin-top: 8px; }
+  body { font-size: 10.5pt; }
+  .page { padding-block: 0; max-width: none; }
+  svg.bb { min-width: 0 !important; }
+  .blad { break-inside: avoid; border: 0; padding: 0; }
+  section.liggend { page: liggend; }
+  section.liggend h2 { font-size: 20pt; padding-top: 6px; }
+  .blad.liggend svg.bb { max-height: 160mm; width: auto; max-width: 100%; margin: 0 auto; }
+  .stap { break-inside: avoid; display: grid; }
+  .rail, .trucs li, .kleuren li { break-inside: avoid; }
+  .tabel-wrap { overflow: visible; }
+  h2, h3 { break-after: avoid; }
+  a { color: inherit; }
+  .scherm { display: none; }
+}
+</style>
+
+<div class="page">
+
+<header class="kop">
+  <p class="eyebrow">CanSat 2027 · breadboard</p>
+  <h1>Het breadboard, stap voor stap</h1>
+  <p class="lead">Een overzichtelijk breadboard met vier sensoren, de radio en de antenne. Elke soort draad heeft een eigen kleur. GND, 3V3, SDA en SCL lopen over lange rails. Zo komt er nooit meer dan één draad bij een pin.</p>
+  <dl class="titelblok">
+    <div><dt>Project</dt><dd>CanSat 2027</dd></div>
+    <div><dt>Tekening</dt><dd>Breadboard voor de testen</dd></div>
+    <div><dt>Bord</dt><dd>Dubbel, 2 × 830 gaatjes</dd></div>
+    <div><dt>Pinnen volgens</dt><dd><code>Cansat2027_teensy.ino</code></dd></div>
+    <div><dt>Revisie</dt><dd>A · 21-10-2026</dd></div>
+  </dl>
+</header>
+
+<aside class="let-op" aria-labelledby="regels-titel">
+  <h2 id="regels-titel">Drie regels</h2>
+  <ul>
+    <li>Werk aan de draden altijd zonder USB-kabel.</li>
+    <li>Alles op 3,3 V. Gebruik de pin <code>VIN</code> van de Teensy nooit voor een bordje.</li>
+    <li>Zend nooit zonder antenne. De radio zendt meteen na het opstarten.</li>
+  </ul>
+</aside>
+
+<section aria-labelledby="kleur-titel">
+  <h2 id="kleur-titel">De kleuren van de draden</h2>
+  <ul class="kleuren">
+    <li><i class="draadje k-3v3"></i><b>Rood</b><span>3V3, de voeding</span></li>
+    <li><i class="draadje k-gnd"></i><b>Blauw</b><span>GND, de massa</span></li>
+    <li><i class="draadje k-sda"></i><b>Groen</b><span>SDA, I²C-data</span></li>
+    <li><i class="draadje k-scl"></i><b>Geel</b><span>SCL, I²C-klok</span></li>
+    <li><i class="draadje k-spi"></i><b>Oranje</b><span>de radio</span></li>
+    <li><i class="draadje k-gps"></i><b>Paars</b><span>de GPS</span></li>
+  </ul>
+  <p class="noot">Heb je een kleur niet? Kies een andere. Houd ze wel overal hetzelfde.</p>
+</section>
+
+<section class="liggend" aria-labelledby="bord-titel">
+  <h2 id="bord-titel">Het breadboard van bovenaf</h2>
+  <figure class="blad liggend">
+    <div class="blad-scroll"><!-- FIGUUR:breadbord --></div>
+    <figcaption><b>Fig. 1</b>Onder: de Teensy, de radio en de GPS. Boven: de drie sensoren met I²C. De cijfers in de bolletjes zijn de stappen hieronder. De kaartjes rechts zeggen wat er op elke rail zit.<span class="scherm"> Op een smal scherm kan je de tekening opzij schuiven.</span></figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="rails-titel">
+  <h2 id="rails-titel">De vier railparen</h2>
+  <div class="tekst"><p>Een rail is een lange rij gaatjes die allemaal met elkaar verbonden zijn. Je hebt vier paar rails. Elk paar krijgt één taak.</p></div>
+  <div class="rails">
+    <div class="rail vrij"><p class="waar">Bovenaan<small>bovenste bord, buitenkant</small></p><div class="rijen"><span class="chip">vrij, hier komt niets</span></div></div>
+    <div class="rail"><p class="waar">Midden, boven<small>bovenste bord, onderkant</small></p><div class="rijen"><span class="chip"><i class="k-3v3"></i>3V3 op de rode rij</span><span class="chip"><i class="k-gnd"></i>GND op de blauwe rij</span></div><p class="uitleg">Voor de drie sensoren. Komt van de bovenste rij pinnen van de Teensy.</p></div>
+    <div class="rail"><p class="waar">Midden, onder<small>onderste bord, bovenkant</small></p><div class="rijen"><span class="chip"><i class="k-sda"></i>SDA op groene tape</span><span class="chip"><i class="k-scl"></i>SCL op gele tape</span></div><p class="uitleg">De I²C-bus. Komt van pin 18 (SDA) en pin 19 (SCL). Hier komt geen 3V3 en geen GND op.</p></div>
+    <div class="rail"><p class="waar">Onderaan<small>onderste bord, buitenkant</small></p><div class="rijen"><span class="chip"><i class="k-3v3"></i>3V3 op de rode rij</span><span class="chip"><i class="k-gnd"></i>GND op de blauwe rij</span></div><p class="uitleg">Voor de radio en de GPS. Komt van de onderste rij pinnen van de Teensy.</p></div>
+  </div>
+  <p class="noot">Waarom twee keer 3V3 en GND? De Teensy heeft aan beide kanten een pin 3.3V en een pin GND. Zo blijven alle draden kort.</p>
+</section>
+
+<section aria-labelledby="truc-titel">
+  <h2 id="truc-titel">Trucjes</h2>
+  <ul class="trucs">
+    <li><b>Eén draad per pin.</b><span>Vijf gaatjes naast elkaar zijn met elkaar verbonden. Steek er één pin en één draad in. Moeten meer draden samenkomen? Gebruik een rail.</span></li>
+    <li><b>Gedeelde lijnen op een rail.</b><span>GND, 3V3, SDA en SCL hebben elk een lange rail. Elk bordje gaat met een eigen draad naar de rail.</span></li>
+    <li><b>Vaste kleuren.</b><span>Rood is altijd 3V3, blauw altijd GND. Zo zie je een fout meteen.</span></li>
+    <li><b>Rail in twee stukken?</b><span>Is de rode of blauwe lijn in het midden van het bord onderbroken? Dan is de rail daar ook onderbroken. Leg een kort draadje over de onderbreking.</span></li>
+    <li><b>Een vrij gaatje naast elke pin.</b><span>Zet de pinnen van een bordje nooit in de buitenste rij. Dan bedekt het bordje de andere gaatjes (fig. 2).</span></li>
+    <li><b>Eén bordje per keer.</b><span>Bouw één bordje. Steek de USB in en kijk in de Serial Monitor. Werkt het? Dan pas het volgende.</span></li>
+    <li><b>Na elke wijziging: herstarten.</b><span>De Teensy zoekt de sensoren alleen bij het opstarten. Trek de USB-kabel uit en steek hem terug in.</span></li>
+    <li><b>Volg de namen, niet de plek.</b><span>Op jullie bordje kan de volgorde van de pinnen anders zijn dan op de tekening. Kijk naar de naam naast de pin.</span></li>
+    <li><b>Korte draden.</b><span>Neem draden die net lang genoeg zijn. Lange lussen haken overal aan.</span></li>
+    <li><b>Neem een foto.</b><span>Werkt alles? Neem een foto van boven. Zo kan je het later terug opbouwen.</span></li>
+  </ul>
+  <figure class="blad smal">
+    <div class="blad-scroll"><!-- FIGUUR:vrij --></div>
+    <figcaption><b>Fig. 2</b>Links goed: de pinnen in rij B, dus gaatje A blijft vrij voor de draad. Rechts fout: de pinnen in de buitenste rij A. Het bordje dekt de andere gaatjes af, dus er kan geen draad meer bij de pin.</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="stap-titel">
+  <h2 id="stap-titel">Bouwen in negen stappen</h2>
+  <div class="tekst"><p>Stap 1 tot 8 staan als bolletjes op fig. 1. Doe ze in deze volgorde. Laat bij stap 9 een tweede leerling alles nakijken.</p></div>
+  <ol class="stappen">
+    <li class="stap"><div>
+      <h3>Tape op de I²C-rails</h3>
+      <p>In het midden liggen twee paar rails. Neem het onderste paar, vlak boven het onderste bord. Plak groene tape langs de bovenste rij en schrijf er SDA op. Plak gele tape langs de onderste rij en schrijf er SCL op.</p>
+      <p>Zet op deze twee rijen nooit 3V3 of GND.</p>
+    </div></li>
+    <li class="stap"><div>
+      <h3>De Teensy</h3>
+      <p>Zet de Teensy links op het onderste bord, met de USB-poort naar links. Hij gaat over de gleuf in het midden. De pinnen komen in rij D en rij H.</p>
+      <p>Kijk daarna: onder elke pin zijn nog drie gaatjes vrij (A, B, C). Boven elke pin zijn er nog twee (I, J).</p>
+    </div></li>
+    <li class="stap"><div>
+      <h3>Zes korte draden van de Teensy naar de rails</h3>
+      <div class="tabel-wrap"><table>
+        <thead><tr><th scope="col">Teensy-pin</th><th scope="col">Gaat naar</th><th scope="col">Kleur</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">GND</td><td>bovenste rij, 2de pin → GND-rail midden</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">3.3V</td><td>bovenste rij, 3de pin → 3V3-rail midden</td><td class="kleur"><i class="k-3v3"></i>rood</td></tr>
+          <tr><td class="pin">19</td><td>SCL-rail (gele tape)</td><td class="kleur"><i class="k-scl"></i>geel</td></tr>
+          <tr><td class="pin">18</td><td>SDA-rail (groene tape)</td><td class="kleur"><i class="k-sda"></i>groen</td></tr>
+          <tr><td class="pin">GND</td><td>onderste rij, 1ste pin → GND-rail onderaan</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">3.3V</td><td>onderste rij, na pin 12 → 3V3-rail onderaan</td><td class="kleur"><i class="k-3v3"></i>rood</td></tr>
+        </tbody>
+      </table></div>
+      <p class="noot">De twee draden naar de middelste rails lopen over de SDA- en SCL-rail heen. Dat mag.</p>
+    </div></li>
+    <li class="stap"><div>
+      <h3>BNO055 (oriëntatie)</h3>
+      <p>Op het bovenste bord, over de gleuf. De rij met VIN tot RST komt onderaan, in de derde rij boven de rail. Zo blijven er onder elke pin twee gaatjes vrij.</p>
+      <div class="tabel-wrap"><table>
+        <thead><tr><th scope="col">Pin</th><th scope="col">Gaat naar</th><th scope="col">Kleur</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">VIN</td><td>3V3-rail midden</td><td class="kleur"><i class="k-3v3"></i>rood</td></tr>
+          <tr><td class="pin">GND</td><td>GND-rail midden</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">SDA</td><td>SDA-rail</td><td class="kleur"><i class="k-sda"></i>groen</td></tr>
+          <tr><td class="pin">SCL</td><td>SCL-rail</td><td class="kleur"><i class="k-scl"></i>geel</td></tr>
+          <tr class="vrij"><td>andere</td><td colspan="2">3Vo, RST, INT, ADR, PS0 en PS1: niets aansluiten</td></tr>
+        </tbody>
+      </table></div>
+    </div></li>
+    <li class="stap"><div>
+      <h3>LSM6DSO (trillingen)</h3>
+      <p>De rij met GND, 3V3, SDA en SCL komt onderaan, in de tweede rij boven de rail. Niet in de buitenste rij (fig. 2). De andere rij pinnen komt helemaal bovenaan.</p>
+      <div class="tabel-wrap"><table>
+        <thead><tr><th scope="col">Pin</th><th scope="col">Gaat naar</th><th scope="col">Kleur</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">GND</td><td>GND-rail midden</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">3V3</td><td>3V3-rail midden</td><td class="kleur"><i class="k-3v3"></i>rood</td></tr>
+          <tr><td class="pin">SDA</td><td>SDA-rail</td><td class="kleur"><i class="k-sda"></i>groen</td></tr>
+          <tr><td class="pin">SCL</td><td>SCL-rail</td><td class="kleur"><i class="k-scl"></i>geel</td></tr>
+          <tr class="vrij"><td>andere</td><td colspan="2">SDO, CS en de hele bovenste rij: niets aansluiten. SCX en SDX zijn níet SCL en SDA.</td></tr>
+        </tbody>
+      </table></div>
+    </div></li>
+    <li class="stap"><div>
+      <h3>BMP390 (druk en hoogte)</h3>
+      <p>Rechts op het bovenste bord. Op dit bordje heet SDA “SDI” en heet SCL “SCK”.</p>
+      <div class="tabel-wrap"><table>
+        <thead><tr><th scope="col">Pin</th><th scope="col">Gaat naar</th><th scope="col">Kleur</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">VIN</td><td>3V3-rail midden</td><td class="kleur"><i class="k-3v3"></i>rood</td></tr>
+          <tr><td class="pin">GND</td><td>GND-rail midden</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">SDI</td><td>SDA-rail</td><td class="kleur"><i class="k-sda"></i>groen</td></tr>
+          <tr><td class="pin">SCK</td><td>SCL-rail</td><td class="kleur"><i class="k-scl"></i>geel</td></tr>
+          <tr class="vrij"><td>andere</td><td colspan="2">3Vo, SDO, CS en INT: niets aansluiten</td></tr>
+        </tbody>
+      </table></div>
+    </div></li>
+    <li class="stap"><div>
+      <h3>De radio RFM95W en de antenne</h3>
+      <p>Rechts naast de Teensy, op het onderste bord. De pinnen komen in rij D. Het bordje ligt over de gleuf.</p>
+      <div class="tabel-wrap"><table>
+        <thead><tr><th scope="col">Pin</th><th scope="col">Gaat naar</th><th scope="col">Kleur</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">VIN</td><td>3V3-rail onderaan</td><td class="kleur"><i class="k-3v3"></i>rood</td></tr>
+          <tr><td class="pin">GND</td><td>GND-rail onderaan</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">G0</td><td>Teensy pin 2</td><td class="kleur"><i class="k-spi"></i>oranje</td></tr>
+          <tr><td class="pin">SCK</td><td>Teensy pin 13 (bovenste rij)</td><td class="kleur"><i class="k-spi"></i>oranje</td></tr>
+          <tr><td class="pin">MISO</td><td>Teensy pin 12</td><td class="kleur"><i class="k-spi"></i>oranje</td></tr>
+          <tr><td class="pin">MOSI</td><td>Teensy pin 11</td><td class="kleur"><i class="k-spi"></i>oranje</td></tr>
+          <tr><td class="pin">CS</td><td>Teensy pin 10</td><td class="kleur"><i class="k-spi"></i>oranje</td></tr>
+          <tr><td class="pin">RST</td><td>Teensy pin 9</td><td class="kleur"><i class="k-spi"></i>oranje</td></tr>
+          <tr class="vrij"><td>andere</td><td colspan="2">EN: niets aansluiten</td></tr>
+        </tbody>
+      </table></div>
+      <p>De draad naar pin 13 loopt rond het rechtereinde van de Teensy. Pin 13 is ook het lampje van de Teensy. Het knippert tijdens het zenden. Dat is normaal.</p>
+      <p><strong>Antenne:</strong> een draad van 8,2 cm aan <code>ANT</code>. Buig hem recht omhoog. Hij mag geen andere draad raken.</p>
+    </div></li>
+    <li class="stap"><div>
+      <h3>De GPS</h3>
+      <p>Helemaal rechts op het onderste bord. De pinnen komen in rij B. Van de negen pinnen gebruik je er vier.</p>
+      <div class="tabel-wrap"><table>
+        <thead><tr><th scope="col">Pin</th><th scope="col">Gaat naar</th><th scope="col">Kleur</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">TX</td><td>Teensy pin 0 (RX1)</td><td class="kleur"><i class="k-gps"></i>paars</td></tr>
+          <tr><td class="pin">RX</td><td>Teensy pin 1 (TX1)</td><td class="kleur"><i class="k-gps"></i>paars</td></tr>
+          <tr><td class="pin">GND</td><td>GND-rail onderaan</td><td class="kleur"><i class="k-gnd"></i>blauw</td></tr>
+          <tr><td class="pin">VIN</td><td>3V3-rail onderaan</td><td class="kleur"><i class="k-3v3"></i>rood</td></tr>
+          <tr class="vrij"><td>andere</td><td colspan="2">3.3V, EN, VBAT, FIX en PPS: niets aansluiten</td></tr>
+        </tbody>
+      </table></div>
+      <p>TX van de GPS gaat naar RX van de Teensy, en omgekeerd. De GPS praat, de Teensy luistert. Binnen vindt de GPS zijn positie meestal niet. Dat is normaal.</p>
+    </div></li>
+    <li class="stap"><div>
+      <h3>Nakijken en opstarten</h3>
+      <p>Laat een tweede leerling elke draad nakijken met de tabellen. Steek dan pas de USB-kabel in. Open de Serial Monitor op 115200 baud.</p>
+      <p>Bij het opstarten zie je per sensor <code>OK</code> of <code>FOUT</code>. Staat er FOUT? Trek de USB-kabel uit, kijk de vier draden van dat bordje na en steek de kabel terug in.</p>
+    </div></li>
+  </ol>
+</section>
+
+<section aria-labelledby="later-titel">
+  <h2 id="later-titel">Later: de microfoon</h2>
+  <div class="tekst">
+    <p>De microfoon SPH0645 staat nog niet op het breadboard. Er is plaats voor op het bovenste bord, in het midden. Hij krijgt 3V3 en GND van de middelste rails. De andere pinnen: <code>BCLK</code> naar pin 21, <code>LRCL</code> naar pin 20, <code>DOUT</code> naar pin 8 en <code>SEL</code> naar GND.</p>
+    <p class="noot">Alle pinnen volgen de vluchtcode <code>Cansat2027_teensy.ino</code>, net als in het draadschema voor de assemblage. In de CanSat zelf worden de draden gesoldeerd. Dit breadboard is alleen om te testen.</p>
+  </div>
+</section>
+
+</div>
