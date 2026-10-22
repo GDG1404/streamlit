@@ -2,11 +2,14 @@ r"""
 CanSat 2027 — Meting starten met één knop (handig in Thonny)
 =============================================================
 
-Druk op Run (F5). Het programma stelt drie vragen:
+Druk op Run (F5). Het programma stelt vier vragen:
 
   1. Op welke poort zit de Teensy (USB-kabel) of de Pico-ontvanger (radio)?
   2. Hoe heet je meting?
   3. Welk dashboard wil je zien?
+  4. Wat is vandaag de luchtdruk op zeeniveau? (Enter = 1013 hPa)
+     Daarmee berekenen de dashboards de hoogte. Het getal komt ook in een
+     klein bestand naast de meting (bv. metingen\test_01_luchtdruk.txt).
 
 Daarna start de logger (de metingen gaan naar de map 'metingen' naast dit
 bestand, bv. metingen\test_01.csv) en opent het de dashboards met LIVE
@@ -40,6 +43,7 @@ MAP = os.path.dirname(os.path.abspath(__file__))       # C:\CanSat
 METINGEN = os.path.join(MAP, "metingen")
 TEENSY_VID = 0x16C0                                     # USB-code van PJRC
 PICO_VID = 0x2E8A                                       # USB-code van Raspberry Pi
+LUCHTDRUK_STANDAARD = "1013"                           # hPa op zeeniveau
 DASHBOARDS = {"1": ["dashboard_scherm1.py"],
               "2": ["dashboard_scherm2.py"],
               "3": ["dashboard_scherm1.py", "dashboard_scherm2.py"],
@@ -128,7 +132,32 @@ def kies_dashboards():
         print("   Typ 0, 1, 2 of 3.")
 
 
-def start_dashboards(csv, schermen, logger_klaar):
+# ── vraag 4: de luchtdruk op zeeniveau ──
+def kies_luchtdruk():
+    print("\n4) Wat is vandaag de luchtdruk op zeeniveau, in hPa?")
+    print("   Die krijg je op de lanceerdag. De dashboards berekenen er de hoogte mee.")
+    print("   Let op: de luchtdruk op zeeniveau, niet die op de lanceerplaats.")
+    print(f"   Weet je hem niet? Druk op Enter: dan nemen we {LUCHTDRUK_STANDAARD} hPa.")
+    while True:
+        antwoord = vraag("   Luchtdruk", LUCHTDRUK_STANDAARD)
+        try:
+            hpa = float(antwoord.lower().replace("hpa", "").replace(",", ".").strip())
+        except ValueError:
+            print("   Typ een getal, bv. 1021 of 1021,5.")
+            continue
+        if 950 <= hpa <= 1060:
+            return hpa
+        print("   Dat kan niet kloppen: op zeeniveau ligt het tussen 950 en 1060 hPa.")
+
+
+def bewaar_luchtdruk(csv, hpa):
+    """Naast de meting: zo gebruikt een replay later hetzelfde getal."""
+    with open(csv[:-4] + "_luchtdruk.txt", "w", encoding="utf-8") as fh:
+        fh.write("# luchtdruk op zeeniveau (hPa), ingegeven bij de start van de meting\n")
+        fh.write(f"zeeniveau_hPa = {hpa:g}\n")
+
+
+def start_dashboards(csv, schermen, logger_klaar, hpa):
     """Wacht tot de logger het bestand gemaakt heeft, open dan de schermen."""
     for _ in range(100):                    # max. 10 s wachten
         if logger_klaar.is_set():           # logger is al gestopt (fout)
@@ -146,7 +175,7 @@ def start_dashboards(csv, schermen, logger_klaar):
         # fouten van een dashboard komen in een logbestand naast de meting
         log = csv[:-4] + "_" + scherm.replace(".py", ".log")
         proc = subprocess.Popen([sys.executable, os.path.join(MAP, "dashboard", scherm),
-                                 "--live", csv],
+                                 "--live", csv, "--sea-level", f"{hpa:g}"],
                                 cwd=os.path.join(MAP, "dashboard"),
                                 stdout=open(log, "w"), stderr=subprocess.STDOUT,
                                 creationflags=vlag)
@@ -186,6 +215,7 @@ def main():
         poort = kies_poort(list_ports)
         csv = kies_naam()
         schermen = kies_dashboards()
+        hpa = kies_luchtdruk()
     except (KeyboardInterrupt, EOFError):
         print("\nGestopt. Er is niets opgeslagen.")
         return 1
@@ -193,16 +223,18 @@ def main():
     print(f"\nPoort     : {poort}")
     print(f"Bestand   : {csv}")
     print(f"Dashboard : {', '.join(schermen) if schermen else 'geen'}")
+    print(f"Luchtdruk : {hpa:g} hPa op zeeniveau")
     print(f"Later opnieuw bekijken: dashboard_scherm1.py --replay {csv}\n")
 
     # De logger draait hier in dit programma (zo zie je hem in Thonny);
     # de dashboards starten apart zodra het bestand bestaat.
+    bewaar_luchtdruk(csv, hpa)
     sys.path.insert(0, os.path.join(MAP, "tools"))
     import serial_logger
     logger_klaar = threading.Event()
     if schermen:
         threading.Thread(target=start_dashboards,
-                         args=(csv, schermen, logger_klaar), daemon=True).start()
+                         args=(csv, schermen, logger_klaar, hpa), daemon=True).start()
     sys.argv = ["serial_logger.py", poort, csv]
     try:
         return serial_logger.main()

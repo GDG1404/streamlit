@@ -428,7 +428,7 @@ Is Thonny nog open en verbonden met de Pico? Sluit Thonny, of kies rechtsonder
 1. Dubbelklik op **`START_METING.bat`** in `C:\UltiemeTest`.
    - Geen Python, alleen Thonny? Open dan `start_meting.py` in Thonny. Kies rechtsonder
      **Local Python 3** en druk op **F5**.
-2. Het programma stelt drie vragen. Druk op Enter om het voorstel tussen [haakjes] te
+2. Het programma stelt vier vragen. Druk op Enter om het voorstel tussen [haakjes] te
    nemen, of typ iets anders.
    ```
    1) Op welke poort zit de Teensy (USB-kabel) of de Pico (radio)?
@@ -442,8 +442,12 @@ Is Thonny nog open en verbonden met de Pico? Sluit Thonny, of kies rechtsonder
       Naam [test_01]: ultieme_test
    3) Welk dashboard wil je zien?
       Keuze [3]:
+   4) Wat is vandaag de luchtdruk op zeeniveau, in hPa?
+      Luchtdruk [1013]:
    ```
    Typ een naam, bijvoorbeeld `ultieme_test`, en kies **3** (allebei de schermen).
+   Ken je de luchtdruk op zeeniveau van vandaag? Typ hem dan in (bv. `1021,5`). Anders
+   druk je op Enter: dan nemen de dashboards 1013 hPa. Ze berekenen er de hoogte mee.
 3. De dashboards gaan na een paar seconden open. Zet scherm 1 en scherm 2 naast elkaar,
    of wissel met **Alt+Tab**. Is een venster te groot? Maximaliseer het gerust: de tekst
    schaalt mee.

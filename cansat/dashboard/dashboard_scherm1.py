@@ -153,6 +153,10 @@ ACC_PEAK_MAX_G = 16  # LSM6DSO range in the firmware (±16 g)
 GROUND_TEST_M = 50   # never higher than this above the start: a ground
                      # test. The altitude chart then zooms in, so a
                      # staircase (~3 m per floor) shows. Higher: 0–1100 m
+SEA_LEVEL_HPA = 1013.0   # sea-level pressure of the day (hPa). start_meting
+                         # asks it on launch day (--sea-level); the altitude
+                         # is converted to it. See SeaLevelFix.
+FIRMWARE_SEA_LEVEL_HPA = 1014.0   # SEA_LEVEL_PRESSURE in the sketches
 
 # Without a GPS fix the firmware logs placeholder coordinates and this
 # time; such rows must not be used as the GPS reference point.
@@ -523,6 +527,54 @@ class TelemetrySimulator:
 
 
 # ═════════════════════════════════════════════════════════════
+#  ALTITUDE WITH THE SEA-LEVEL PRESSURE OF THE DAY
+# ═════════════════════════════════════════════════════════════
+class SeaLevelFix:
+    """Altitude above sea level with the sea-level pressure of the day.
+
+    The Teensy computes alt_m = 44330 · (1 − (p / P0)^0.1903) with its own
+    fixed P0 (SEA_LEVEL_PRESSURE in the sketch, 1014 hPa). With P0, alt_m
+    becomes 44330 − (44330 − alt_m) · (P0 / sea level)^0.1903: the altitude
+    for the sea-level pressure of the day, without losing the decimals of
+    alt_m (the radio sends the pressure with only 1 decimal, ±0.4 m).
+    P0 stays 1014 hPa unless the rows clearly show the sketch was given
+    another value (their pressure and altitude give P0 back)."""
+
+    def __init__(self):
+        self._p0 = []                  # P0 according to the first rows
+
+    def __call__(self, row):
+        p, alt = row.get("press_hPa"), row.get("alt_m")
+        ok_p = is_number(p) and p > 100
+        if not is_number(alt):
+            return (44330.0 * (1.0 - (p / SEA_LEVEL_HPA) ** 0.1903) if ok_p
+                    else float("nan"))
+        if ok_p and len(self._p0) < 20 and abs(alt) < 20000:
+            self._p0.append(p / (1.0 - alt / 44330.0) ** (1 / 0.1903))
+        p0 = FIRMWARE_SEA_LEVEL_HPA
+        if self._p0:
+            m = float(np.median(self._p0))
+            if abs(m - FIRMWARE_SEA_LEVEL_HPA) > 0.3:     # sketch changed
+                p0 = round(m, 1)
+        return 44330.0 - (44330.0 - alt) * (p0 / SEA_LEVEL_HPA) ** 0.1903
+
+
+def saved_sea_level(csv_path):
+    """The sea-level pressure start_meting saved next to a measurement
+    (test_01.csv → test_01_luchtdruk.txt), or None."""
+    if not csv_path:
+        return None
+    try:
+        with open(csv_path[:-4] + "_luchtdruk.txt", encoding="utf-8") as fh:
+            for line in fh:
+                if "=" in line and not line.lstrip().startswith("#"):
+                    return float(line.split("=", 1)[1].strip().replace(",", "."))
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+# ═════════════════════════════════════════════════════════════
 #  CSV REPLAY SOURCE
 # ═════════════════════════════════════════════════════════════
 class CsvReplay:
@@ -557,7 +609,11 @@ class CsvReplay:
         if len(self.rows) < 10:
             raise ValueError(f"replay CSV too short: {path}")
 
-        # altitude → AGL (first 10 rows: safely before any launch)
+        # altitude for the sea-level pressure of the day, then → AGL
+        # (first 10 rows: safely before any launch)
+        to_asl = SeaLevelFix()
+        for r in self.rows:
+            r["alt_m"] = to_asl(r)
         self.ground_asl = float(np.median(
             [r["alt_m"] for r in self.rows[:10]]))
         for r in self.rows:
@@ -648,6 +704,7 @@ class CsvLive:
         self.rows = []
         self._gnd = []
         self.ground_asl = None
+        self._to_asl = SeaLevelFix()
         # defaults until the first GPS row arrives
         self.lat0 = TelemetrySimulator.LAT0
         self.lon0 = TelemetrySimulator.LON0
@@ -684,6 +741,7 @@ class CsvLive:
         if not self.rows:            # now we know where the data comes from
             self.label = ("LIVE: radio (LoRa via Pico)" if from_radio(row)
                           else "LIVE: USB (Teensy)")
+        row["alt_m"] = self._to_asl(row)   # sea-level pressure of the day
         # ground reference from the first 10 rows
         if len(self._gnd) < 10:
             self._gnd.append(row["alt_m"])
@@ -1305,9 +1363,14 @@ class Dashboard:
                 fmt(row["press_hPa"], ".0f"),
                 fmt(row_speed(self.sim, row), ".1f") if det == "DESCENT" else "0.0",
                 fmt(cd, ".2f"))
+        # real data: where the start lies, and the sea-level pressure used
+        asl = getattr(self.sim, "ground_asl", None)
+        real = not isinstance(self.sim, TelemetrySimulator)
+        if real and is_number(asl):
+            alt_sub = (alt_sub + " · " if alt_sub else "") + f"start {asl:.0f} m ASL"
         subs = (alt_sub,
                 "",
-                "",
+                f"sea level {SEA_LEVEL_HPA:g} hPa" if real else "",
                 f"max: {self.v_max:.1f} m/s" if self.v_max > 0 else "",
                 f"median: {np.median(self.cd_vals):.2f}" if self.cd_vals else "")
         for txt, v in zip(self.txt_kpi, vals):
@@ -1444,12 +1507,16 @@ def parse_args(description=__doc__.splitlines()[1]):
                    help="use the built-in flight simulator")
     p.add_argument("--speed", type=float, default=SIM_SPEED,
                    help="replay/simulator speed (default %(default)s)")
+    p.add_argument("--sea-level", type=float, metavar="HPA",
+                   help="sea-level pressure of the day; default: the value "
+                        "start_meting saved next to the csv, else "
+                        f"{SEA_LEVEL_HPA:g}")
     return p.parse_args()
 
 
 def apply_args(args):
     """Set the module settings from parse_args() (also used by screen 2)."""
-    global SIM_SPEED, DATA_MODE, LIVE_CSV, REPLAY_CSV
+    global SIM_SPEED, DATA_MODE, LIVE_CSV, REPLAY_CSV, SEA_LEVEL_HPA
     SIM_SPEED = args.speed
     if args.replay:
         DATA_MODE, REPLAY_CSV = "replay", args.replay
@@ -1457,6 +1524,12 @@ def apply_args(args):
         DATA_MODE, LIVE_CSV, REPLAY_CSV = "live", args.live, None
     elif args.sim:
         DATA_MODE, LIVE_CSV, REPLAY_CSV = "sim", None, None
+    saved = saved_sea_level(args.replay or args.live)
+    if args.sea_level is not None:
+        SEA_LEVEL_HPA = args.sea_level
+    elif saved is not None:
+        SEA_LEVEL_HPA = saved
+    print(f"sea-level pressure: {SEA_LEVEL_HPA:g} hPa")
 
 
 if __name__ == "__main__":

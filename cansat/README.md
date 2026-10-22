@@ -291,7 +291,7 @@ Werk je liever in **Thonny**, of wil je niet drie vensters openen? Dan doet
    Dan heb je de Arduino IDE niet nodig. Staat ze toch open? Sluit **alle**
    Arduino-vensters met het kruisje rechtsboven.
 2. Open `C:\CanSat\start_meting.py` in Thonny en druk op de groene **Run**-knop (F5).
-3. Beantwoord de drie vragen onderaan in de Shell. Druk je gewoon op **Enter**, dan
+3. Beantwoord de vier vragen onderaan in de Shell. Druk je gewoon op **Enter**, dan
    neemt het programma het voorstel tussen [haakjes].
    ```
    1) Op welke poort zit de Teensy (USB-kabel) of de Pico (radio)?
@@ -308,7 +308,16 @@ Werk je liever in **Thonny**, of wil je niet drie vensters openen? Dan doet
       3 = allebei
       0 = geen (alleen opslaan)
       Keuze [3]:
+
+   4) Wat is vandaag de luchtdruk op zeeniveau, in hPa?
+      Luchtdruk [1013]:                      ← Enter, of typ bv. 1021,5
    ```
+
+**De luchtdruk op zeeniveau** krijg je op de lanceerdag. De dashboards berekenen er de
+hoogte mee. Ken je hem niet, druk dan op Enter: dan nemen ze 1013 hPa. Het getal komt
+ook in een klein bestand naast de meting, bv. `schudtest_luchtdruk.txt`. Een replay
+van die meting gebruikt later vanzelf hetzelfde getal. Typ de luchtdruk **op zeeniveau**,
+niet de luchtdruk die je op de lanceerplaats meet.
 
 Het programma bewaart de metingen in `C:\CanSat\metingen\schudtest.csv` en opent de
 dashboards die je koos, met LIVE data. Komen de metingen via de radio binnen (de
@@ -324,7 +333,7 @@ open? Sluit ze dan zelf.
 je hoeft niets extra te installeren.
 1. Open een opdrachtprompt in `C:\CanSat` (adresbalk → `cmd` → Enter).
 2. Typ `py start_meting.py` en druk op Enter.
-3. Beantwoord de drie vragen, net zoals hierboven.
+3. Beantwoord de vier vragen, net zoals hierboven.
 4. Stoppen: druk op **Ctrl + C** in het zwarte venster en daarna op **Enter**.
 
 Je kan ook dubbelklikken op `start_meting.py` in de Verkenner. Opent het bestand in
@@ -474,7 +483,9 @@ py dashboard\dashboard_scherm1.py --replay metingen\test_01.csv
 py dashboard\dashboard_scherm2.py --replay metingen\test_01.csv --speed 4
 ```
 
-`--speed 4` speelt 4 keer sneller af.
+`--speed 4` speelt 4 keer sneller af. Een replay gebruikt vanzelf de luchtdruk op
+zeeniveau die je bij de start ingaf (uit `test_01_luchtdruk.txt`). Een meting zonder dat
+bestand, bv. van de SD-kaart? Geef de luchtdruk dan zelf mee: `--sea-level 1021.5`.
 
 ---
 
@@ -1064,6 +1075,16 @@ De tekst in de figuren is in het Engels, net als in de dashboards.
   na de lancering vanaf de lancering (de laatste meting op de grond voor de klim). De
   grafieken van scherm 1 lopen dan van `LAUNCH_LEAD_S = 30` s voor de lancering tot
   `AFTER_LANDING_S = 60` s na de landing (bovenaan in `dashboard_scherm1.py`).
+- **Luchtdruk op zeeniveau:** de sketches rekenen de hoogte met een vaste waarde
+  (`SEA_LEVEL_PRESSURE` = 1014 hPa). De dashboards rekenen die hoogte om naar de
+  luchtdruk op zeeniveau die je bij de start ingeeft (`--sea-level`, standaard 1013 hPa).
+  Ze vertrekken van de hoogte van de Teensy en niet van de luchtdruk: in het radiopakket
+  staat de luchtdruk met maar 1 cijfer na de komma (±0,4 m). De hoogte boven de start
+  verandert daardoor bijna niet (minder dan 0,5 %). De hoogte boven zeeniveau wel: 8 m
+  per hPa. Scherm 1 toont die van de startplaats (`start … m ASL`). Vergelijk ze met de
+  echte hoogte van de lanceerplaats. Pas je `SEA_LEVEL_PRESSURE` in de sketch toch aan,
+  dan ziet het dashboard dat aan de metingen en rekent het mee. De Serial Monitor toont
+  de hoogte van de Teensy zelf.
 - **Kaart in scherm 2:** gecentreerd op de eerste GPS-fix. Open scherm 2 vooraf met
   internet op de lanceerplaats (bv. een replay van een korte test daar), zodat de
   kaarttegels bewaard worden voor gebruik zonder internet.
