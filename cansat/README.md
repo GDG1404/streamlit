@@ -429,6 +429,9 @@ logboek telkens de **tijd** die rechtsboven in het dashboard staat.
 > ALTITUDE in. Rechtsboven staat dan `below 50 m: zoomed in`. Het getal ALTITUDE heeft
 > dan één cijfer na de komma, bv. `3.2`. Onder de beginhoogte is het negatief. Tijdens de
 > vlucht (hoger dan 50 m) gaat de as van 0 tot 1100 m, zoals altijd.
+> PRESSURE heeft twee cijfers na de komma, bv. `1007.95`. Til je de CanSat 1 m op, dan
+> zakt de luchtdruk met ongeveer 0,12 hPa: dat zie je meteen. Via de radio komt de
+> luchtdruk met maar één cijfer na de komma binnen.
 
 > **De tijd:** de klok rechtsboven begint bij `00:00` bij de eerste meting. Ziet het
 > dashboard een lancering, dan telt de klok vanaf de lancering: `T+00:42`. De grafieken

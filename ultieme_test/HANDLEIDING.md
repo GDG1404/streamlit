@@ -473,7 +473,8 @@ Is Thonny nog open en verbonden met de Pico? Sluit Thonny, of kies rechtsonder
 
 - Bovenaan: `LIVE: radio (LoRa via Pico)`, de RSSI en de SNR, en het pakketnummer.
 - ALTITUDE, TEMPERATURE en PRESSURE: de metingen van de BMP390. De eenheid staat vlak
-  achter elk getal.
+  achter elk getal. Via de radio staat de luchtdruk met één cijfer na de komma (via USB
+  met twee).
 - De grafieken: hoogte, versnelling en geluid (AUDIO RMS).
 - De hoogtegrafiek zoomt in zolang de CanSat nooit hoger dan 50 m kwam
   (`below 50 m: zoomed in`). Zo zie je ook een trap. Tijdens de vlucht gaat de as van

@@ -1360,7 +1360,9 @@ class Dashboard:
                        if self.apogee >= 1.0 else "")
         vals = (alt_txt,
                 fmt(row["temp_C"], ".1f"),
-                fmt(row["press_hPa"], ".0f"),
+                # 0.01 hPa ≈ 8 cm: on a ground test every step shows. The
+                # radio sends the pressure with 1 decimal only.
+                fmt(row["press_hPa"], ".1f" if radio else ".2f"),
                 fmt(row_speed(self.sim, row), ".1f") if det == "DESCENT" else "0.0",
                 fmt(cd, ".2f"))
         # real data: where the start lies, and the sea-level pressure used
@@ -1370,7 +1372,8 @@ class Dashboard:
             alt_sub = (alt_sub + " · " if alt_sub else "") + f"start {asl:.0f} m ASL"
         subs = (alt_sub,
                 "",
-                f"sea level {SEA_LEVEL_HPA:g} hPa" if real else "",
+                (f"sea level {SEA_LEVEL_HPA:g} hPa" +
+                 (" · 1 decimal via radio" if radio else "")) if real else "",
                 f"max: {self.v_max:.1f} m/s" if self.v_max > 0 else "",
                 f"median: {np.median(self.cd_vals):.2f}" if self.cd_vals else "")
         for txt, v in zip(self.txt_kpi, vals):
