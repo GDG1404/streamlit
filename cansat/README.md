@@ -421,6 +421,11 @@ logboek telkens de **tijd** die rechtsboven in het dashboard staat.
 > dan één cijfer na de komma, bv. `3.2`. Onder de beginhoogte is het negatief. Tijdens de
 > vlucht (hoger dan 50 m) gaat de as van 0 tot 1100 m, zoals altijd.
 
+> **De tijd:** de klok rechtsboven begint bij `00:00` bij de eerste meting. Ziet het
+> dashboard een lancering, dan telt de klok vanaf de lancering: `T+00:42`. De grafieken
+> van scherm 1 tonen dan de vlucht: van 30 s voor de lancering tot 1 minuut na de landing.
+> Op scherm 2 telt FLIGHT TIME vanaf de lancering en stopt hij bij de landing.
+
 > **Op scherm 2:** druk op **M** om te wisselen tussen de 3D-vluchtbaan en een kaart. De
 > kaart toont de plek waar je staat (zodra de GPS een positie heeft) en zoomt vanzelf uit
 > als de CanSat ver afdrijft. De kaart wordt van internet gehaald en daarna bewaard; zie
@@ -1054,6 +1059,11 @@ De tekst in de figuren is in het Engels, net als in de dashboards.
   een grondtest: de grafiek past zich aan de metingen aan (minstens 5 m hoog, 0 altijd
   zichtbaar). Daarboven de vaste as van 0 tot 1100 m. Bij een herstart van de CanSat
   begint het opnieuw.
+- **Tijdas:** de Teensy telt vanaf het aanzetten (`millis`). Op de lanceerplaats kan hij
+  lang aan staan voor de lancering. Daarom tellen de dashboards vanaf de eerste meting, en
+  na de lancering vanaf de lancering (de laatste meting op de grond voor de klim). De
+  grafieken van scherm 1 lopen dan van `LAUNCH_LEAD_S = 30` s voor de lancering tot
+  `AFTER_LANDING_S = 60` s na de landing (bovenaan in `dashboard_scherm1.py`).
 - **Kaart in scherm 2:** gecentreerd op de eerste GPS-fix. Open scherm 2 vooraf met
   internet op de lanceerplaats (bv. een replay van een korte test daar), zodat de
   kaarttegels bewaard worden voor gebruik zonder internet.

@@ -48,8 +48,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dashboard_scherm1 as s1  # SIM_SPEED read via s1 (CLI)
 import krachten as K            # force model: load per zone of the can
 from dashboard_scherm1 import (C, PhaseDetector, TelemetrySimulator,
-                               WindowFit, add_unit, from_radio, has_gps_fix,
-                               is_number, make_source)
+                               WindowFit, add_unit, clock_text, from_radio,
+                               has_gps_fix, is_number, make_source, mmss)
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -184,6 +184,7 @@ class Dashboard2:
         self.track_x, self.track_y, self.track_z = [], [], []
         self.pkt_rx, self.pkt_lost = 0, 0
         self._last_t = None      # previous row time (restart + loss detection)
+        self.t_first = None      # time of the first row (Teensy time, s)
         self._dts = []           # recent row intervals → nominal log rate
         self.ori_artists = []
         self.cyl = cylinder_mesh()
@@ -329,7 +330,7 @@ class Dashboard2:
         # ── KPI bar ──
         kpis = [("DRIFT (GPS)", "m/s", C["green"]),
                 ("FLIGHT TIME", "", C["cyan"]),
-                ("ALTITUDE (GPS)", "m", C["amber"]),
+                ("ALTITUDE", "m", C["amber"]),
                 ("LATITUDE", "", C["blue"]),
                 ("LONGITUDE", "", C["blue"])]
         self.txt_kpi, self.txt_kpi_sub = [], []
@@ -661,6 +662,9 @@ class Dashboard2:
             self.stress_peak[:] = 0.0
             self.alt_top = 0.0
             self.detector = PhaseDetector()
+            self.t_first = None
+        if self.t_first is None:
+            self.t_first = t
 
         # packet statistics: the simulator simulates ~1% loss; for real
         # data (live/replay) loss is estimated from gaps in the stream,
@@ -786,7 +790,7 @@ class Dashboard2:
             snr = (9.5 - 0.004 * alt + random.gauss(0, 0.4)) if sim_mode else None
         self.txt_pkt.set_text(f"packet #{self.pkt_rx}")
         self.txt_phase.set_text(det)
-        self.txt_clock.set_text(f"{int(t // 60):02d}:{int(t % 60):02d}")
+        self.txt_clock.set_text(clock_text(self.detector, self.t_first, t))
 
         # ── KPIs ──
         dist = math.hypot(x, y)
@@ -820,7 +824,16 @@ class Dashboard2:
             # GPS altitude is not in the telemetry
             self.txt_kpi[2].set_text(alt_txt)
             self.txt_kpi_sub[2].set_text("barometric (AGL)")
-        self.txt_kpi[1].set_text(f"{int(t // 60):02d}:{int(t % 60):02d}")
+        # flight time counts from the launch and stops at the landing
+        t_up, t_down = self.detector.t_launch, self.detector.t_landed
+        if t_up is None:
+            self.txt_kpi[1].set_text("—")
+            self.txt_kpi_sub[1].set_text("waiting for launch")
+        else:
+            self.txt_kpi[1].set_text(mmss((t_down if t_down is not None
+                                           else t) - t_up))
+            self.txt_kpi_sub[1].set_text("landed" if t_down is not None
+                                         else "since launch")
         self.txt_kpi[3].set_text(f"{row['lat']:.4f}°N")
         self.txt_kpi_sub[3].set_text("GPS fix" if has_gps_fix(row)
                                      else "no GPS fix (placeholder)")

@@ -60,6 +60,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
 from matplotlib.text import Annotation, Text
+from matplotlib.ticker import FuncFormatter, Locator
 
 try:
     import krachten as K   # our CanSat (mass, parachute) + the force model
@@ -189,6 +190,55 @@ def ground_ylim(alts, min_span=5.0):
     lo, hi = min(vals + [0.0]), max(vals + [0.0])
     pad = max(0.5, 0.1 * (hi - lo), (min_span - (hi - lo)) / 2)
     return lo - pad, hi + pad
+
+
+# Time on screen: the Teensy counts from the moment it is switched on, and
+# on launch day it can stand on the pad for an hour. So the time charts
+# start at the first data, and after a launch just before it; the clock
+# counts from the first data and from the launch on as T+.
+LAUNCH_LEAD_S = 30     # after a launch: the time charts start this long before it
+AFTER_LANDING_S = 60   # ... and stop growing this long after the landing
+
+
+def mmss(seconds):
+    """Seconds → 'mm:ss' (the minutes may go past 59)."""
+    s = int(max(0.0, seconds))
+    return f"{s // 60:02d}:{s % 60:02d}"
+
+
+def clock_text(detector, t_first, t):
+    """Header clock: time since the first data; from the launch: T+."""
+    if detector.t_launch is None:
+        return mmss(t - (t_first if t_first is not None else t))
+    dt = t - detector.t_launch
+    if dt > -1.0:                    # the liftoff second itself counts as T+00:00
+        return "T+" + mmss(dt)
+    return "T−" + mmss(-dt)
+
+
+class FromRefLocator(Locator):
+    """Ticks on round seconds counted from a reference time (the first
+    data, or the launch once it is detected)."""
+    STEPS = (5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600)
+
+    def __init__(self, ref):
+        self.ref = ref                       # function → reference time (s)
+
+    def __call__(self):
+        return self.tick_values(*self.axis.get_view_interval())
+
+    def tick_values(self, vmin, vmax):
+        ref = self.ref()
+        step = next((s for s in self.STEPS if (vmax - vmin) / s <= 8), 7200)
+        k0, k1 = math.ceil((vmin - ref) / step), math.floor((vmax - ref) / step)
+        return [ref + k * step for k in range(k0, k1 + 1)]
+
+
+def time_axis(ax, ref):
+    """Time axis in seconds from ref() (the data stay in Teensy time)."""
+    ax.xaxis.set_major_locator(FromRefLocator(ref))
+    ax.xaxis.set_major_formatter(
+        FuncFormatter(lambda v, _pos: f"{int(round(v - ref()))}"))
 
 
 def from_radio(row):
@@ -751,6 +801,15 @@ class PhaseDetector:
         self.samples = deque(maxlen=400)     # (t, alt)
         self.ground_alt = None
         self._since = {}                     # condition name -> start time
+        self.t_launch = None                 # liftoff (s, Teensy time)
+        self.t_landed = None                 # touchdown (s, Teensy time)
+
+    def _liftoff(self, t):
+        """Last moment on the ground before the climb: the liftoff."""
+        for ts, a in reversed(self.samples):
+            if a - self.ground_alt < 2.0:
+                return ts
+        return t
 
     def _sustained(self, name, cond, t, dur):
         """True once `cond` has been continuously true for `dur` s."""
@@ -795,6 +854,7 @@ class PhaseDetector:
                                      t, 0.2) and agl > 5)
             if climb or boost:
                 self.phase = "ASCENT"
+                self.t_launch = self._liftoff(t)
         elif self.phase == "ASCENT":
             if agl > self.MIN_APOGEE_AGL and rate < 1.0:
                 self.phase = "APOGEE"
@@ -808,6 +868,7 @@ class PhaseDetector:
                     "still", abs(rate) < self.LAND_RATE,
                     t, self.LAND_SUSTAIN):
                 self.phase = "LANDED"
+                self.t_landed = self._since.get("still", t)
         return self.phase
 
 
@@ -835,9 +896,35 @@ class Dashboard:
         self.seg_artists = []
         self.t_chute = None
         self.pkt_rx = 0
+        self.t_first = None      # time of the first row (Teensy time, s)
         self._wall = None        # wall-clock pacing for real-time replay
         self._changed = False    # new data since the last frame?
         self._build_figure()
+        for ax in (self.ax_alt, self.ax_acc, self.ax_gyro, self.ax_aud,
+                   self.ax_phase, self.ax_cd):
+            time_axis(ax, self.time_ref)
+
+    # ── time on screen ──
+    def time_ref(self):
+        """Zero of the time axes: the launch, before that the first data."""
+        if self.detector.t_launch is not None:
+            return self.detector.t_launch
+        return self.t_first if self.t_first is not None else 0.0
+
+    def flight_window(self, t):
+        """x-range of the altitude, phase and Cd charts: from the first data
+        (still in memory); after a launch from just before it until shortly
+        after the landing, so the flight fills the chart."""
+        first = self.hist["t"][0] if self.hist["t"] else t
+        end = t + 5
+        det = self.detector
+        if det.t_launch is None:
+            x0 = first
+        else:
+            x0 = max(first, det.t_launch - LAUNCH_LEAD_S)
+            if det.t_landed is not None:
+                end = min(end, det.t_landed + AFTER_LANDING_S)
+        return x0, max(x0 + 60, end)
 
     # ── construction ──
     def _style_axes(self, ax, title=None, title_color=None):
@@ -1030,7 +1117,7 @@ class Dashboard:
         self.ln_v, = self.ax_v.plot([], [], color=C["blue"], lw=1.5,
                                     ls="--", label="v (m/s)")
         self.ax_v.set_ylim(0, 40)
-        self.ax_cd.set_xlabel("time (s)", fontsize=7)
+        self.ax_cd.set_xlabel("time since start (s)", fontsize=7)
         lines = [self.ln_cd, self.ln_v]
         self.ax_cd.legend(lines, [l.get_label() for l in lines],
                           loc="upper right", fontsize=7, frameon=False,
@@ -1048,11 +1135,11 @@ class Dashboard:
         else:
             self.segments[-1][2] = t
 
-    def _draw_timeline(self, t_end):
+    def _draw_timeline(self, t_end, x0, x1):
         for art in self.seg_artists:
             art.remove()
         self.seg_artists = []
-        xspan = max(60, t_end + 5)
+        xspan = x1 - x0
         for ph, t0, t1 in self.segments:
             rect = Rectangle((t0, 0.18), max(t1 - t0, 0.1), 0.64,
                              facecolor=PHASE_COLORS.get(ph, C["dim"]),
@@ -1065,7 +1152,7 @@ class Dashboard:
                                         color=C["text"],
                                         ha="center", va="center")
                 self.seg_artists.append(tx)
-        self.ax_phase.set_xlim(0, xspan)
+        self.ax_phase.set_xlim(x0, x1)
         self.ln_phase_now.set_xdata([t_end, t_end])
 
     # ── top-5 dominant frequencies ──
@@ -1104,6 +1191,9 @@ class Dashboard:
             self.ln_chute.set_xdata([np.nan, np.nan])
             self.txt_chute.set_text("")
             self.detector = PhaseDetector()
+            self.t_first = None
+        if self.t_first is None:
+            self.t_first = t
 
         # phase from the DATA (not from the simulator) — this is the
         # logic that runs unchanged on real telemetry
@@ -1185,7 +1275,7 @@ class Dashboard:
             self.txt_rssi.set_text("RSSI —")
         self.txt_pkt.set_text(f"packet #{self.pkt_rx}")
         self.txt_phase.set_text(det)
-        self.txt_clock.set_text(f"{int(t // 60):02d}:{int(t % 60):02d}")
+        self.txt_clock.set_text(clock_text(self.detector, self.t_first, t))
         if self.sim.phase is not None:          # simulator: ground truth
             truth = PHASE_EN.get(self.sim.phase, self.sim.phase)
             ok = truth == det
@@ -1241,7 +1331,8 @@ class Dashboard:
             self.fill_alt.remove()
         self.fill_alt = self.ax_alt.fill_between(
             ts, 0, np.array(h["alt"]), color=C["cyan"], alpha=0.12)
-        self.ax_alt.set_xlim(0, max(60, t + 5))
+        x0, x1 = self.flight_window(t)
+        self.ax_alt.set_xlim(x0, x1)
         if flight:
             self.ln_apogee.set_xdata([self.t_apogee, self.t_apogee])
             self.txt_apogee.set_position((self.t_apogee + 1,
@@ -1263,7 +1354,7 @@ class Dashboard:
         if self.shock_g > 0:
             self.txt_shock.set_text(
                 f"largest shock {self.shock_g:.1f} g at "
-                f"{int(self.t_shock // 60):02d}:{int(self.t_shock % 60):02d}")
+                f"{clock_text(self.detector, self.t_first, self.t_shock)}")
         elif radio:
             self.txt_shock.set_text("peak g: not in radio packet")
         self.ln_gx.set_data(ts, h["gx"])
@@ -1313,12 +1404,15 @@ class Dashboard:
         self._update_top_freqs()
 
         # ── flight phase timeline ──
-        self._draw_timeline(t)
+        self._draw_timeline(t, x0, x1)
 
         # ── Cd & descent rate ──
         self.ln_cd.set_data(ts, h["cd"])
         self.ln_v.set_data(ts, h["v"])
-        self.ax_cd.set_xlim(0, max(60, t + 5))
+        self.ax_cd.set_xlim(x0, x1)
+        self.ax_cd.xaxis.label.set_text(
+            "time since launch (s)" if self.detector.t_launch is not None
+            else "time since start (s)")
 
         return []
 
