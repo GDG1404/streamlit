@@ -10,11 +10,16 @@ een vak waar je in OBS het camerabeeld op legt.
 Het leest via USB, en herkent zelf wat er binnenkomt:
   - de Teensy zelf (droogtest, zonder antenne): elke seconde een meetregel
   - de extra LoRa-ontvanger (ontvanger_stream.ino): elk pakket van de CanSat
+Of het leest mee met de meting van start_meting.py (--live). Dan hebben
+scherm 1, scherm 2 en dit dashboard samen genoeg aan één ontvanger.
 
 Starten (in de map CanSatLive):
   py stream\stream_dashboard.py           vraagt de poort (of demo)
   py stream\stream_dashboard.py COM7      rechtstreeks COM7
   py stream\stream_dashboard.py --demo    nagebootste vlucht, zonder hardware
+  py stream\stream_dashboard.py --live metingen\test_01.csv
+                                          leest mee met een meting die loopt
+                                          (start_meting.py doet dit zelf)
 
 Logo's: zet logo_school.png en logo_team.png in de map 'logos'.
 Elke ontvangen regel wordt ook bewaard in de map 'metingen'.
@@ -121,6 +126,24 @@ def parse_line(line):
     except (ValueError, KeyError):
         pass
     return None, None
+
+
+def parse_csv_row(cols):
+    """Een rij uit het bestand van de logger (start_meting.py) → (meting,
+    bron). Bij een radiopakket zet de logger de RSSI erbij; via USB staat
+    daar nan."""
+    try:
+        row = {k: float(cols[k]) for k in FIELDS}
+        row["millis"] = float(cols["millis"])
+        rssi = float(cols.get("rssi", "nan"))
+        snr = float(cols.get("snr", "nan"))
+    except (ValueError, KeyError):
+        return None, None
+    if is_number(rssi):
+        row["rssi"], row["snr"] = rssi, (snr if is_number(snr) else None)
+        return row, "radio"
+    row["rssi"] = row["snr"] = None
+    return row, "usb"
 
 
 def is_number(x):
@@ -248,6 +271,33 @@ def serial_reader(port, q, stop):
                        "helemaal, en andere dashboards die deze poort gebruiken")
             q.put(("status", f"{port}: {msg} — opnieuw over 2 s"))
             stop.wait(2)
+
+
+def csv_reader(path, q, stop):
+    """Leest mee met het bestand dat de logger van start_meting.py schrijft.
+    Alleen de logger gebruikt de USB-poort van de ontvanger: zo werken
+    scherm 1, scherm 2 en dit dashboard samen met één ontvanger. Eerst komt
+    alles wat er al in staat, daarna elke nieuwe regel."""
+    while not os.path.exists(path):
+        q.put(("status", f"Wacht op {path} ..."))
+        if stop.wait(1):
+            return
+    q.put(("status", f"Leest mee met {path}"))
+    cols, buf = None, ""
+    with open(path, encoding="utf-8", newline="") as fh:
+        while not stop.is_set():
+            data = fh.read()                  # '' als er niets nieuws is
+            if not data:
+                stop.wait(0.2)
+                continue
+            buf += data
+            while "\n" in buf:                # een halve regel wacht op de rest
+                line, buf = buf.split("\n", 1)
+                parts = line.strip().split(",")
+                if parts[0] == "millis":
+                    cols = parts
+                elif cols and len(parts) == len(cols):
+                    q.put(("row", dict(zip(cols, parts)), time.monotonic()))
 
 
 def demo_packet(k):
@@ -521,8 +571,8 @@ class StreamDashboard:
                      "Radio signal"),
             "usb": ("TEST — sensors connected by USB, no radio", C["warning"],
                     "USB link"),
-            "radio": ("Live telemetry from the CanSat · LoRa radio, "
-                      "1 update per second", C["muted"], "Radio signal"),
+            "radio": ("Live telemetry from the CanSat · LoRa radio",
+                      C["muted"], "Radio signal"),
             None: ("Waiting for data", C["muted"], "Data link"),
         }[src]
         self.mode_dot.set_color(color)
@@ -563,8 +613,13 @@ class StreamDashboard:
                     print(item[1])
                     self._last_status = item[1]
                 continue
-            _, line, now = item
-            row, source = parse_line(line)
+            if item[0] == "row":              # --live: een rij van de logger
+                _, cols, now = item
+                row, source = parse_csv_row(cols)
+                line = None
+            else:
+                _, line, now = item
+                row, source = parse_line(line)
             if row is None:
                 if line and not line.startswith("millis,"):
                     print(f"[USB] {line}")
@@ -572,7 +627,8 @@ class StreamDashboard:
             if self.flight.add(row, now, source):
                 print("Nieuwe sessie (de Teensy of de bron is herstart): "
                       "de grafiek begint opnieuw.")
-            self._log(line, source)
+            if line is not None:              # --live: de logger bewaart al
+                self._log(line, source)
             changed = True
 
     def tick(self, now=None):
@@ -716,10 +772,13 @@ def main():
     p.add_argument("port", nargs="?", help="poort van de Teensy of ontvanger, bv. COM7")
     p.add_argument("--demo", action="store_true",
                    help="nagebootste vlucht (zonder hardware)")
+    p.add_argument("--live", metavar="CSV",
+                   help="lees mee met de meting van start_meting.py, bv. "
+                        "metingen\\test_01.csv (één ontvanger voor alle dashboards)")
     args = p.parse_args()
 
-    port = "demo" if args.demo else args.port
-    if port != "demo":
+    port = "demo" if args.demo else "live" if args.live else args.port
+    if port not in ("demo", "live"):
         try:
             import serial  # noqa: F401
         except ImportError:
@@ -741,6 +800,11 @@ def main():
         print("DEMO: een nagebootste vlucht. Er wordt niets bewaard.")
         dash = StreamDashboard(demo=True)
         dash.run(demo_reader)
+    elif port == "live":
+        print(f"Leest mee met {args.live}. De logger van start_meting.py "
+              "bewaart alles.")
+        dash = StreamDashboard()
+        dash.run(lambda q, stop: csv_reader(args.live, q, stop))
     else:
         dash = StreamDashboard(log_dir=METINGEN)
         dash.run(lambda q, stop: serial_reader(port, q, stop))

@@ -5,8 +5,11 @@ CanSat 2027 — Meting starten met één knop (handig in Thonny)
 Druk op Run (F5). Het programma stelt vier vragen:
 
   1. Op welke poort zit de Teensy (USB-kabel) of de Pico-ontvanger (radio)?
+     Of typ 'oefen': dan komt er een nagebootste vlucht, zonder CanSat.
   2. Hoe heet je meting?
-  3. Welk dashboard wil je zien?
+  3. Welk dashboard wil je zien? Staat het streamdashboard (de livestream)
+     in de map 'stream'? Dan kan je ook alle drie samen kiezen: scherm 1,
+     scherm 2 en de livestream, met één ontvanger.
   4. Wat is vandaag de luchtdruk op zeeniveau? (Enter = 1013 hPa)
      Daarmee berekenen de dashboards de hoogte. Het getal komt ook in een
      klein bestand naast de meting (bv. metingen\test_01_luchtdruk.txt).
@@ -21,6 +24,10 @@ het voorstel tussen [haakjes].
 Stoppen: klik in Thonny op de rode Stop-knop (of Ctrl+C).
 Staan de dashboards daarna nog open? Sluit ze dan zelf.
 
+Een dashboard per ongeluk gesloten terwijl de meting loopt? Start dan
+'py start_meting.py --opnieuw' (of DASHBOARD_OPNIEUW.bat). Het opent het
+dashboard opnieuw bij de nieuwste meting. De meting zelf loopt gewoon door.
+
 Vooraf:
   - Teensy: de sketch staat al op de Teensy. Sluit alle vensters van de
     Arduino IDE (kruisje rechtsboven). Alleen de Serial Monitor sluiten
@@ -29,7 +36,8 @@ Vooraf:
     verbonden zijn: kies rechtsonder in Thonny 'Local Python 3'. Trek
     daarna de USB-kabel van de Pico uit en steek hem terug.
 
-Dit bestand hoort in de map CanSat, naast de mappen 'dashboard' en 'tools'.
+Dit bestand hoort in de map CanSat, naast de mappen 'dashboard' en 'tools'
+(en eventueel 'stream').
 """
 
 import os
@@ -44,9 +52,13 @@ METINGEN = os.path.join(MAP, "metingen")
 TEENSY_VID = 0x16C0                                     # USB-code van PJRC
 PICO_VID = 0x2E8A                                       # USB-code van Raspberry Pi
 LUCHTDRUK_STANDAARD = "1013"                           # hPa op zeeniveau
+STREAM = os.path.join(MAP, "stream", "stream_dashboard.py")   # de livestream
+OEFEN = "oefen"                                         # vlucht zonder CanSat
 DASHBOARDS = {"1": ["dashboard_scherm1.py"],
               "2": ["dashboard_scherm2.py"],
               "3": ["dashboard_scherm1.py", "dashboard_scherm2.py"],
+              "4": ["dashboard_scherm1.py", "dashboard_scherm2.py",
+                    "stream_dashboard.py"],
               "0": []}
 
 
@@ -73,12 +85,16 @@ def kies_poort(list_ports):
             print(f"   {i}. {p.device:<8} {p.description}{merk}")
         print("   Typ het nummer uit de lijst, of de naam (bv. COM9).")
         print("   Typ 'r' om de lijst opnieuw te zoeken (bv. na het insteken).")
+        if kan_oefenen():
+            print("   Typ 'oefen' voor een oefenvlucht zonder CanSat.")
         # één Pico: die (radiotest); anders één Teensy: die (USB-test)
         voorstel = (picos[0] if len(picos) == 1 else
                     teensys[0] if len(teensys) == 1 else "")
         antwoord = vraag("   Poort", voorstel)
         if antwoord.lower() == "r" or not antwoord:
             continue
+        if antwoord.lower() == OEFEN and kan_oefenen():
+            return OEFEN
         if antwoord.isdigit():
             nr = int(antwoord)
             if 1 <= nr <= len(poorten):
@@ -88,6 +104,11 @@ def kies_poort(list_ports):
         if antwoord.upper().startswith("COM"):
             antwoord = antwoord.upper()
         return antwoord
+
+
+def kan_oefenen():
+    """De oefenvlucht maakt tools/gen_test_csv.py (niet in elke zip)."""
+    return os.path.isfile(os.path.join(MAP, "tools", "gen_test_csv.py"))
 
 
 # ── vraag 2: de naam ──
@@ -119,17 +140,22 @@ def kies_naam():
 
 
 # ── vraag 3: de dashboards ──
-def kies_dashboards():
-    print("\n3) Welk dashboard wil je zien?")
+def kies_dashboards(titel="\n3) Welk dashboard wil je zien?"):
+    met_stream = os.path.isfile(STREAM)
+    keuzes = {k: v for k, v in DASHBOARDS.items() if met_stream or k != "4"}
+    print(titel)
     print("   1 = scherm 1 (grafieken)")
     print("   2 = scherm 2 (3D-baan, kaart en oriëntatie)")
     print("   3 = allebei")
+    if met_stream:
+        print("   4 = alle drie: scherm 1, scherm 2 en de livestream")
     print("   0 = geen (alleen opslaan)")
     while True:
-        keuze = vraag("   Keuze", "3")
-        if keuze in DASHBOARDS:
-            return DASHBOARDS[keuze]
-        print("   Typ 0, 1, 2 of 3.")
+        keuze = vraag("   Keuze", "4" if met_stream else "3")
+        if keuze in keuzes:
+            return keuzes[keuze]
+        namen = sorted(keuzes)
+        print(f"   Typ {', '.join(namen[:-1])} of {namen[-1]}.")
 
 
 # ── vraag 4: de luchtdruk op zeeniveau ──
@@ -157,6 +183,13 @@ def bewaar_luchtdruk(csv, hpa):
         fh.write(f"zeeniveau_hPa = {hpa:g}\n")
 
 
+def script(scherm):
+    """Scherm 1 en 2 staan in de map 'dashboard', de livestream in 'stream'."""
+    if scherm == os.path.basename(STREAM):
+        return STREAM
+    return os.path.join(MAP, "dashboard", scherm)
+
+
 def start_dashboards(csv, schermen, logger_klaar, hpa):
     """Wacht tot de logger het bestand gemaakt heeft, open dan de schermen."""
     for _ in range(100):                    # max. 10 s wachten
@@ -172,12 +205,19 @@ def start_dashboards(csv, schermen, logger_klaar, hpa):
     vlag = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
     gestart = []
     for scherm in schermen:
-        # fouten van een dashboard komen in een logbestand naast de meting
+        pad = script(scherm)
+        opdracht = [sys.executable, pad, "--live", csv]
+        # de livestream telt de hoogte vanaf de start; zonder getal (opnieuw
+        # openen) nemen scherm 1 en 2 dat uit het bestand naast de meting
+        if pad != STREAM and hpa is not None:
+            opdracht += ["--sea-level", f"{hpa:g}"]
+        # fouten van een dashboard komen in een logbestand naast de meting,
+        # in UTF-8: Windows schrijft anders cp1252, en dan laat een teken
+        # als '→' in een melding het dashboard crashen
         log = csv[:-4] + "_" + scherm.replace(".py", ".log")
-        proc = subprocess.Popen([sys.executable, os.path.join(MAP, "dashboard", scherm),
-                                 "--live", csv, "--sea-level", f"{hpa:g}"],
-                                cwd=os.path.join(MAP, "dashboard"),
+        proc = subprocess.Popen(opdracht, cwd=os.path.dirname(pad),
                                 stdout=open(log, "w"), stderr=subprocess.STDOUT,
+                                env=dict(os.environ, PYTHONIOENCODING="utf-8"),
                                 creationflags=vlag)
         gestart.append((scherm, proc, log))
     print(f"Dashboards geopend ({len(schermen)}). Het kan even duren voor ze verschijnen.\n")
@@ -188,6 +228,26 @@ def start_dashboards(csv, schermen, logger_klaar, hpa):
         if proc.poll() not in (None, 0):
             print(f"\nLET OP: {scherm} is gestopt met een fout. "
                   f"Open dit bestand om te zien waarom:\n  {log}\n")
+
+
+def opnieuw_openen():
+    """Een dashboard opnieuw openen terwijl de meting loopt (venster per
+    ongeluk dicht). Het haalt alles in; de meting zelf loopt gewoon door."""
+    metingen = [os.path.join(METINGEN, f) for f in os.listdir(METINGEN)
+                if f.lower().endswith(".csv")]
+    if not metingen:
+        print("Er staat nog geen meting in de map 'metingen'.")
+        return 1
+    csv = max(metingen, key=os.path.getmtime)        # de nieuwste meting
+    print("CanSat 2027 — een dashboard opnieuw openen")
+    print(f"Meting: {csv}")
+    try:
+        schermen = kies_dashboards("\nWelk dashboard wil je opnieuw openen?")
+    except (KeyboardInterrupt, EOFError):
+        return 1
+    if schermen:
+        start_dashboards(csv, schermen, threading.Event(), None)
+    return 0
 
 
 def main():
@@ -208,9 +268,11 @@ def main():
         print("  In de opdrachtprompt: py -m pip install pyserial matplotlib numpy pillow")
         return 1
 
+    os.makedirs(METINGEN, exist_ok=True)
+    if sys.argv[1:] == ["--opnieuw"]:
+        return opnieuw_openen()
     print("CanSat 2027 — meting starten")
     print("Druk op Enter om het voorstel tussen [haakjes] te nemen.")
-    os.makedirs(METINGEN, exist_ok=True)
     try:
         poort = kies_poort(list_ports)
         csv = kies_naam()
@@ -220,7 +282,7 @@ def main():
         print("\nGestopt. Er is niets opgeslagen.")
         return 1
 
-    print(f"\nPoort     : {poort}")
+    print(f"\nPoort     : {'oefenvlucht, zonder CanSat' if poort == OEFEN else poort}")
     print(f"Bestand   : {csv}")
     print(f"Dashboard : {', '.join(schermen) if schermen else 'geen'}")
     print(f"Luchtdruk : {hpa:g} hPa op zeeniveau")
@@ -230,13 +292,26 @@ def main():
     # de dashboards starten apart zodra het bestand bestaat.
     bewaar_luchtdruk(csv, hpa)
     sys.path.insert(0, os.path.join(MAP, "tools"))
-    import serial_logger
     logger_klaar = threading.Event()
     if schermen:
         threading.Thread(target=start_dashboards,
                          args=(csv, schermen, logger_klaar, hpa), daemon=True).start()
-    sys.argv = ["serial_logger.py", poort, csv]
     try:
+        if poort == OEFEN:
+            # geen CanSat: een nagebootste vlucht, 1 rij per seconde, zoals
+            # de logger ze schrijft als de radio ontvangt (± 3,5 minuten)
+            import gen_test_csv
+            print("OEFENEN: een nagebootste vlucht via de radio. "
+                  "Het zijn geen echte metingen.\n")
+            sys.argv = ["gen_test_csv.py", csv, "--vlucht", "--radio", "--live"]
+            try:
+                gen_test_csv.main()
+            except KeyboardInterrupt:
+                print("\nGestopt.")
+            print("De oefenvlucht is voorbij. Sluit de dashboards zelf.")
+            return 0
+        import serial_logger
+        sys.argv = ["serial_logger.py", poort, csv]
         return serial_logger.main()
     finally:
         logger_klaar.set()

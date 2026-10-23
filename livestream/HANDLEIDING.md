@@ -52,6 +52,13 @@ Op de stream-laptop:
 Het mooie: bij de **droogtest** en bij de **finale** werkt alles hetzelfde. Alleen wat er
 aan de USB-poort hangt, verschilt. Het dashboard herkent dat zelf.
 
+> **Voorlopig maar één ontvanger?** Dan draait het streamdashboard op de laptop van het
+> grondstation, samen met scherm 1 en scherm 2. Het leest mee uit het bestand van de
+> meting: zo gebruiken de drie schermen samen één ontvanger. Alles hiervoor staat in
+> `CanSat_antennetest.zip`: kies keuze 4 bij `START_METING.bat` (deel F van die
+> handleiding). Een eigen laptop en een eigen ontvanger voor de livestream blijven de
+> beste oplossing.
+
 ### 0.3 Wat zit er in de map?
 
 ```

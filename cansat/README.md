@@ -329,6 +329,17 @@ naam: een oude meting wordt nooit overschreven. Spaties in de naam worden `_`.
 **Stoppen:** klik op de rode **Stop**-knop in Thonny. Staan de dashboards daarna nog
 open? Sluit ze dan zelf.
 
+**Oefenen zonder CanSat:** typ bij vraag 1 `oefen`. Dan komt er een nagebootste vlucht
+via de radio (3,5 minuten), één meting per seconde, net zoals bij een echte meting.
+
+**Een dashboard per ongeluk dicht?** Typ in een opdrachtprompt `py start_meting.py
+--opnieuw`. Het opent het dashboard opnieuw bij de nieuwste meting en haalt alles in. De
+meting zelf loopt gewoon door.
+
+**De livestream erbij?** Staat het streamdashboard in de map `stream`, zoals in
+`CanSat_antennetest.zip`? Dan is er bij vraag 3 ook keuze 4: scherm 1, scherm 2 en de
+livestream samen, met één ontvanger.
+
 **Geen Thonny?** Dan gebruik je de Python uit A5. De pakketten uit A6 zijn genoeg:
 je hoeft niets extra te installeren.
 1. Open een opdrachtprompt in `C:\CanSat` (adresbalk → `cmd` → Enter).
@@ -892,6 +903,7 @@ py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per se
 py tools\gen_test_csv.py metingen\oefenvlucht.csv --vlucht   een oefenvlucht (Cd 0,50)
 py tools\krachten_analyse.py metingen\vlucht.csv          na de vlucht: Cd en krachten
 py start_meting.py                                         logger + 2 dashboards in één keer
+py start_meting.py --opnieuw                               een gesloten dashboard opnieuw openen
 ```
 
 ---
