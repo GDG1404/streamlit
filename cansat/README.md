@@ -837,10 +837,11 @@ Elke rij heeft 34 kolommen, altijd in deze volgorde.
 | `gps_speed_ms` | 0 (zonder fix) of bijna 0 | Wandelen: 1–1,5 m/s. Stilstaand springt `gps_course_deg` willekeurig rond: dat is normaal. |
 | `audio_rms` | 0,001–0,005 | Zelfde als in `SPH0645_test`. Een korte klap geeft hier een **lagere** waarde dan in die test: de sketch middelt over 1 s, de test over 0,1 s. Aanhoudend geluid geeft ongeveer hetzelfde. |
 
-> In VIBRATION PER BAND verschijnt de sterkste frequentie pas als `fft_peak_amp` groter
-> is dan 0,3 g. Anders staat er `no strong vibration`. De lijst `most frequent` met de 5
-> vaakste trillingen verschijnt pas na 20 zulke metingen. Dat is ongeveer 20 s stevig
-> schudden.
+> In VIBRATION PER BAND verschijnt de sterkste frequentie als `fft_peak_amp` groter is
+> dan 0,05 g. Anders staat er `no strong vibration`. Een gsm die tegen de CanSat trilt, is
+> genoeg. De lijst `most frequent` met de 5 vaakste trillingen verschijnt na 5 zulke
+> metingen: ongeveer 5 s trillen. Na de lancering telt de lijst alleen de trillingen van de
+> vlucht. De grens staat bovenaan in `dashboard_scherm1.py` (`FFT_STRONG_G`).
 
 ### E4. Woordenlijst
 

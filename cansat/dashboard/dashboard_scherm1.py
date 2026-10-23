@@ -147,8 +147,8 @@ BAND_LABELS = [f"{a}–{b}" for a, b in zip(BAND_EDGES_HZ, BAND_EDGES_HZ[1:])]
 # the vibration band columns) still load: the dashboards read columns by name and treat a
 # missing one as "no data".
 
-FFT_STRONG_G = 0.3   # fft_peak_amp (g) above which a vibration counts as
-                     # "strong" — tune after the first real measurements
+FFT_STRONG_G = 0.05  # fft_peak_amp (g) above which a vibration counts as
+                     # "strong": a phone vibrating against the can is enough
 ACC_PEAK_MAX_G = 16  # LSM6DSO range in the firmware (±16 g)
 GROUND_TEST_M = 50   # never higher than this above the start: a ground
                      # test. The altitude chart then zooms in, so a
@@ -936,6 +936,8 @@ class PhaseDetector:
 class Dashboard:
     N_FREQ_BINS = 52     # histogram bins for the top-5 frequencies
     N_TOP = 5            # number of marked dominant frequencies
+    MIN_FREQ_ROWS = 5    # rows above FFT_STRONG_G before the list shows (~5 s)
+    MIN_FREQ_COUNT = 2   # a frequency must come back at least this often
 
     def __init__(self):
         self.sim = make_source()
@@ -949,7 +951,7 @@ class Dashboard:
         self.t_apogee = 0.0
         self.v_max = 0.0
         self.cd_vals = []    # Cd of each descent row (median on screen)
-        self.freq_hist = []          # peak frequencies seen this flight
+        self.freq_hist = []          # (t, peak frequency) of strong rows
         self.segments = []           # [phase, t_start, t_end] timeline
         self.seg_artists = []
         self.t_chute = None
@@ -1216,18 +1218,30 @@ class Dashboard:
     # ── top-5 dominant frequencies ──
     def _update_top_freqs(self):
         found = []
-        if len(self.freq_hist) >= 20:
-            counts, edges = np.histogram(
-                self.freq_hist, bins=self.N_FREQ_BINS,
-                range=(0, F_NYQUIST))
-            order = np.argsort(counts)[::-1]
-            for rank, idx in enumerate(order[:self.N_TOP]):
-                if counts[idx] < 3:
+        # after liftoff only the flight counts: above FFT_STRONG_G, carrying
+        # the can to the launch pad would fill the list too
+        t_launch = self.detector.t_launch
+        freqs = np.array([f for t, f in self.freq_hist
+                          if t_launch is None or t >= t_launch])
+        if len(freqs) >= self.MIN_FREQ_ROWS:
+            edges = np.linspace(0, F_NYQUIST, self.N_FREQ_BINS + 1)
+            bin_of = np.clip(np.digitize(freqs, edges) - 1,
+                             0, self.N_FREQ_BINS - 1)
+            counts = np.bincount(bin_of, minlength=self.N_FREQ_BINS)
+            for idx in np.argsort(counts)[::-1]:
+                if (counts[idx] < self.MIN_FREQ_COUNT
+                        or len(found) == self.N_TOP):
                     break
-                fc = 0.5 * (edges[idx] + edges[idx + 1])
-                found.append(f"{rank + 1}·{fc:.0f}Hz")
-        self.txt_top.set_text("most frequent: " + "  ".join(found)
-                              if found else "")
+                # the measured frequencies in this bin, not the bin centre
+                # (bins are 4 Hz wide): 37 Hz shows as 37, like "strongest".
+                # A frequency on a bin edge fills two bins: show it once.
+                hz = f"{np.median(freqs[bin_of == idx]):.0f}Hz"
+                if hz not in found:
+                    found.append(hz)
+        self.txt_top.set_text(
+            "most frequent: " + "  ".join(
+                f"{rank}·{hz}" for rank, hz in enumerate(found, 1))
+            if found else "")
 
     # ── ingest one telemetry row (history, detector, statistics) ──
     def _ingest(self, row):
@@ -1285,7 +1299,7 @@ class Dashboard:
         if apk > self.shock_g:
             self.shock_g, self.t_shock = apk, t
         if row["fft_peak_amp"] > FFT_STRONG_G:
-            self.freq_hist.append(min(row["fft_peak_hz"], F_NYQUIST))
+            self.freq_hist.append((t, min(row["fft_peak_hz"], F_NYQUIST)))
         self.pkt_rx += 1
         self._track_phase(t, det)
         return cd, det, t
