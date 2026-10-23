@@ -1,0 +1,3 @@
+# Windows-bestanden: regeleinden niet aanpassen
+*.bat -text
+*.txt -text

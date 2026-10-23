@@ -1,0 +1,41 @@
+PROMPT VOOR NOTEBOOKLM - aflevering 1 "Our mission"
+
+Waar plakken: in NotebookLM, bij Audio Overview, klik op "Customize".
+Kies: formaat "Deep Dive", lengte "Default" (ongeveer 10 tot 15 minuten).
+Bron die erbij hoort: episode1_briefing.txt
+
+Gebruik de LANGE versie. Past die niet in het vak? Gebruik dan de KORTE.
+Het verloop en alle feiten staan ook in de bron, dus de korte versie werkt ook.
+
+============================================================
+LANGE VERSIE (1683 tekens)
+============================================================
+
+Make episode 1 of "Ready for the Engineers", a podcast for secondary school students (16 to 17 years old) in a CanSat team. Soon they will present their project to engineers in a jury. This episode is called "Our mission".
+
+Roles: Host 1 is an engineer from the jury: friendly and curious, but asks hard questions, like a real jury. Host 2 is a member of the CanSat team who knows the project well and answers clearly.
+
+Language: simple English, level B1. Short sentences. Explain every technical word the first time you use it (g, FFT, drag coefficient, air density, telemetry). Use the numbers from the source and round them. Speak slowly and clearly.
+
+Follow the episode plan in the source "Episode 1: Our mission":
+1. What is a CanSat (short).
+2. Our mission: the main mission and our own research question.
+3. How our CanSat works, from sensor to screen.
+4. The forces on the can: where the force comes in, and which zones carry the most.
+5. The parachute (Cd) and the energy.
+6. How we know it works: the practice flight, the problems we solved, the next steps.
+7. A round of questions from the engineer, with short, clear answers from the team member.
+8. End with the numbers to remember.
+
+Rules:
+- Use only facts from the sources. Do not invent names, the school, the launch site, the date, how the can is built, the parachute fabric, the battery or the budget.
+- Say clearly that the flight numbers come from a practice flight that was calculated on a computer, because the CanSat has not flown yet.
+- Be honest about the limits: the forces come from a model, and the sensor stops at 16 g.
+- Show how to give a good answer: first the short answer, then one number, then why.
+
+
+============================================================
+KORTE VERSIE (376 tekens)
+============================================================
+
+Episode 1 of "Ready for the Engineers": Our mission. Host 1 is a friendly jury engineer who asks hard questions; host 2 is a member of the CanSat team. Simple English (B1), short sentences, explain each technical word. Follow the episode plan in the source. Use only facts from the sources; say the flight numbers come from a practice flight. End with the numbers to remember.

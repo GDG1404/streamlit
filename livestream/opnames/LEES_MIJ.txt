@@ -1,0 +1,2 @@
+Hier bewaart OBS de opnames van de stream.
+Stel dit in bij OBS: Settings -> Output -> Recording Path = C:\CanSatLive\opnames
