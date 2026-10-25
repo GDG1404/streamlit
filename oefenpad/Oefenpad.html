@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@500;600&family=Nunito:wght@700;800&display=swap">
+<style>
+:root{--paper:#f6f7f2;--card:#ffffff;--ink:#1f2328;--muted:#5d6370;--line:#dde0d6;--seyes:#e5e8dd;--margin:#f0c4d8;--encre:#b8045a;--encre-ink:#ffffff;--encre-soft:#fbe7f0;--lime:#c5d625;--lime-soft:#f2f6d3;--rouge:#c2410c;--rouge-soft:#fdece3;--vert:#1b7a4d;--vert-soft:#e1f2e8;--ambre:#a8670f;--ambre-soft:#fbf0dc;--shadow:0 1px 2px rgba(31,35,40,.06),0 6px 20px rgba(31,35,40,.06);--f-display:"Nunito","Varela Round","Segoe UI",system-ui,sans-serif;--f-body:"Atkinson Hyperlegible","Segoe UI",system-ui,-apple-system,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;--r:12px}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#15171c;--card:#1e2128;--ink:#eceef2;--muted:#a3a9b5;--line:#31353e;--seyes:#272b32;--margin:#4d2236;--encre:#ff5fa2;--encre-ink:#1a0b12;--encre-soft:#3a1a2a;--lime-soft:#2c3214;--rouge:#ff8a5c;--rouge-soft:#3b2219;--vert:#5fd39b;--vert-soft:#163429;--ambre:#f0b65a;--ambre-soft:#392c16;--shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.25);color-scheme:dark}}
+[hidden]{display:none!important}*{box-sizing:border-box}
+body,html{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+h1,h2,h3{font-family:var(--f-display);font-weight:800;letter-spacing:-.01em;line-height:1.15;margin:0}
+h1{font-size:clamp(1.6rem,4vw,2.1rem)} h2{font-size:1.3rem}
+p{margin:0}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--encre);outline-offset:2px;border-radius:6px}
+.eyebrow{font-size:.74rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);font-weight:700}
+.muted{color:var(--muted)} .small{font-size:.88rem} .num{font-variant-numeric:tabular-nums;font-family:var(--f-mono)}
+.topbar{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.topbar-in{max-width:1120px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+.brand{font-family:var(--f-display);font-weight:800;font-size:1.05rem;display:flex;align-items:center;gap:8px;min-width:0}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--encre);flex:none}
+.brand small{font-family:var(--f-body);font-size:.8rem;color:var(--muted);font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp{flex:1}
+.wrap{max-width:1120px;margin:0 auto;padding:24px 16px 64px;display:flex;flex-direction:column;gap:22px}
+.leer{max-width:720px;margin:0 auto;width:100%}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:9px 18px;font-weight:700;display:inline-flex;align-items:center;gap:8px;justify-content:center;transition:transform .08s ease,background .15s}
+.btn:hover{background:var(--encre-soft)} .btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--encre);color:var(--encre-ink);border-color:var(--encre)} .btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:0 0;border-color:transparent;color:var(--muted);font-weight:600;padding-inline:10px} .btn.ghost:hover{color:var(--ink)}
+.btn.sm{padding:5px 12px;font-size:.88rem}
+.btn.danger{color:var(--rouge)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center} .row.end{justify-content:flex-end}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:20px;box-shadow:var(--shadow);min-width:0}
+.section{display:flex;flex-direction:column;gap:12px;min-width:0}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+label.f{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:.92rem}
+.inp{width:100%;border:1.5px solid var(--line);background:var(--card);border-radius:8px;padding:10px 12px;font-weight:400;font-size:1rem}
+.inp:focus{border-color:var(--encre);outline:0;box-shadow:0 0 0 3px var(--encre-soft)}
+.inp:disabled{opacity:.7}
+.inp.pin{letter-spacing:.5em;font-family:var(--f-mono);font-size:1.3rem;text-align:center;max-width:180px}
+.inp.kort{width:auto;min-width:160px}
+.hint-txt{font-weight:400;color:var(--muted);font-size:.85rem}
+.err-txt{color:var(--rouge);font-size:.92rem}
+.login{max-width:460px;margin:6vh auto 0;width:100%}
+.login .card,.wijzig .card{display:flex;flex-direction:column;gap:16px}
+.wijzig{max-width:440px;margin:6vh auto 0;width:100%}
+.keuze{max-width:460px;margin:6vh auto 0;width:100%}
+.keuze .card{display:flex;flex-direction:column;gap:16px}
+.keuze .row .btn{flex:1 1 180px;padding:14px 18px;font-size:1.05rem}
+.hello{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;flex-wrap:wrap}
+.goal{display:flex;flex-direction:column;gap:8px;padding:14px 16px}
+.bar{height:10px;background:var(--seyes);border-radius:99px;overflow:hidden;min-width:80px}
+.bar>i{display:block;height:100%;background:var(--lime);border-radius:99px;transition:width .4s ease}
+.bar.ok>i{background:var(--vert)}
+.pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.78rem;font-weight:700;white-space:nowrap}
+.pill.g{background:var(--vert-soft);color:var(--vert)}
+.pill.a{background:var(--ambre-soft);color:var(--ambre)}
+.pill.r{background:var(--rouge-soft);color:var(--rouge)}
+.pill.n{background:var(--seyes);color:var(--muted)}
+.pill.b{background:var(--encre-soft);color:var(--encre)}
+.dots{display:flex;gap:5px;flex-wrap:wrap}
+.dots i{width:22px;height:6px;border-radius:3px;background:var(--line)}
+.dots i.ok{background:var(--vert)}
+.dots i.cur{background:var(--encre)}
+.uitleg{background:var(--lime-soft);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.uitleg .eyebrow{margin-top:4px}
+.sheet{position:relative;background-color:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:26px 22px 26px 44px;overflow:hidden;background-image:linear-gradient(90deg,transparent 30px,var(--margin) 30px,var(--margin) 31.5px,transparent 31.5px),repeating-linear-gradient(180deg,transparent 0 31px,var(--seyes) 31px 32px)}
+.pr-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.pr-verb{font-family:var(--f-display);font-weight:800;font-size:clamp(1.8rem,6vw,2.5rem);line-height:1.1}
+.pr-ask{margin-top:12px;font-size:1.1rem}
+.answer{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-top:18px}
+.answer label.f{font-size:1rem;flex-direction:row;align-items:center;gap:8px}
+.answer .inp{flex:1 1 180px;font-size:1.3rem;padding:12px 14px;max-width:320px}
+.answer select.inp{max-width:320px}
+.fb{border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:8px;border:1px solid}
+.fb.ok{background:var(--vert-soft);border-color:color-mix(in srgb,var(--vert) 40%,transparent)}
+.fb.no{background:var(--rouge-soft);border-color:color-mix(in srgb,var(--rouge) 40%,transparent)}
+.fb.half{background:var(--ambre-soft);border-color:color-mix(in srgb,var(--ambre) 40%,transparent)}
+.fb .ft{font-weight:700;font-size:1.05rem}
+.fb p{font-size:.95rem}
+.klaar-kaart{text-align:center;padding:28px 16px}
+.klas-pick{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.klas-pick .inp{width:auto;min-width:200px;font-weight:700}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);flex-wrap:wrap;overflow-x:auto}
+.tab{border:0;background:0 0;padding:10px 14px;font-weight:700;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab.on{color:var(--ink);border-bottom-color:var(--encre)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:760px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{padding:14px 16px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+.stat .v{font-family:var(--f-display);font-weight:800;font-size:1.7rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat .l{font-size:.84rem;color:var(--muted)}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+table.t{border-collapse:collapse;width:100%;font-size:.92rem}
+table.t td,table.t th{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;vertical-align:middle}
+table.t th{font-size:.74rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700;background:var(--card)}
+table.t tr:last-child td{border-bottom:0}
+table.t td.hc,table.t th.hc{padding:6px 3px;text-align:center}
+table.t td.fout-tekst{white-space:normal;min-width:200px}
+.mdot{width:18px;height:18px;border-radius:5px;display:inline-block;vertical-align:middle;border:1px solid transparent}
+.mdot.l0{background:var(--seyes)}
+.mdot.l1{background:var(--rouge-soft);border-color:var(--rouge)}
+.mdot.l2{background:var(--ambre-soft);border-color:var(--ambre)}
+.mdot.l4{background:var(--vert)}
+.mdot.cur{background:var(--encre-soft);border:2px solid var(--encre)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.melding{background:var(--lime-soft);border:1px solid var(--lime);padding:12px 14px;border-radius:8px}
+.gevaar{border:1.5px dashed var(--rouge);background:var(--rouge-soft);border-radius:var(--r);padding:16px}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="topbar-in">
+  <div class="brand"><span class="dot"></span>Oefenpad <small>Veeltermfuncties</small></div>
+  <span class="sp"></span>
+  <span id="wie" class="small muted"></span>
+  <button class="btn ghost sm" id="uit" hidden>Afmelden</button>
+</div></header>
+
+<main class="wrap">
+
+<!-- Keuze: leerling of leerkracht -->
+<section id="keuze" class="keuze section">
+  <div class="card">
+    <div>
+      <h1>Welkom</h1>
+      <p class="small muted" style="margin-top:6px">Kies wie je bent.</p>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="kies-leerling" type="button">Ik ben leerling</button>
+      <button class="btn" id="kies-leerkracht" type="button">Ik ben leerkracht</button>
+    </div>
+  </div>
+</section>
+
+<!-- ===== LEERLING ===== -->
+<section id="l-inloggen" class="login section" hidden>
+  <div class="card">
+    <div>
+      <h1>Aanmelden</h1>
+      <p class="small muted" style="margin-top:6px">Kies je klas, typ je voornaam en je code van 4 cijfers.</p>
+    </div>
+    <form id="l-login-f" class="section" style="gap:14px">
+      <label class="f">Klas <select id="l-klas" class="inp"></select></label>
+      <label class="f">Naam <span class="hint-txt">voornaam, eventueel met initiaal</span>
+        <input id="l-naam" class="inp" autocomplete="off" maxlength="20"></label>
+      <label class="f">Code <span class="hint-txt">4 cijfers</span>
+        <input id="l-code" class="inp pin" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+      <div id="l-herhaal-blok" class="section" hidden>
+        <p class="small">Je hebt nog geen pincode. Kies de code hierboven en typ dezelfde code nog eens. Onthoud die goed: je leerkracht kent hem niet.</p>
+        <label class="f">Herhaal je code <input id="l-herhaal" class="inp pin" inputmode="numeric" maxlength="4" autocomplete="off"></label>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="l-knop-login" type="submit">Start</button>
+        <button class="btn ghost" id="l-terug" type="button">Terug</button>
+      </div>
+      <p id="l-login-fout" class="err-txt"></p>
+    </form>
+  </div>
+</section>
+
+<section id="l-werk" class="leer section" hidden>
+  <div class="hello">
+    <div>
+      <div class="eyebrow" id="l-module"></div>
+      <h2 id="l-hallo"></h2>
+    </div>
+  </div>
+
+  <div class="card goal">
+    <div class="section-head">
+      <span class="eyebrow">Deze week</span>
+      <span class="num small" id="l-week-tekst"></span>
+    </div>
+    <div class="bar"><i id="l-week-bar" style="width:0"></i></div>
+    <p class="hint-txt">Telt alleen de minuten waarin je echt bezig bent.</p>
+  </div>
+
+  <div id="l-uitleg" class="uitleg" hidden></div>
+
+  <div class="dots" id="l-dots" aria-hidden="true"></div>
+
+  <div class="sheet">
+    <div class="pr-meta"><span class="pill b" id="l-oef-pill"></span></div>
+    <div class="pr-verb" id="l-verb"></div>
+    <p class="pr-ask" id="l-vraag"></p>
+    <form id="l-ans-f">
+      <div id="l-velden" class="answer"></div>
+      <div class="row" style="margin-top:16px">
+        <button class="btn primary" id="l-knop-controle" type="submit">Controleer</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="l-fb"></div>
+
+  <div class="row end" id="l-volgende-rij" hidden>
+    <button class="btn primary" id="l-volgende" type="button">Volgende stap →</button>
+  </div>
+</section>
+
+<section id="l-klaar" class="card klaar-kaart" hidden>
+  <h2>Alle oefeningen zijn af.</h2>
+  <p class="muted" style="margin-top:8px">Goed gedaan! Je leerkracht ziet je voortgang.</p>
+</section>
+
+<!-- ===== LEERKRACHT ===== -->
+<section id="k-inloggen" class="login section" hidden>
+  <div class="card">
+    <div>
+      <h1>Aanmelden leerkracht</h1>
+      <p class="small muted" style="margin-top:6px">Met je gebruikersnaam en wachtwoord. Je ziet alleen je eigen klassen.</p>
+    </div>
+    <form id="k-login-f" class="section" style="gap:14px">
+      <label class="f">Gebruikersnaam <input id="k-gebruiker" class="inp" autocomplete="username"></label>
+      <label class="f">Wachtwoord <input id="k-ww" class="inp" type="password" autocomplete="current-password"></label>
+      <div class="row">
+        <button class="btn primary" id="k-knop-login" type="submit">Inloggen</button>
+        <button class="btn ghost" id="k-terug" type="button">Terug</button>
+      </div>
+      <p id="k-login-fout" class="err-txt"></p>
+      <p class="hint-txt">Wachtwoord vergeten? Vraag de beheerder om een tijdelijk wachtwoord.</p>
+    </form>
+  </div>
+</section>
+
+<section id="k-wijzigen" class="wijzig section" hidden>
+  <div class="card">
+    <div>
+      <h2>Kies een eigen wachtwoord</h2>
+      <p class="small muted" style="margin-top:6px">Je hebt een tijdelijk wachtwoord gekregen. Kies nu een eigen wachtwoord van minstens 8 tekens.</p>
+    </div>
+    <form id="k-wijzig-f" class="section" style="gap:14px">
+      <label class="f">Tijdelijk wachtwoord <input id="k-wijzig-huidig" class="inp" type="password" autocomplete="current-password"></label>
+      <label class="f">Nieuw wachtwoord <input id="k-wijzig-nieuw" class="inp" type="password" autocomplete="new-password"></label>
+      <div class="row"><button class="btn primary" type="submit">Opslaan</button></div>
+      <p id="k-wijzig-fout" class="err-txt"></p>
+    </form>
+  </div>
+</section>
+
+<section id="k-beheer" class="section" hidden>
+  <div class="klas-pick">
+    <span class="eyebrow">Klas</span>
+    <select id="k-klassen" class="inp"></select>
+    <button class="btn ghost sm" id="k-vernieuwen" type="button">Vernieuwen</button>
+  </div>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab on" data-tab="voortgang" role="tab" type="button">Voortgang</button>
+    <button class="tab" data-tab="klassen" role="tab" type="button">Klassen en leerlingen</button>
+    <button class="tab" data-tab="fouten" role="tab" type="button">Veelgemaakte fouten</button>
+    <button class="tab" data-tab="account" role="tab" type="button">Account</button>
+  </nav>
+
+  <!-- Voortgang -->
+  <div class="section" data-panel="voortgang">
+    <div class="stats">
+      <div class="stat"><div class="v num" id="k-s-aantal">–</div><div class="l">leerlingen</div></div>
+      <div class="stat"><div class="v num" id="k-s-gem">–</div><div class="l">gemiddelde voortgang</div></div>
+      <div class="stat"><div class="v num" id="k-s-week">–</div><div class="l">gem. actieve min. deze week</div></div>
+      <div class="stat"><div class="v num" id="k-s-niet">–</div><div class="l">nog niet actief deze week</div></div>
+    </div>
+    <div class="legend">
+      <span><i class="mdot l0"></i> nog niet begonnen</span>
+      <span><i class="mdot l1"></i> fouten gemaakt</span>
+      <span><i class="mdot l2"></i> deels juist</span>
+      <span><i class="mdot l4"></i> klaar</span>
+      <span><i class="mdot cur"></i> nu bezig</span>
+    </div>
+    <div class="tblwrap">
+      <table class="t">
+        <thead><tr>
+          <th>Leerling</th><th>Voortgang</th><th>Deze week</th><th>Totaal</th><th>Laatste activiteit</th><th>Nu bij</th>
+          <th id="k-heat-kop" class="hc"></th>
+        </tr></thead>
+        <tbody id="k-voortgang"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Klassen en leerlingen -->
+  <div class="section" data-panel="klassen" hidden>
+    <div class="card section">
+      <h2>Klassen</h2>
+      <div class="row">
+        <input id="k-nieuwe-klas" class="inp kort" placeholder="nieuwe klas, bv. 3A" maxlength="40">
+        <button class="btn" id="k-knop-klas-toevoegen" type="button">Klas toevoegen</button>
+        <button class="btn danger" id="k-knop-klas-verwijderen" type="button">Klas verwijderen</button>
+      </div>
+    </div>
+    <div class="card section">
+      <h2>Leerling toevoegen</h2>
+      <p class="small muted">Alleen een voornaam, eventueel met initiaal, bv. "Lotte V.". De leerling kiest zelf een pincode bij de eerste aanmelding.</p>
+      <div class="row">
+        <input id="k-leerling-naam" class="inp kort" placeholder="bv. Lotte V." maxlength="20">
+        <button class="btn primary" id="k-knop-leerling-toevoegen" type="button">Toevoegen</button>
+      </div>
+      <div id="k-code-melding" class="melding" hidden></div>
+    </div>
+    <div class="tblwrap">
+      <table class="t">
+        <thead><tr><th>Leerling</th><th>Pincode</th><th>Voortgang</th><th>Deze week</th><th></th></tr></thead>
+        <tbody id="k-leerlingen"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Fouten -->
+  <div class="section" data-panel="fouten" hidden>
+    <div class="row">
+      <select id="k-module" class="inp kort">
+        <option value="tweedegraad">Tweedegraadsvergelijkingen</option>
+        <option value="topvorm">De topvorm van een parabool</option>
+      </select>
+      <button class="btn" id="k-knop-fouten" type="button">Toon fouten</button>
+    </div>
+    <div class="tblwrap">
+      <table class="t">
+        <thead><tr><th>Oefening</th><th>Stap</th><th>Pogingen</th><th>Fouten</th><th>Meest gegeven antwoorden</th></tr></thead>
+        <tbody id="k-fouten"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Account -->
+  <div class="section" data-panel="account" hidden>
+    <div class="card section" style="max-width:520px">
+      <h2>Wachtwoord wijzigen</h2>
+      <form id="k-eigen-f" class="section" style="gap:12px">
+        <label class="f">Huidig wachtwoord <input id="k-eigen-huidig" class="inp" type="password" autocomplete="current-password"></label>
+        <label class="f">Nieuw wachtwoord <input id="k-eigen-nieuw" class="inp" type="password" autocomplete="new-password"></label>
+        <div class="row"><button class="btn primary" type="submit">Opslaan</button></div>
+        <p id="k-eigen-fout" class="err-txt"></p>
+      </form>
+    </div>
+    <div class="gevaar section">
+      <h2>Alles wissen</h2>
+      <p class="small">Wist alle leerlingen, klassen en resultaten van <b>je eigen</b> klassen. Je account blijft bestaan. Dit kan niet ongedaan worden.</p>
+      <div class="row">
+        <input id="k-bevestig" class="inp kort" placeholder="typ WISSEN">
+        <button class="btn danger" id="k-knop-wis-alles" type="button">Alles wissen</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+// Gedeeld: welk scherm zichtbaar is, en de afmeld-acties van beide rollen.
+var afmeldActies = [];
+var SCHERMEN = ['keuze', 'l-inloggen', 'l-werk', 'l-klaar', 'k-inloggen', 'k-wijzigen', 'k-beheer'];
+
+function toonScherm(id) {
+  SCHERMEN.forEach(function (s) { document.getElementById(s).hidden = (s !== id); });
+}
+function toonUit(zichtbaar, naam) {
+  document.getElementById('uit').hidden = !zichtbaar;
+  document.getElementById('wie').textContent = naam || '';
+}
+function toonKeuze() {
+  afmeldActies.forEach(function (f) { f(); });
+  toonUit(false, '');
+  toonScherm('keuze');
+}
+document.getElementById('uit').onclick = toonKeuze;
+document.getElementById('kies-leerling').onclick = function () { toonScherm('l-inloggen'); toonUit(false, ''); leerlingKlassen(); };
+document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k-inloggen'); toonUit(false, ''); };
+</script>
+
+<script>
+// ===== Leerling =====
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var token = null, huidig = null, bezig = false, klaarVoorVolgende = false;
+  var actief = 0, laatsteActiviteit = Date.now();
+
+  // Roept een serverfunctie aan en geeft een Promise terug.
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (ok, nok) {
+      google.script.run.withSuccessHandler(ok).withFailureHandler(nok)[fn].apply(null, args);
+    });
+  }
+  function melding(e) { return String((e && e.message) || e).replace(/^Error: /, ''); }
+  function meld(tekst) { alert(tekst); }
+  function eyebrow_(tekst) { var e = document.createElement('div'); e.className = 'eyebrow'; e.textContent = tekst; return e; }
+  function alinea_(tekst) { var p = document.createElement('p'); p.textContent = tekst; return p; }
+
+  // Actieve tijd: alleen tellen als de pagina zichtbaar is en er in het afgelopen minuut iets gebeurde.
+  ['keydown', 'pointerdown', 'input', 'touchstart'].forEach(function (ev) {
+    document.addEventListener(ev, function () { laatsteActiviteit = Date.now(); }, true);
+  });
+  setInterval(function () {
+    if (!token || document.visibilityState !== 'visible') return;
+    if (Date.now() - laatsteActiviteit > 60000) return;
+    actief++;
+  }, 1000);
+
+  function toonInloggen(tekst) {
+    token = null; huidig = null;
+    toonScherm('l-inloggen');
+    toonUit(false, '');
+    $('l-login-fout').textContent = tekst || '';
+  }
+
+  async function laadKlassen() {
+    var lijst = await call('klassen');
+    var sel = $('l-klas');
+    sel.innerHTML = '';
+    lijst.forEach(function (k) {
+      var o = document.createElement('option');
+      o.value = k.id; o.textContent = k.naam;
+      sel.append(o);
+    });
+  }
+  window.leerlingKlassen = function () { laadKlassen().catch(function (e) { $('l-login-fout').textContent = melding(e); }); };
+
+  $('l-login-f').onsubmit = async function (ev) {
+    ev.preventDefault();
+    $('l-login-fout').textContent = '';
+    $('l-knop-login').disabled = true;
+    var herhaalZichtbaar = !$('l-herhaal-blok').hidden;
+    if (herhaalZichtbaar && !$('l-herhaal').value.trim()) {
+      $('l-login-fout').textContent = 'Typ je code nog eens bij "Herhaal je code".';
+      $('l-knop-login').disabled = false;
+      return;
+    }
+    try {
+      var r = await call('loginLeerling', $('l-klas').value, $('l-naam').value, $('l-code').value,
+        herhaalZichtbaar ? $('l-herhaal').value : undefined);
+      if (r.kiesCode) {
+        // Eerste aanmelding: de leerling herhaalt zijn nieuwe code.
+        $('l-herhaal-blok').hidden = false;
+        $('l-herhaal').value = '';
+        $('l-herhaal').focus();
+        return;
+      }
+      token = r.token;
+      $('l-code').value = '';
+      $('l-herhaal-blok').hidden = true;
+      $('l-herhaal').value = '';
+      toonUit(true, $('l-naam').value.trim());
+      await toonVoortgang();
+    } catch (e) {
+      $('l-login-fout').textContent = melding(e);
+    } finally {
+      $('l-knop-login').disabled = false;
+    }
+  };
+
+  $('l-terug').onclick = function () { toonKeuze(); };
+  afmeldActies.push(function () { token = null; huidig = null; });
+
+  function toonFeedback(soort, tekst, hint) {
+    var f = $('l-fb');
+    f.innerHTML = '';
+    var box = document.createElement('div');
+    box.className = 'fb ' + soort;
+    box.setAttribute('role', 'status');
+    var t = document.createElement('div');
+    t.className = 'ft';
+    t.textContent = tekst;
+    box.append(t);
+    if (hint) {
+      var p = document.createElement('p');
+      p.textContent = '💡 ' + hint;
+      box.append(p);
+    }
+    f.append(box);
+  }
+
+  function invoer(label) {
+    var i = document.createElement('input');
+    i.type = 'text';
+    i.inputMode = 'decimal';
+    i.autocomplete = 'off';
+    i.className = 'inp';
+    if (label) i.setAttribute('aria-label', label);
+    return i;
+  }
+
+  async function toonVoortgang() {
+    var r;
+    try {
+      r = await call('voortgang', token);
+    } catch (e) {
+      if (/Niet ingelogd/.test(melding(e))) { toonInloggen('Je aanmelding is verlopen. Meld opnieuw aan.'); return; }
+      meld(melding(e));
+      return;
+    }
+
+    $('l-fb').innerHTML = '';
+    $('l-volgende-rij').hidden = true;
+    $('l-knop-controle').hidden = false;
+    klaarVoorVolgende = false;
+    bezig = false;
+    actief = 0;
+
+    if (r.klaar) {
+      toonScherm('l-klaar');
+      return;
+    }
+
+    huidig = r;
+    toonScherm('l-werk');
+
+    // Weekdoel
+    var doel = r.week.doel || 1;
+    var pct = Math.min(100, Math.round(r.week.min / doel * 100));
+    $('l-week-bar').style.width = pct + '%';
+    $('l-week-bar').parentNode.classList.toggle('ok', r.week.min >= r.week.doel);
+    $('l-week-tekst').textContent = r.week.min + ' van ' + r.week.doel + ' min';
+
+    $('l-module').textContent = r.module.titel;
+    $('l-hallo').textContent = 'Hallo, ' + document.getElementById('wie').textContent;
+    var gedaanInOef = r.oefening.stappen.filter(function (x) { return x === 'ok'; }).length;
+    $('l-oef-pill').textContent = 'Stap ' + (gedaanInOef + 1) + ' van ' + r.oefening.stappen.length;
+    $('l-verb').textContent = r.oefening.titel;
+    $('l-vraag').textContent = r.stap.prompt;
+
+    // Theorie en uitleg
+    var u = $('l-uitleg');
+    u.innerHTML = '';
+    if (r.theorie && r.theorie.length) {
+      u.append(eyebrow_('Theorie'));
+      r.theorie.forEach(function (tekst) { u.append(alinea_(tekst)); });
+    }
+    if (r.uitleg) {
+      u.append(eyebrow_('Uitleg bij deze oefening'));
+      u.append(alinea_(r.uitleg));
+    }
+    u.hidden = u.childNodes.length === 0;
+
+    // Stippen: de stappen van deze oefening
+    var dots = $('l-dots');
+    dots.innerHTML = '';
+    r.oefening.stappen.forEach(function (status) {
+      var i = document.createElement('i');
+      if (status) i.className = status;
+      dots.append(i);
+    });
+
+    // Invoervelden
+    var v = $('l-velden');
+    v.innerHTML = '';
+    var s = r.stap;
+    if (s.type === 'num') {
+      v.append(invoer('Antwoord'));
+    } else if (s.type === 'multi') {
+      s.velden.forEach(function (lab) {
+        var l = document.createElement('label');
+        l.className = 'f';
+        l.textContent = lab + ' =';
+        l.append(invoer(lab));
+        v.append(l);
+      });
+    } else {
+      var sel = document.createElement('select');
+      sel.className = 'inp';
+      sel.setAttribute('aria-label', 'Antwoord');
+      var leeg = document.createElement('option');
+      leeg.value = ''; leeg.textContent = 'kies…';
+      sel.append(leeg);
+      s.opties.forEach(function (o) {
+        var op = document.createElement('option');
+        op.value = o; op.textContent = o;
+        sel.append(op);
+      });
+      v.append(sel);
+    }
+    Array.prototype.forEach.call(v.querySelectorAll('input, select'), function (x) { x.disabled = false; });
+    $('l-knop-controle').disabled = false;
+    var eerste = v.querySelector('input, select');
+    if (eerste) eerste.focus();
+  }
+
+  $('l-ans-f').onsubmit = async function (ev) {
+    ev.preventDefault();
+    if (!huidig || bezig || klaarVoorVolgende) return;
+    var s = huidig.stap;
+    var velden = Array.prototype.slice.call($('l-velden').querySelectorAll('input, select'));
+    if (velden.some(function (x) { return !x.value.trim(); })) {
+      toonFeedback('half', 'Vul eerst alle velden in.');
+      return;
+    }
+    var antwoord = s.type === 'multi' ? velden.map(function (x) { return x.value; }) : velden[0].value;
+
+    bezig = true;
+    $('l-knop-controle').disabled = true;
+    var sec = actief; // tijd sinds de vorige poging; daarna opnieuw tellen
+    actief = 0;
+
+    var r;
+    try {
+      r = await call('antwoord', token, huidig.module.id, s.sleutel, antwoord, sec);
+    } catch (e) {
+      bezig = false;
+      $('l-knop-controle').disabled = false;
+      if (/Niet ingelogd/.test(melding(e))) { toonInloggen('Je aanmelding is verlopen. Meld opnieuw aan.'); return; }
+      // Stap niet aan de beurt of verouderd: opnieuw laden.
+      await toonVoortgang();
+      return;
+    }
+    bezig = false;
+
+    if (r.juist) {
+      klaarVoorVolgende = true;
+      velden.forEach(function (x) { x.disabled = true; });
+      $('l-knop-controle').hidden = true;
+      toonFeedback('ok', '✔ Juist.');
+      $('l-volgende-rij').hidden = false;
+      $('l-volgende').focus();
+      return;
+    }
+
+    $('l-knop-controle').disabled = false;
+    if (r.score === 0.5) {
+      toonFeedback('half', 'Deels juist. Controleer de andere waarde.', r.hint);
+    } else {
+      toonFeedback('no', 'Nog niet goed. Probeer opnieuw.', r.hint);
+    }
+  };
+
+  $('l-volgende').onclick = function () { toonVoortgang(); };
+
+  // Enter op de lege oefening gaat naar de volgende stap, zodat het tempo van de leerling blijft.
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && klaarVoorVolgende && !$('l-volgende-rij').hidden && token) {
+      ev.preventDefault();
+      toonVoortgang();
+    }
+  });
+})();
+</script>
+
+<script>
+// ===== Leerkracht =====
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var token = null;
+  var rijen = [], stappen = [], weekDoel = 30;
+
+  // Roept een serverfunctie aan en geeft een Promise terug.
+  function call(fn) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return new Promise(function (ok, nok) {
+      google.script.run.withSuccessHandler(ok).withFailureHandler(nok)[fn].apply(null, args);
+    });
+  }
+  function melding(e) { return String((e && e.message) || e).replace(/^Error: /, ''); }
+  function meld(tekst) { alert(tekst); }
+  function cel(tekst, klasse) {
+    var td = document.createElement('td');
+    if (klasse) td.className = klasse;
+    td.textContent = tekst;
+    return td;
+  }
+  function knop(tekst, actie, klasse) {
+    var b = document.createElement('button');
+    b.className = 'btn sm ' + (klasse || '');
+    b.type = 'button';
+    b.textContent = tekst;
+    b.onclick = actie;
+    return b;
+  }
+  function pct(a, b) { return b ? Math.round(a / b * 100) : 0; }
+  function toonMelding(tekst) {
+    var m = $('k-code-melding');
+    m.hidden = false;
+    m.textContent = tekst;
+  }
+
+  function toonBeheer(naam) {
+    toonScherm('k-beheer');
+    toonUit(true, naam || '');
+    laadKlassen().catch(function (e) { meld(melding(e)); });
+  }
+  afmeldActies.push(function () { token = null; });
+
+  $('k-login-f').onsubmit = async function (ev) {
+    ev.preventDefault();
+    $('k-login-fout').textContent = '';
+    $('k-knop-login').disabled = true;
+    try {
+      var r = await call('loginLeerkracht', $('k-gebruiker').value, $('k-ww').value);
+      token = r.token;
+      $('k-ww').value = '';
+      if (r.moetWijzigen) {
+        toonScherm('k-wijzigen');
+        toonUit(false, '');
+      } else {
+        toonBeheer($('k-gebruiker').value.trim());
+      }
+    } catch (e) {
+      $('k-login-fout').textContent = melding(e);
+    } finally {
+      $('k-knop-login').disabled = false;
+    }
+  };
+
+  $('k-terug').onclick = function () { toonKeuze(); };
+
+  $('k-wijzig-f').onsubmit = async function (ev) {
+    ev.preventDefault();
+    $('k-wijzig-fout').textContent = '';
+    try {
+      await call('wijzigEigenWachtwoord', token, $('k-wijzig-huidig').value, $('k-wijzig-nieuw').value);
+      $('k-wijzig-huidig').value = ''; $('k-wijzig-nieuw').value = '';
+      toonBeheer($('k-gebruiker').value.trim());
+    } catch (e) {
+      $('k-wijzig-fout').textContent = melding(e);
+    }
+  };
+
+  $('k-eigen-f').onsubmit = async function (ev) {
+    ev.preventDefault();
+    $('k-eigen-fout').textContent = '';
+    try {
+      await call('wijzigEigenWachtwoord', token, $('k-eigen-huidig').value, $('k-eigen-nieuw').value);
+      $('k-eigen-huidig').value = ''; $('k-eigen-nieuw').value = '';
+      meld('Je wachtwoord is gewijzigd.');
+    } catch (e) {
+      $('k-eigen-fout').textContent = melding(e);
+    }
+  };
+
+  // Tabbladen
+  document.querySelectorAll('#k-beheer .tab').forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll('#k-beheer .tab').forEach(function (x) { x.classList.toggle('on', x === b); });
+      document.querySelectorAll('#k-beheer [data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== b.dataset.tab; });
+    };
+  });
+
+  async function laadKlassen() {
+    var huidige = $('k-klassen').value;
+    var lijst = await call('lkKlassen', token);
+    var sel = $('k-klassen');
+    sel.innerHTML = '';
+    lijst.forEach(function (k) {
+      var o = document.createElement('option');
+      o.value = k.id;
+      o.textContent = k.naam + ' (' + k.aantal + ')';
+      sel.append(o);
+    });
+    if (huidige) sel.value = huidige;
+    await laadVoortgang();
+  }
+
+  async function laadVoortgang() {
+    var klas = $('k-klassen').value;
+    if (!klas) { rijen = []; stappen = []; toonVoortgang(); toonLeerlingen(); return; }
+    var r = await call('voortgangKlas', token, klas);
+    rijen = r.rijen; stappen = r.stappen; weekDoel = r.doel;
+    toonVoortgang();
+    toonLeerlingen();
+  }
+
+  function toonVoortgang() {
+    var tbody = $('k-voortgang');
+    tbody.innerHTML = '';
+
+    var kop = $('k-heat-kop');
+    kop.colSpan = Math.max(1, stappen.length);
+    kop.textContent = stappen.length ? 'Stappen (1 t/m ' + stappen.length + ')' : '';
+
+    var n = rijen.length;
+    $('k-s-aantal').textContent = n;
+    $('k-s-gem').textContent = n ? Math.round(rijen.reduce(function (s, x) { return s + pct(x.gedaan, x.totaal); }, 0) / n) + '%' : '–';
+    $('k-s-week').textContent = n ? Math.round(rijen.reduce(function (s, x) { return s + x.weekMin; }, 0) / n) : '–';
+    $('k-s-niet').textContent = n ? rijen.filter(function (x) { return x.weekMin === 0; }).length : '–';
+
+    rijen.forEach(function (l) {
+      var tr = document.createElement('tr');
+      var voortgangTd = document.createElement('td');
+      var wrap = document.createElement('div');
+      wrap.style.display = 'flex'; wrap.style.gap = '8px'; wrap.style.alignItems = 'center';
+      var bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.style.width = '90px';
+      var i = document.createElement('i');
+      i.style.width = pct(l.gedaan, l.totaal) + '%';
+      bar.append(i);
+      var t = document.createElement('span');
+      t.className = 'num small';
+      t.textContent = l.gedaan + '/' + l.totaal;
+      wrap.append(bar, t);
+      voortgangTd.append(wrap);
+
+      var weekTd = document.createElement('td');
+      var pill = document.createElement('span');
+      pill.className = 'pill ' + (l.weekMin >= weekDoel ? 'g' : (l.weekMin > 0 ? 'a' : 'r'));
+      pill.textContent = l.weekMin + ' / ' + weekDoel + ' min';
+      weekTd.append(pill);
+
+      tr.append(cel(l.naam), voortgangTd, weekTd, cel(l.minuten + ' min'), cel(l.laatste), cel(l.huidig, 'fout-tekst'));
+      l.heat.forEach(function (status, k) {
+        var td = document.createElement('td');
+        td.className = 'hc';
+        var d = document.createElement('i');
+        d.className = 'mdot ' + ({ ok: 'l4', half: 'l2', no: 'l1', cur: 'cur' }[status] || 'l0');
+        d.title = (stappen[k] || '') + ' – ' + (status === 'ok' ? 'klaar' : status === 'cur' ? 'nu bezig' : status === 'half' ? 'deels juist' : status === 'no' ? 'fouten' : 'nog niet begonnen');
+        td.append(d);
+        tr.append(td);
+      });
+      tbody.append(tr);
+    });
+    if (!rijen.length) {
+      var leeg = document.createElement('tr');
+      leeg.append(cel('Nog geen leerlingen in deze klas.', 'muted'));
+      tbody.append(leeg);
+    }
+  }
+
+  function toonLeerlingen() {
+    var tbody = $('k-leerlingen');
+    tbody.innerHTML = '';
+    rijen.forEach(function (l) {
+      var tr = document.createElement('tr');
+      var codeTd = document.createElement('td');
+      var codePill = document.createElement('span');
+      codePill.className = 'pill ' + (l.heeftCode ? 'g' : 'n');
+      codePill.textContent = l.heeftCode ? 'ingesteld' : 'nog geen';
+      codeTd.append(codePill);
+      var acties = document.createElement('td');
+      acties.append(
+        knop('Code resetten', async function () {
+          if (!confirm('De pincode van ' + l.naam + ' resetten? Die kiest bij de volgende aanmelding een nieuwe code.')) return;
+          try {
+            await call('nieuweCode', token, l.id);
+            toonMelding(l.naam + ': pincode is gereset. Die kiest bij de volgende aanmelding een nieuwe code.');
+            await laadVoortgang();
+          } catch (e) { meld(melding(e)); }
+        }),
+        knop('Verwijderen', async function () {
+          if (!confirm('Alle gegevens van ' + l.naam + ' wissen?')) return;
+          try {
+            await call('verwijderLeerling', token, l.id);
+            await laadVoortgang();
+          } catch (e) { meld(melding(e)); }
+        }, 'danger')
+      );
+      tr.append(cel(l.naam), codeTd, cel(l.gedaan + ' / ' + l.totaal), cel(l.weekMin + ' min deze week'), acties);
+      tbody.append(tr);
+    });
+  }
+
+  $('k-klassen').onchange = function () { laadVoortgang().catch(function (e) { meld(melding(e)); }); };
+  $('k-vernieuwen').onclick = function () { laadKlassen().catch(function (e) { meld(melding(e)); }); };
+
+  $('k-knop-klas-toevoegen').onclick = async function () {
+    try {
+      await call('voegKlasToe', token, $('k-nieuwe-klas').value);
+      $('k-nieuwe-klas').value = '';
+      await laadKlassen();
+    } catch (e) { meld(melding(e)); }
+  };
+
+  $('k-knop-klas-verwijderen').onclick = async function () {
+    var sel = $('k-klassen');
+    if (!sel.value) return;
+    if (!confirm('Klas "' + sel.options[sel.selectedIndex].textContent + '" en alle leerlingen en resultaten wissen?')) return;
+    try {
+      await call('verwijderKlas', token, sel.value);
+      await laadKlassen();
+    } catch (e) { meld(melding(e)); }
+  };
+
+  $('k-knop-leerling-toevoegen').onclick = async function () {
+    var klas = $('k-klassen').value;
+    if (!klas) return meld('Kies eerst een klas.');
+    try {
+      var r = await call('voegLeerlingToe', token, klas, $('k-leerling-naam').value);
+      $('k-leerling-naam').value = '';
+      toonMelding(r.naam + ' is toegevoegd. Die kiest bij de eerste aanmelding zelf een pincode.');
+      await laadKlassen();
+    } catch (e) { meld(melding(e)); }
+  };
+
+  $('k-knop-fouten').onclick = async function () {
+    var klas = $('k-klassen').value;
+    var tbody = $('k-fouten');
+    tbody.innerHTML = '';
+    if (!klas) return;
+    try {
+      var r = await call('foutenKlas', token, klas, $('k-module').value);
+      r.stappen.forEach(function (s) {
+        var tr = document.createElement('tr');
+        var meest = s.veelvoorkomend.length
+          ? s.veelvoorkomend.map(function (x) { return x.antwoord + ' (' + x.aantal + '×)'; }).join(', ')
+          : '—';
+        var ratio = s.pogingen ? s.fout / s.pogingen : 0;
+        var fouttd = document.createElement('td');
+        var pill = document.createElement('span');
+        pill.className = 'pill ' + (s.pogingen === 0 ? 'n' : ratio >= 0.5 ? 'r' : ratio >= 0.25 ? 'a' : 'g');
+        pill.textContent = s.fout;
+        fouttd.append(pill);
+        tr.append(cel(s.oefening), cel(s.vraag, 'fout-tekst'), cel(String(s.pogingen)), fouttd, cel(meest, 'fout-tekst'));
+        tbody.append(tr);
+      });
+    } catch (e) { meld(melding(e)); }
+  };
+
+  $('k-knop-wis-alles').onclick = async function () {
+    try {
+      await call('wisAlles', token, $('k-bevestig').value);
+      $('k-bevestig').value = '';
+      meld('Alle leerlinggegevens van je klassen zijn gewist.');
+      await laadKlassen();
+    } catch (e) { meld(melding(e)); }
+  };
+})();
+</script>
+</body>
+</html>
