@@ -73,7 +73,9 @@ IGNORE_PATTERN = re.compile(
     r"|/vendor/|^vendor/|^component-lib/declarations/apache-arrow"
     r"|proto/streamlit/proto/openmetrics_data_model\.proto"
     # Exclude patch files.
-    r"|\.patch$",
+    r"|\.patch$"
+    # Exclude the Oefenpad Apps Script project, which is not part of Streamlit.
+    r"|^oefenpad/",
     re.IGNORECASE,
 )
 

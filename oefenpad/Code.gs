@@ -1,14 +1,18 @@
 // Server-kant van het oefenpad. Draait in Google Apps Script, gekoppeld aan één spreadsheet.
 //
-// Tabbladen (maak ze aan met setupSheets):
+// Tabbladen (worden vanzelf aangemaakt als ze ontbreken; setupSheets doet ze allemaal in één keer):
 //   Leerkrachten: id, gebruikersnaam, salt, hash, moet_wijzigen
-//   Klassen:      id, naam, leerkracht_id
-//   Leerlingen:   id, klas_id, naam, salt, hash       (alleen voornaam + eventueel initiaal)
+//   Klassen:      id, naam, leerkracht_id                 (leerkracht_id = eigenaar van de klas)
+//   Gedeeld:      klas_id, leerkracht_id                  (collega's met wie de eigenaar de klas deelt)
+//   Leerlingen:   id, klas_id, naam, salt, hash           (alleen voornaam + eventueel initiaal)
 //   Pogingen:     tijd, leerling_id, module, stap, antwoord, juist (1 / 0,5 deels / 0), seconden (actief)
 //   Bekeken:      leerling_id, module, stap, tijd
 //
 // Beheer (leerkrachten toevoegen, wachtwoorden herstellen) gebeurt door de beheerder in de editor.
-// Elke leerkracht ziet alleen eigen klassen.
+// Een leerkracht ziet haar eigen klassen en de klassen die een collega met haar deelt.
+//
+// Snelheid: elk verzoek leest elk tabblad hoogstens één keer. Een juist antwoord geeft meteen de
+// volgende stap mee, zodat de pagina per stap maar één keer op de server wacht.
 
 const LOGIN_MAX = 5;            // mislukte pogingen per venster
 const LOGIN_SEC = 900;          // 15 minuten
@@ -19,6 +23,7 @@ const GELDIGE_NAAM = /^[\p{L}][\p{L}' .\-]{0,19}$/u;
 const TABBLADEN = {
   Leerkrachten: ['id', 'gebruikersnaam', 'salt', 'hash', 'moet_wijzigen'],
   Klassen: ['id', 'naam', 'leerkracht_id'],
+  Gedeeld: ['klas_id', 'leerkracht_id'],
   Leerlingen: ['id', 'klas_id', 'naam', 'salt', 'hash'],
   Pogingen: ['tijd', 'leerling_id', 'module', 'stap', 'antwoord', 'juist', 'seconden'],
   Bekeken: ['leerling_id', 'module', 'stap', 'tijd'],
@@ -33,9 +38,19 @@ function doGet(e) {
 }
 
 // ---------- Spreadsheet-hulpfuncties ----------
+// Een ontbrekend tabblad wordt aangemaakt met de juiste kopregel (bv. Gedeeld na een update).
 function sheet_(naam) {
-  const s = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(naam);
-  if (!s) throw new Error('Tabblad ontbreekt: ' + naam + '. Voer eerst setupSheets uit.');
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const s = ss.getSheetByName(naam);
+  if (s) return s;
+  if (!TABBLADEN[naam]) throw new Error('Tabblad ontbreekt: ' + naam + '.');
+  return maakTabblad_(ss, naam);
+}
+
+function maakTabblad_(ss, naam) {
+  let s = ss.getSheetByName(naam);
+  if (!s) s = ss.insertSheet(naam);
+  if (s.getLastRow() === 0) s.appendRow(TABBLADEN[naam]);
   return s;
 }
 
@@ -57,16 +72,21 @@ function voegToe_(naam, obj) {
   sheet_(naam).appendRow(h.map(function (k) { return obj[k] === undefined ? '' : obj[k]; }));
 }
 
-// Verwijdert rijen waarvoor pred(rij) waar is. Van onder naar boven, zodat indexen kloppen.
+// Verwijdert rijen waarvoor pred(rij) waar is. Leest het tabblad één keer en schrijft de rijen die
+// blijven in één keer terug: rij per rij verwijderen duurt minuten bij een klas met veel pogingen.
 function verwijderWaar_(naam, pred) {
   const s = sheet_(naam);
   const v = s.getDataRange().getValues();
+  if (v.length < 2) return;
   const h = v[0];
-  for (let i = v.length - 1; i >= 1; i--) {
+  const blijven = v.slice(1).filter(function (r) {
     const obj = {};
-    h.forEach(function (k, j) { obj[k] = v[i][j]; });
-    if (pred(obj)) s.deleteRow(i + 1);
-  }
+    h.forEach(function (k, j) { obj[k] = r[j]; });
+    return !pred(obj);
+  });
+  if (blijven.length === v.length - 1) return;
+  s.getRange(2, 1, v.length - 1, h.length).clearContent();
+  if (blijven.length) s.getRange(2, 1, blijven.length, h.length).setValues(blijven);
 }
 
 // Past rijen aan waarvoor pred waar is.
@@ -130,17 +150,31 @@ function gelukt_(sleutel) {
   CacheService.getScriptCache().remove('fail|' + sleutel);
 }
 
-// ---------- Eigenaarschap (leerkracht ziet alleen eigen klassen) ----------
-function eigenKlas_(s, klasId) {
-  const k = leesTabel_('Klassen').find(function (x) { return String(x.id) === String(klasId); });
-  if (!k || String(k.leerkracht_id) !== String(s.id)) throw new Error('Klas niet gevonden.');
-  return k;
+// ---------- Toegang tot klassen ----------
+// Elke klas heeft één eigenaar. De eigenaar kan de klas delen met collega's. Een collega ziet de
+// voortgang en de fouten, kan leerlingen toevoegen en codes resetten. Alleen de eigenaar kan
+// leerlingen of de klas verwijderen en beslissen met wie de klas gedeeld is.
+function rolInKlas_(s, klas, gedeeld) {
+  if (!klas) return null;
+  if (String(klas.leerkracht_id) === String(s.id)) return 'eigenaar';
+  const collega = gedeeld.some(function (g) {
+    return String(g.klas_id) === String(klas.id) && String(g.leerkracht_id) === String(s.id);
+  });
+  return collega ? 'collega' : null;
 }
 
-function eigenLeerling_(s, leerlingId) {
+function eisKlas_(s, klasId, alleenEigenaar) {
+  const klas = leesTabel_('Klassen').find(function (k) { return String(k.id) === String(klasId); });
+  const rol = rolInKlas_(s, klas, leesTabel_('Gedeeld'));
+  if (!rol) throw new Error('Klas niet gevonden.');
+  if (alleenEigenaar && rol !== 'eigenaar') throw new Error('Alleen de eigenaar van de klas kan dit.');
+  return klas;
+}
+
+function eisLeerling_(s, leerlingId, alleenEigenaar) {
   const l = leesTabel_('Leerlingen').find(function (x) { return String(x.id) === String(leerlingId); });
   if (!l) throw new Error('Leerling niet gevonden.');
-  eigenKlas_(s, l.klas_id);
+  eisKlas_(s, l.klas_id, alleenEigenaar);
   return l;
 }
 
@@ -153,13 +187,14 @@ function eigenKlasIds_(s) {
 // ---------- Leerling ----------
 function klassen() {
   return leesTabel_('Klassen')
-    .map(function (k) { return { id: String(k.id), naam: k.naam }; })
+    .map(function (k) { return { id: String(k.id), naam: String(k.naam) }; })
     .sort(function (a, b) { return a.naam.localeCompare(b.naam); });
 }
 
 // Elke leerling heeft een eigen pincode. Bij de eerste aanmelding kiest de leerling die zelf:
 // eerst de code, daarna dezelfde code nog eens bij herhaal. Zo kan niemand onder een andere naam oefenen
 // zonder de pincode van die leerling.
+// Geeft meteen de eerste stap mee, zodat de pagina niet nog een keer moet wachten.
 function loginLeerling(klasId, naam, code, herhaal) {
   const n = String(naam || '').trim();
   const sleutel = 'l|' + klasId + '|' + n.toLowerCase();
@@ -188,10 +223,15 @@ function loginLeerling(klasId, naam, code, herhaal) {
     throw new Error('Naam of code klopt niet.');
   }
   gelukt_(sleutel);
-  return { token: maakSessie_('leerling', l.id, false) };
+  const eigen = pogingenVan_(l.id);
+  return {
+    token: maakSessie_('leerling', l.id, false),
+    naam: String(l.naam),
+    staat: staat_(l.id, eigen, gedaanUit_(eigen), false),
+  };
 }
 
-// Actieve minuten sinds maandag. Telt alleen de tijd met echte activiteit (zie Leerling.html).
+// Actieve minuten sinds maandag. Telt alleen de tijd met echte activiteit (zie Oefenpad.html).
 function maandagMs_() {
   const nu = new Date();
   return new Date(nu.getFullYear(), nu.getMonth(), nu.getDate() - ((nu.getDay() + 6) % 7)).getTime();
@@ -205,29 +245,52 @@ function weekMin_(pogingen) {
   return Math.round(sec / 60);
 }
 
-function gedaanSet_(leerlingId) {
+function pogingenVan_(leerlingId) {
+  return leesTabel_('Pogingen').filter(function (p) { return String(p.leerling_id) === String(leerlingId); });
+}
+
+function gedaanUit_(pogingen) {
   const set = new Set();
-  leesTabel_('Pogingen').forEach(function (p) {
+  pogingen.forEach(function (p) {
     // juist = 1 (volledig goed), 0.5 (deels goed) of 0. Alleen 1 telt als gedaan.
-    if (String(p.leerling_id) === String(leerlingId) && Number(p.juist) === 1) {
-      set.add(p.module + '/' + p.stap);
-    }
+    if (Number(p.juist) === 1) set.add(p.module + '/' + p.stap);
   });
   return set;
 }
 
-function voortgang(token) {
-  const s = eisSessie_(token, 'leerling');
-  const gedaan = gedaanSet_(s.id);
-  const huidig = bepaalHuidig_(gedaan);
-  if (!huidig) return { klaar: true, voortgang: { gedaan: gedaan.size, totaal: totaal_() } };
+// "Bekeken" onthoudt dat de leerling een stap te zien kreeg; pas dan mag die stap beantwoord worden.
+// De cache spaart het inlezen van het hele tabblad bij bijna elke controle.
+function bekekenSleutel_(leerlingId, moduleId, stap) {
+  return 'b|' + leerlingId + '|' + moduleId + '|' + stap;
+}
 
-  const bekeken = leesTabel_('Bekeken').some(function (b) {
-    return String(b.leerling_id) === String(s.id) && b.module === huidig.mod.id && b.stap === huidig.sleutel;
+function isBekeken_(leerlingId, moduleId, stap) {
+  const cache = CacheService.getScriptCache();
+  const sleutel = bekekenSleutel_(leerlingId, moduleId, stap);
+  if (cache.get(sleutel)) return true;
+  const gezien = leesTabel_('Bekeken').some(function (b) {
+    return String(b.leerling_id) === String(leerlingId) && String(b.module) === moduleId && String(b.stap) === stap;
   });
-  if (!bekeken) {
-    voegToe_('Bekeken', { leerling_id: s.id, module: huidig.mod.id, stap: huidig.sleutel, tijd: new Date().getTime() });
-  }
+  if (gezien) cache.put(sleutel, '1', SESSIE_SEC);
+  return gezien;
+}
+
+// nieuw: de stap is net vrijgekomen en kan dus nog niet bekeken zijn, zodat we niet hoeven te zoeken.
+function markeerBekeken_(leerlingId, moduleId, stap, nieuw) {
+  if (!nieuw && isBekeken_(leerlingId, moduleId, stap)) return;
+  voegToe_('Bekeken', { leerling_id: leerlingId, module: moduleId, stap: stap, tijd: new Date().getTime() });
+  CacheService.getScriptCache().put(bekekenSleutel_(leerlingId, moduleId, stap), '1', SESSIE_SEC);
+}
+
+// De stap die nu aan de beurt is, met de voortgang van de leerling.
+function staat_(leerlingId, eigen, gedaan, nieuw) {
+  const totaal = totaal_();
+  const voortgang = { gedaan: Math.min(gedaan.size, totaal), totaal: totaal };
+  const week = { min: weekMin_(eigen), doel: WEEKDOEL_MIN };
+  const huidig = bepaalHuidig_(gedaan);
+  if (!huidig) return { klaar: true, voortgang: voortgang, week: week };
+
+  markeerBekeken_(String(leerlingId), huidig.mod.id, huidig.sleutel, nieuw);
 
   // Uitleg: de theorie van de module bij het begin van de module, de uitleg van de oefening bij de eerste stap.
   const stapIndex = huidig.oef.stappen.indexOf(huidig.stap);
@@ -246,9 +309,9 @@ function voortgang(token) {
     klaar: false,
     theorie: theorie,
     uitleg: uitleg,
-    module: { id: huidig.mod.id, titel: huidig.mod.titel },
-    oefening: { titel: huidig.oef.titel, stappen: oefStappen },
-    week: { min: weekMin_(leesTabel_('Pogingen').filter(function (p) { return String(p.leerling_id) === String(s.id); })), doel: WEEKDOEL_MIN },
+    module: { id: huidig.mod.id, titel: huidig.mod.titel, nr: MODULES.indexOf(huidig.mod) + 1, aantal: MODULES.length },
+    oefening: { titel: huidig.oef.titel, nr: oefIndex + 1, aantal: huidig.mod.oefeningen.length, stappen: oefStappen },
+    week: week,
     stap: {
       sleutel: huidig.sleutel,
       type: huidig.stap.type,
@@ -256,24 +319,30 @@ function voortgang(token) {
       opties: huidig.stap.opties || null,
       velden: huidig.stap.velden ? huidig.stap.velden.map(function (v) { return v.label; }) : null,
     },
-    voortgang: { gedaan: gedaan.size, totaal: totaal_() },
+    voortgang: voortgang,
   };
 }
 
+function voortgang(token) {
+  const s = eisSessie_(token, 'leerling');
+  const eigen = pogingenVan_(s.id);
+  return staat_(s.id, eigen, gedaanUit_(eigen), false);
+}
+
 // actief = seconden met echte activiteit sinds de vorige poging op deze stap (door de pagina gemeten).
+// Bij een juist antwoord zit de volgende stap er meteen bij.
 function antwoord(token, moduleId, stapSleutel, ingevoerd, actief) {
   const s = eisSessie_(token, 'leerling');
-  const huidig = bepaalHuidig_(gedaanSet_(s.id));
+  const eigen = pogingenVan_(s.id);
+  const gedaan = gedaanUit_(eigen);
+  const huidig = bepaalHuidig_(gedaan);
   if (!huidig || huidig.mod.id !== moduleId || huidig.sleutel !== stapSleutel) {
     throw new Error('Deze stap is niet aan de beurt. Ververs de pagina.');
   }
-  const bekeken = leesTabel_('Bekeken').some(function (x) {
-    return String(x.leerling_id) === String(s.id) && x.module === moduleId && x.stap === stapSleutel;
-  });
-  if (!bekeken) throw new Error('Ververs de pagina en probeer opnieuw.');
+  if (!isBekeken_(s.id, moduleId, stapSleutel)) throw new Error('Ververs de pagina en probeer opnieuw.');
 
   const score = controleer_(huidig.stap, ingevoerd); // 1, 0.5 of 0
-  voegToe_('Pogingen', {
+  const poging = {
     tijd: new Date().getTime(),
     leerling_id: s.id,
     module: moduleId,
@@ -281,9 +350,13 @@ function antwoord(token, moduleId, stapSleutel, ingevoerd, actief) {
     antwoord: JSON.stringify(ingevoerd === undefined ? null : ingevoerd).slice(0, 200),
     juist: score,
     seconden: Math.min(300, Math.max(0, Math.round(Number(actief) || 0))),
-  });
-  if (score === 1) return { juist: true, score: 1 };
-  return { juist: false, score: score, hint: huidig.stap.hint };
+  };
+  voegToe_('Pogingen', poging);
+  if (score !== 1) return { juist: false, score: score, hint: huidig.stap.hint };
+
+  eigen.push(poging);
+  gedaan.add(moduleId + '/' + stapSleutel);
+  return { juist: true, score: 1, volgende: staat_(s.id, eigen, gedaan, true) };
 }
 
 // ---------- Leerkracht: inloggen en eigen wachtwoord ----------
@@ -328,71 +401,50 @@ function wijzigEigenWachtwoord(token, huidig, nieuw) {
   return { ok: true };
 }
 
-function lkKlassen(token) {
-  const s = eisSessie_(token, 'leerkracht');
+// ---------- Leerkracht: overzicht ----------
+// Alles wat het dashboard toont, in één verzoek: de klassen waar de leerkracht bij kan en de voortgang
+// van de gekozen klas (of de eerste klas). Elke wijziging geeft dit overzicht ook terug.
+function lkOverzicht(token, klasId) {
+  return overzicht_(eisSessie_(token, 'leerkracht'), klasId);
+}
+
+function overzicht_(s, klasId) {
+  const klassenRijen = leesTabel_('Klassen');
+  const gedeeld = leesTabel_('Gedeeld');
   const leerlingen = leesTabel_('Leerlingen');
-  return leesTabel_('Klassen')
-    .filter(function (k) { return String(k.leerkracht_id) === String(s.id); })
-    .map(function (k) {
-      return {
-        id: String(k.id),
-        naam: k.naam,
-        aantal: leerlingen.filter(function (l) { return String(l.klas_id) === String(k.id); }).length,
-      };
-    })
-    .sort(function (a, b) { return a.naam.localeCompare(b.naam); });
-}
+  const naamVan = {};
+  leesTabel_('Leerkrachten').forEach(function (lk) { naamVan[String(lk.id)] = String(lk.gebruikersnaam); });
+  const aantal = {};
+  leerlingen.forEach(function (l) { aantal[String(l.klas_id)] = (aantal[String(l.klas_id)] || 0) + 1; });
 
-function voegKlasToe(token, naam) {
-  const s = eisSessie_(token, 'leerkracht');
-  const n = String(naam || '').trim();
-  if (!n || n.length > 40) throw new Error('Geef een klasnaam (max. 40 tekens).');
-  voegToe_('Klassen', { id: Utilities.getUuid(), naam: n, leerkracht_id: s.id });
-  return { ok: true };
-}
-
-function verwijderKlas(token, klasId) {
-  const s = eisSessie_(token, 'leerkracht');
-  eigenKlas_(s, klasId);
-  const leerlingIds = leesTabel_('Leerlingen')
-    .filter(function (l) { return String(l.klas_id) === String(klasId); })
-    .map(function (l) { return String(l.id); });
-  verwijderWaar_('Pogingen', function (p) { return leerlingIds.indexOf(String(p.leerling_id)) >= 0; });
-  verwijderWaar_('Bekeken', function (b) { return leerlingIds.indexOf(String(b.leerling_id)) >= 0; });
-  verwijderWaar_('Leerlingen', function (l) { return String(l.klas_id) === String(klasId); });
-  verwijderWaar_('Klassen', function (k) { return String(k.id) === String(klasId); });
-  return { ok: true };
-}
-
-function voegLeerlingToe(token, klasId, naam) {
-  const s = eisSessie_(token, 'leerkracht');
-  eigenKlas_(s, klasId);
-  const n = String(naam || '').trim();
-  if (!GELDIGE_NAAM.test(n)) throw new Error('Gebruik een voornaam, eventueel met initiaal, bv. "Lotte V.".');
-  const dubbel = leesTabel_('Leerlingen').some(function (l) {
-    return String(l.klas_id) === String(klasId) && String(l.naam).toLowerCase() === n.toLowerCase();
+  const lijst = [];
+  klassenRijen.forEach(function (k) {
+    const rol = rolInKlas_(s, k, gedeeld);
+    if (!rol) return;
+    const id = String(k.id);
+    lijst.push({
+      id: id,
+      naam: String(k.naam),
+      aantal: aantal[id] || 0,
+      eigenaar: rol === 'eigenaar',
+      eigenaarNaam: naamVan[String(k.leerkracht_id)] || '?',
+      gedeeldMet: gedeeld
+        .filter(function (g) { return String(g.klas_id) === id; })
+        .map(function (g) { return { id: String(g.leerkracht_id), naam: naamVan[String(g.leerkracht_id)] || '?' }; }),
+    });
   });
-  if (dubbel) throw new Error('Deze leerling staat al in deze klas.');
-  // Geen code: de leerling kiest er zelf een bij de eerste aanmelding.
-  voegToe_('Leerlingen', { id: Utilities.getUuid(), klas_id: klasId, naam: n, salt: '', hash: '' });
-  return { naam: n };
-}
+  // Eerst de eigen klassen, dan de gedeelde, telkens alfabetisch.
+  lijst.sort(function (a, b) { return (b.eigenaar - a.eigenaar) || a.naam.localeCompare(b.naam); });
 
-// Reset de pincode. De leerling kiest bij de volgende aanmelding opnieuw een code.
-function nieuweCode(token, leerlingId) {
-  const s = eisSessie_(token, 'leerkracht');
-  eigenLeerling_(s, leerlingId);
-  updateWaar_('Leerlingen', function (l) { return String(l.id) === String(leerlingId); }, { salt: '', hash: '' });
-  return { ok: true };
-}
-
-function verwijderLeerling(token, leerlingId) {
-  const s = eisSessie_(token, 'leerkracht');
-  eigenLeerling_(s, leerlingId);
-  verwijderWaar_('Pogingen', function (p) { return String(p.leerling_id) === String(leerlingId); });
-  verwijderWaar_('Bekeken', function (b) { return String(b.leerling_id) === String(leerlingId); });
-  verwijderWaar_('Leerlingen', function (l) { return String(l.id) === String(leerlingId); });
-  return { ok: true };
+  const gekozen = lijst.find(function (k) { return k.id === String(klasId); }) || lijst[0] || null;
+  const stappen = alleStappen_();
+  return {
+    klassen: lijst,
+    klasId: gekozen ? gekozen.id : '',
+    doel: WEEKDOEL_MIN,
+    stappen: stappen.map(function (st) { return st.label; }),
+    rijen: gekozen ? voortgangRijen_(gekozen.id, leerlingen, stappen) : [],
+  };
 }
 
 // Alle stappen van alle modules in volgorde, voor de heatmap van de leerkracht.
@@ -408,18 +460,24 @@ function alleStappen_() {
   return lijst;
 }
 
-function voortgangKlas(token, klasId) {
-  const s = eisSessie_(token, 'leerkracht');
-  eigenKlas_(s, klasId);
-  const leerlingen = leesTabel_('Leerlingen')
+function voortgangRijen_(klasId, leerlingen, stappen) {
+  const vanKlas = leerlingen
     .filter(function (l) { return String(l.klas_id) === String(klasId); })
     .sort(function (a, b) { return String(a.naam).localeCompare(String(b.naam)); });
-  const pogingen = leesTabel_('Pogingen');
-  const stappen = alleStappen_();
+  if (!vanKlas.length) return [];
 
-  const rijen = leerlingen.map(function (l) {
+  // Pogingen één keer doorlopen en per leerling verdelen.
+  const perLeerling = {};
+  vanKlas.forEach(function (l) { perLeerling[String(l.id)] = []; });
+  leesTabel_('Pogingen').forEach(function (p) {
+    const eigen = perLeerling[String(p.leerling_id)];
+    if (eigen) eigen.push(p);
+  });
+  const totaal = totaal_();
+
+  return vanKlas.map(function (l) {
     const id = String(l.id);
-    const eigen = pogingen.filter(function (p) { return String(p.leerling_id) === id; });
+    const eigen = perLeerling[id];
     const gedaan = new Set();
     const flags = {}; // per stap: heeft deels juist / fout gehad
     let laatste = 0, seconden = 0;
@@ -444,10 +502,10 @@ function voortgangKlas(token, klasId) {
     });
     return {
       id: id,
-      naam: l.naam,
+      naam: String(l.naam),
       heeftCode: !!l.hash,
-      gedaan: gedaan.size,
-      totaal: totaal_(),
+      gedaan: Math.min(gedaan.size, totaal),
+      totaal: totaal,
       minuten: Math.round(seconden / 60),
       weekMin: weekMin_(eigen),
       laatste: laatste ? new Date(laatste).toLocaleString('nl-BE') : '—',
@@ -455,7 +513,92 @@ function voortgangKlas(token, klasId) {
       heat: heat,
     };
   });
-  return { doel: WEEKDOEL_MIN, stappen: stappen.map(function (st) { return st.label; }), rijen: rijen };
+}
+
+// ---------- Leerkracht: klassen, leerlingen en delen ----------
+function voegKlasToe(token, naam) {
+  const s = eisSessie_(token, 'leerkracht');
+  const n = String(naam || '').trim();
+  if (!n || n.length > 40) throw new Error('Geef een klasnaam (max. 40 tekens).');
+  const id = Utilities.getUuid();
+  voegToe_('Klassen', { id: id, naam: n, leerkracht_id: s.id });
+  return overzicht_(s, id);
+}
+
+function verwijderKlas(token, klasId) {
+  const s = eisSessie_(token, 'leerkracht');
+  eisKlas_(s, klasId, true);
+  verwijderKlassen_([String(klasId)]);
+  return overzicht_(s, '');
+}
+
+// Wist klassen met hun leerlingen, resultaten en delingen. Elk tabblad wordt één keer herschreven.
+function verwijderKlassen_(klasIds) {
+  if (!klasIds.length) return;
+  const klasSet = new Set(klasIds.map(String));
+  const leerlingSet = new Set(leesTabel_('Leerlingen')
+    .filter(function (l) { return klasSet.has(String(l.klas_id)); })
+    .map(function (l) { return String(l.id); }));
+  verwijderWaar_('Pogingen', function (p) { return leerlingSet.has(String(p.leerling_id)); });
+  verwijderWaar_('Bekeken', function (b) { return leerlingSet.has(String(b.leerling_id)); });
+  verwijderWaar_('Leerlingen', function (l) { return klasSet.has(String(l.klas_id)); });
+  verwijderWaar_('Gedeeld', function (g) { return klasSet.has(String(g.klas_id)); });
+  verwijderWaar_('Klassen', function (k) { return klasSet.has(String(k.id)); });
+}
+
+function voegLeerlingToe(token, klasId, naam) {
+  const s = eisSessie_(token, 'leerkracht');
+  eisKlas_(s, klasId, false);
+  const n = String(naam || '').trim();
+  if (!GELDIGE_NAAM.test(n)) throw new Error('Gebruik een voornaam, eventueel met initiaal, bv. "Lotte V.".');
+  const dubbel = leesTabel_('Leerlingen').some(function (l) {
+    return String(l.klas_id) === String(klasId) && String(l.naam).toLowerCase() === n.toLowerCase();
+  });
+  if (dubbel) throw new Error('Deze leerling staat al in deze klas.');
+  // Geen code: de leerling kiest er zelf een bij de eerste aanmelding.
+  voegToe_('Leerlingen', { id: Utilities.getUuid(), klas_id: klasId, naam: n, salt: '', hash: '' });
+  return { naam: n, overzicht: overzicht_(s, klasId) };
+}
+
+// Reset de pincode. De leerling kiest bij de volgende aanmelding opnieuw een code.
+function nieuweCode(token, leerlingId) {
+  const s = eisSessie_(token, 'leerkracht');
+  const l = eisLeerling_(s, leerlingId, false);
+  updateWaar_('Leerlingen', function (x) { return String(x.id) === String(leerlingId); }, { salt: '', hash: '' });
+  return overzicht_(s, l.klas_id);
+}
+
+function verwijderLeerling(token, leerlingId) {
+  const s = eisSessie_(token, 'leerkracht');
+  const l = eisLeerling_(s, leerlingId, true);
+  verwijderWaar_('Pogingen', function (p) { return String(p.leerling_id) === String(leerlingId); });
+  verwijderWaar_('Bekeken', function (b) { return String(b.leerling_id) === String(leerlingId); });
+  verwijderWaar_('Leerlingen', function (x) { return String(x.id) === String(leerlingId); });
+  return overzicht_(s, l.klas_id);
+}
+
+// Deel een eigen klas met een collega (op gebruikersnaam).
+function deelKlas(token, klasId, gebruikersnaam) {
+  const s = eisSessie_(token, 'leerkracht');
+  eisKlas_(s, klasId, true);
+  const n = String(gebruikersnaam || '').trim().toLowerCase();
+  const lk = leesTabel_('Leerkrachten').find(function (x) { return String(x.gebruikersnaam).toLowerCase() === n; });
+  if (!lk) throw new Error('Er is geen leerkracht met deze gebruikersnaam.');
+  if (String(lk.id) === String(s.id)) throw new Error('Dit is je eigen gebruikersnaam.');
+  const al = leesTabel_('Gedeeld').some(function (g) {
+    return String(g.klas_id) === String(klasId) && String(g.leerkracht_id) === String(lk.id);
+  });
+  if (!al) voegToe_('Gedeeld', { klas_id: String(klasId), leerkracht_id: String(lk.id) });
+  return overzicht_(s, klasId);
+}
+
+function stopDelen(token, klasId, leerkrachtId) {
+  const s = eisSessie_(token, 'leerkracht');
+  eisKlas_(s, klasId, true);
+  verwijderWaar_('Gedeeld', function (g) {
+    return String(g.klas_id) === String(klasId) && String(g.leerkracht_id) === String(leerkrachtId);
+  });
+  return overzicht_(s, klasId);
 }
 
 function weergaveAntwoord_(raw) {
@@ -470,20 +613,20 @@ function weergaveAntwoord_(raw) {
 
 function foutenKlas(token, klasId, moduleId) {
   const s = eisSessie_(token, 'leerkracht');
-  eigenKlas_(s, klasId);
+  eisKlas_(s, klasId, false);
   const mod = getModule_(moduleId) || MODULES[0];
-  const leerlingIds = leesTabel_('Leerlingen')
+  const leerlingIds = new Set(leesTabel_('Leerlingen')
     .filter(function (l) { return String(l.klas_id) === String(klasId); })
-    .map(function (l) { return String(l.id); });
+    .map(function (l) { return String(l.id); }));
   const pogingen = leesTabel_('Pogingen').filter(function (p) {
-    return leerlingIds.indexOf(String(p.leerling_id)) >= 0 && p.module === mod.id;
+    return leerlingIds.has(String(p.leerling_id)) && String(p.module) === mod.id;
   });
 
   const stappen = [];
   mod.oefeningen.forEach(function (oef) {
     oef.stappen.forEach(function (stap) {
       const sleutel = oef.id + '.' + stap.id;
-      const eigen = pogingen.filter(function (p) { return p.stap === sleutel; });
+      const eigen = pogingen.filter(function (p) { return String(p.stap) === sleutel; });
       const fouten = eigen.filter(function (p) { return Number(p.juist) < 1; });
       const telling = {};
       fouten.forEach(function (f) {
@@ -506,18 +649,18 @@ function foutenKlas(token, klasId, moduleId) {
   return { module: mod.id, stappen: stappen };
 }
 
-// Wist alleen de klassen van deze leerkracht.
+// Wist alleen de eigen klassen van deze leerkracht (ook als ze gedeeld zijn).
 function wisAlles(token, bevestig) {
   const s = eisSessie_(token, 'leerkracht');
   if (bevestig !== 'WISSEN') throw new Error('Typ WISSEN ter bevestiging.');
-  eigenKlasIds_(s).forEach(function (id) { verwijderKlas(token, id); });
-  return { ok: true };
+  verwijderKlassen_(eigenKlasIds_(s));
+  return overzicht_(s, '');
 }
 
 // ---------- Jaarwissel (alle leerlingen van alle leerkrachten) ----------
 // Wist alle leerlinggegevens. Leerkrachtaccounts blijven bestaan.
 function wisLeerlingdata_() {
-  ['Pogingen', 'Bekeken', 'Leerlingen', 'Klassen'].forEach(function (naam) {
+  ['Pogingen', 'Bekeken', 'Leerlingen', 'Gedeeld', 'Klassen'].forEach(function (naam) {
     const s = sheet_(naam);
     const laatsteRij = s.getLastRow();
     if (laatsteRij > 1) s.deleteRows(2, laatsteRij - 1);
@@ -526,7 +669,8 @@ function wisLeerlingdata_() {
 
 // Wordt dagelijks uitgevoerd door de trigger, maar wist alleen op 1 september.
 function jaarwissel() {
-  if (new Date().getMonth() !== 8) return; // 8 = september (0-gebaseerd)
+  const nu = new Date();
+  if (nu.getMonth() !== 8 || nu.getDate() !== 1) return; // 8 = september (0-gebaseerd)
   wisLeerlingdata_();
 }
 
@@ -577,11 +721,7 @@ function voorbeeldLeerkracht() {
 // Maakt de tabbladen met de juiste kopregels aan, als ze nog niet bestaan.
 function setupSheets() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  Object.keys(TABBLADEN).forEach(function (naam) {
-    let s = ss.getSheetByName(naam);
-    if (!s) s = ss.insertSheet(naam);
-    if (s.getLastRow() === 0) s.appendRow(TABBLADEN[naam]);
-  });
+  Object.keys(TABBLADEN).forEach(function (naam) { maakTabblad_(ss, naam); });
 }
 
 // Zet de dagelijkse controle in voor de jaarwissel. Eenmalig uitvoeren.

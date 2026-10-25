@@ -55,10 +55,13 @@ label.f{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:.92
 .keuze .card{display:flex;flex-direction:column;gap:16px}
 .keuze .row .btn{flex:1 1 180px;padding:14px 18px;font-size:1.05rem}
 .hello{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;flex-wrap:wrap}
-.goal{display:flex;flex-direction:column;gap:8px;padding:14px 16px}
+.goal{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;padding:14px 16px}
+@media (max-width:560px){.goal{grid-template-columns:minmax(0,1fr)}}
+.goal-deel{display:flex;flex-direction:column;gap:8px;min-width:0}
 .bar{height:10px;background:var(--seyes);border-radius:99px;overflow:hidden;min-width:80px}
 .bar>i{display:block;height:100%;background:var(--lime);border-radius:99px;transition:width .4s ease}
 .bar.ok>i{background:var(--vert)}
+.bar.pad>i{background:var(--encre)}
 .pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.78rem;font-weight:700;white-space:nowrap}
 .pill.g{background:var(--vert-soft);color:var(--vert)}
 .pill.a{background:var(--ambre-soft);color:var(--ambre)}
@@ -113,6 +116,8 @@ table.t td.fout-tekst{white-space:normal;min-width:200px}
 .legend span{display:inline-flex;gap:6px;align-items:center}
 .melding{background:var(--lime-soft);border:1px solid var(--lime);padding:12px 14px;border-radius:8px}
 .gevaar{border:1.5px dashed var(--rouge);background:var(--rouge-soft);border-radius:var(--r);padding:16px}
+.deel-lijst{display:flex;flex-direction:column;gap:8px}
+.deel-lijst .row{justify-content:space-between;border-top:1px solid var(--line);padding-top:8px}
 </style>
 </head>
 <body>
@@ -174,12 +179,22 @@ table.t td.fout-tekst{white-space:normal;min-width:200px}
   </div>
 
   <div class="card goal">
-    <div class="section-head">
-      <span class="eyebrow">Deze week</span>
-      <span class="num small" id="l-week-tekst"></span>
+    <div class="goal-deel">
+      <div class="section-head">
+        <span class="eyebrow">Je voortgang</span>
+        <span class="num small" id="l-pad-tekst"></span>
+      </div>
+      <div class="bar pad"><i id="l-pad-bar" style="width:0"></i></div>
+      <p class="hint-txt" id="l-plaats"></p>
     </div>
-    <div class="bar"><i id="l-week-bar" style="width:0"></i></div>
-    <p class="hint-txt">Telt alleen de minuten waarin je echt bezig bent.</p>
+    <div class="goal-deel">
+      <div class="section-head">
+        <span class="eyebrow">Deze week</span>
+        <span class="num small" id="l-week-tekst"></span>
+      </div>
+      <div class="bar"><i id="l-week-bar" style="width:0"></i></div>
+      <p class="hint-txt">Telt alleen de minuten waarin je echt bezig bent.</p>
+    </div>
   </div>
 
   <div id="l-uitleg" class="uitleg" hidden></div>
@@ -207,7 +222,7 @@ table.t td.fout-tekst{white-space:normal;min-width:200px}
 
 <section id="l-klaar" class="card klaar-kaart" hidden>
   <h2>Alle oefeningen zijn af.</h2>
-  <p class="muted" style="margin-top:8px">Goed gedaan! Je leerkracht ziet je voortgang.</p>
+  <p class="muted" style="margin-top:8px" id="l-klaar-tekst">Goed gedaan! Je leerkracht ziet je voortgang.</p>
 </section>
 
 <!-- ===== LEERKRACHT ===== -->
@@ -250,6 +265,8 @@ table.t td.fout-tekst{white-space:normal;min-width:200px}
     <span class="eyebrow">Klas</span>
     <select id="k-klassen" class="inp"></select>
     <button class="btn ghost sm" id="k-vernieuwen" type="button">Vernieuwen</button>
+    <span id="k-klas-info" class="small muted"></span>
+    <span id="k-status" class="small muted" role="status" hidden>Laden…</span>
   </div>
 
   <nav class="tabs" role="tablist">
@@ -294,6 +311,16 @@ table.t td.fout-tekst{white-space:normal;min-width:200px}
         <button class="btn" id="k-knop-klas-toevoegen" type="button">Klas toevoegen</button>
         <button class="btn danger" id="k-knop-klas-verwijderen" type="button">Klas verwijderen</button>
       </div>
+      <p id="k-gedeeld-melding" class="melding small" hidden></p>
+    </div>
+    <div class="card section" id="k-delen" hidden>
+      <h2>Klas delen met een collega</h2>
+      <p class="small muted">Een collega met wie je de klas deelt, ziet de voortgang en de fouten, kan leerlingen toevoegen en codes resetten. Alleen jij kunt leerlingen of de klas verwijderen.</p>
+      <div class="row">
+        <input id="k-deel-naam" class="inp kort" placeholder="gebruikersnaam, bv. linda.nieman" autocomplete="off">
+        <button class="btn" id="k-knop-delen" type="button">Delen</button>
+      </div>
+      <div id="k-gedeeld-lijst" class="deel-lijst"></div>
     </div>
     <div class="card section">
       <h2>Leerling toevoegen</h2>
@@ -379,7 +406,7 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
 // ===== Leerling =====
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var token = null, huidig = null, bezig = false, klaarVoorVolgende = false;
+  var token = null, huidig = null, volgende = null, bezig = false, klaarVoorVolgende = false;
   var actief = 0, laatsteActiviteit = Date.now();
 
   // Roept een serverfunctie aan en geeft een Promise terug.
@@ -393,6 +420,14 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
   function meld(tekst) { alert(tekst); }
   function eyebrow_(tekst) { var e = document.createElement('div'); e.className = 'eyebrow'; e.textContent = tekst; return e; }
   function alinea_(tekst) { var p = document.createElement('p'); p.textContent = tekst; return p; }
+  // Zet een knop uit met een wachttekst, zodat de leerling ziet dat de server bezig is.
+  // Geeft een functie terug die de knop herstelt.
+  function wacht(knop, tekst) {
+    var oud = knop.textContent;
+    knop.disabled = true;
+    knop.textContent = tekst;
+    return function () { knop.disabled = false; knop.textContent = oud; };
+  }
 
   // Actieve tijd: alleen tellen als de pagina zichtbaar is en er in het afgelopen minuut iets gebeurde.
   ['keydown', 'pointerdown', 'input', 'touchstart'].forEach(function (ev) {
@@ -405,34 +440,40 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
   }, 1000);
 
   function toonInloggen(tekst) {
-    token = null; huidig = null;
+    token = null; huidig = null; volgende = null;
     toonScherm('l-inloggen');
     toonUit(false, '');
     $('l-login-fout').textContent = tekst || '';
   }
 
+  // Vult de klassenlijst en houdt de gekozen klas vast.
   async function laadKlassen() {
     var lijst = await call('klassen');
     var sel = $('l-klas');
+    var gekozen = sel.value;
     sel.innerHTML = '';
     lijst.forEach(function (k) {
       var o = document.createElement('option');
       o.value = k.id; o.textContent = k.naam;
       sel.append(o);
     });
+    if (gekozen) sel.value = gekozen;
+    if (!sel.value && sel.options.length) sel.selectedIndex = 0;
   }
   window.leerlingKlassen = function () { laadKlassen().catch(function (e) { $('l-login-fout').textContent = melding(e); }); };
+  // Meteen bij het openen van de pagina, zodat de lijst klaarstaat als de leerling op "Ik ben leerling" klikt.
+  window.leerlingKlassen();
 
   $('l-login-f').onsubmit = async function (ev) {
     ev.preventDefault();
+    if ($('l-knop-login').disabled) return;
     $('l-login-fout').textContent = '';
-    $('l-knop-login').disabled = true;
     var herhaalZichtbaar = !$('l-herhaal-blok').hidden;
     if (herhaalZichtbaar && !$('l-herhaal').value.trim()) {
       $('l-login-fout').textContent = 'Typ je code nog eens bij "Herhaal je code".';
-      $('l-knop-login').disabled = false;
       return;
     }
+    var herstel = wacht($('l-knop-login'), 'Even geduld…');
     try {
       var r = await call('loginLeerling', $('l-klas').value, $('l-naam').value, $('l-code').value,
         herhaalZichtbaar ? $('l-herhaal').value : undefined);
@@ -447,17 +488,17 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
       $('l-code').value = '';
       $('l-herhaal-blok').hidden = true;
       $('l-herhaal').value = '';
-      toonUit(true, $('l-naam').value.trim());
-      await toonVoortgang();
+      toonUit(true, r.naam);
+      toonStaat(r.staat);
     } catch (e) {
       $('l-login-fout').textContent = melding(e);
     } finally {
-      $('l-knop-login').disabled = false;
+      herstel();
     }
   };
 
   $('l-terug').onclick = function () { toonKeuze(); };
-  afmeldActies.push(function () { token = null; huidig = null; });
+  afmeldActies.push(function () { token = null; huidig = null; volgende = null; klaarVoorVolgende = false; });
 
   function toonFeedback(soort, tekst, hint) {
     var f = $('l-fb');
@@ -487,7 +528,23 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
     return i;
   }
 
-  async function toonVoortgang() {
+  // De twee balken: hoeveel stappen er af zijn, en de actieve minuten van deze week.
+  function toonVoortgang(r) {
+    var v = r.voortgang;
+    var pct = v.totaal ? Math.min(100, Math.round(v.gedaan / v.totaal * 100)) : 0;
+    $('l-pad-bar').style.width = pct + '%';
+    $('l-pad-tekst').textContent = v.gedaan + ' van ' + v.totaal + ' stappen · ' + pct + '%';
+    $('l-plaats').textContent = r.klaar ? 'Alles is af.'
+      : 'Module ' + r.module.nr + ' van ' + r.module.aantal + ' · oefening ' + r.oefening.nr + ' van ' + r.oefening.aantal;
+
+    var doel = r.week.doel || 1;
+    $('l-week-bar').style.width = Math.min(100, Math.round(r.week.min / doel * 100)) + '%';
+    $('l-week-bar').parentNode.classList.toggle('ok', r.week.min >= r.week.doel);
+    $('l-week-tekst').textContent = r.week.min + ' van ' + r.week.doel + ' min';
+  }
+
+  // Haalt de huidige stap op (alleen nodig als er geen volgende stap klaarstaat).
+  async function laadStaat() {
     var r;
     try {
       r = await call('voortgang', token);
@@ -496,28 +553,30 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
       meld(melding(e));
       return;
     }
+    toonStaat(r);
+  }
 
+  // Toont een stap zoals de server die terugstuurt (bij aanmelden, of als volgende stap na een juist antwoord).
+  function toonStaat(r) {
     $('l-fb').innerHTML = '';
     $('l-volgende-rij').hidden = true;
     $('l-knop-controle').hidden = false;
     klaarVoorVolgende = false;
+    volgende = null;
     bezig = false;
     actief = 0;
+    toonVoortgang(r);
 
     if (r.klaar) {
+      huidig = null;
+      $('l-klaar-tekst').textContent = 'Goed gedaan! Je hebt alle ' + r.voortgang.totaal + ' stappen gedaan. Deze week oefende je '
+        + r.week.min + ' min. Je leerkracht ziet je voortgang.';
       toonScherm('l-klaar');
       return;
     }
 
     huidig = r;
     toonScherm('l-werk');
-
-    // Weekdoel
-    var doel = r.week.doel || 1;
-    var pct = Math.min(100, Math.round(r.week.min / doel * 100));
-    $('l-week-bar').style.width = pct + '%';
-    $('l-week-bar').parentNode.classList.toggle('ok', r.week.min >= r.week.doel);
-    $('l-week-tekst').textContent = r.week.min + ' van ' + r.week.doel + ' min';
 
     $('l-module').textContent = r.module.titel;
     $('l-hallo').textContent = 'Hallo, ' + document.getElementById('wie').textContent;
@@ -576,7 +635,6 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
       });
       v.append(sel);
     }
-    Array.prototype.forEach.call(v.querySelectorAll('input, select'), function (x) { x.disabled = false; });
     $('l-knop-controle').disabled = false;
     var eerste = v.querySelector('input, select');
     if (eerste) eerste.focus();
@@ -594,7 +652,7 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
     var antwoord = s.type === 'multi' ? velden.map(function (x) { return x.value; }) : velden[0].value;
 
     bezig = true;
-    $('l-knop-controle').disabled = true;
+    var herstel = wacht($('l-knop-controle'), 'Controleren…');
     var sec = actief; // tijd sinds de vorige poging; daarna opnieuw tellen
     actief = 0;
 
@@ -603,39 +661,52 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
       r = await call('antwoord', token, huidig.module.id, s.sleutel, antwoord, sec);
     } catch (e) {
       bezig = false;
-      $('l-knop-controle').disabled = false;
+      herstel();
       if (/Niet ingelogd/.test(melding(e))) { toonInloggen('Je aanmelding is verlopen. Meld opnieuw aan.'); return; }
       // Stap niet aan de beurt of verouderd: opnieuw laden.
-      await toonVoortgang();
+      await laadStaat();
       return;
     }
     bezig = false;
+    herstel();
 
     if (r.juist) {
       klaarVoorVolgende = true;
+      volgende = r.volgende || null;
       velden.forEach(function (x) { x.disabled = true; });
       $('l-knop-controle').hidden = true;
       toonFeedback('ok', '✔ Juist.');
+      if (volgende) toonVoortgang(volgende); // de balk schuift meteen op
+      $('l-volgende').textContent = volgende && volgende.klaar ? 'Afronden →' : 'Volgende stap →';
       $('l-volgende-rij').hidden = false;
       $('l-volgende').focus();
       return;
     }
 
-    $('l-knop-controle').disabled = false;
     if (r.score === 0.5) {
       toonFeedback('half', 'Deels juist. Controleer de andere waarde.', r.hint);
     } else {
       toonFeedback('no', 'Nog niet goed. Probeer opnieuw.', r.hint);
     }
+    // Meteen opnieuw proberen: het eerste veld krijgt de focus, met de tekst geselecteerd.
+    velden[0].focus();
+    if (velden[0].select) velden[0].select();
   };
 
-  $('l-volgende').onclick = function () { toonVoortgang(); };
+  // De volgende stap staat al klaar (meegestuurd met het juiste antwoord), dus dit gaat meteen.
+  function naarVolgende() {
+    if (!klaarVoorVolgende || !token) return;
+    klaarVoorVolgende = false;
+    if (volgende) toonStaat(volgende);
+    else laadStaat();
+  }
+  $('l-volgende').onclick = naarVolgende;
 
-  // Enter op de lege oefening gaat naar de volgende stap, zodat het tempo van de leerling blijft.
+  // Enter na een juist antwoord gaat naar de volgende stap, zodat het tempo van de leerling blijft.
   document.addEventListener('keydown', function (ev) {
-    if (ev.key === 'Enter' && klaarVoorVolgende && !$('l-volgende-rij').hidden && token) {
+    if (ev.key === 'Enter' && klaarVoorVolgende) {
       ev.preventDefault();
-      toonVoortgang();
+      naarVolgende();
     }
   });
 })();
@@ -646,7 +717,8 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var token = null;
-  var rijen = [], stappen = [], weekDoel = 30;
+  var klassen = [], klasId = '', rijen = [], stappen = [], weekDoel = 30;
+  var volgnr = 0, lopend = 0;
 
   // Roept een serverfunctie aan en geeft een Promise terug.
   function call(fn) {
@@ -677,13 +749,85 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
     m.hidden = false;
     m.textContent = tekst;
   }
+  function gekozenKlas() {
+    for (var i = 0; i < klassen.length; i++) if (klassen[i].id === klasId) return klassen[i];
+    return null;
+  }
 
+  // Fouten van de server. Na 6 uur vervalt de aanmelding: dan terug naar het aanmeldscherm.
+  function fout(e) {
+    if (/Niet ingelogd/.test(melding(e))) {
+      token = null;
+      toonScherm('k-inloggen');
+      toonUit(false, '');
+      $('k-login-fout').textContent = 'Je aanmelding is verlopen. Meld opnieuw aan.';
+      return;
+    }
+    meld(melding(e));
+  }
+
+  // Toont "Laden…" zolang er een verzoek loopt.
+  async function metStatus(belofte) {
+    lopend++;
+    $('k-status').hidden = false;
+    try {
+      return await belofte;
+    } finally {
+      if (--lopend === 0) $('k-status').hidden = true;
+    }
+  }
+
+  // Elke serverfunctie van het dashboard geeft het nieuwe overzicht terug (soms als r.overzicht).
+  // Alleen het antwoord op het laatste verzoek wordt getoond, zodat snel wisselen van klas geen
+  // oude gegevens laat staan.
+  async function vernieuw(belofte) {
+    var nr = ++volgnr;
+    var r = await metStatus(belofte);
+    if (nr === volgnr) toonOverzicht(r.overzicht || r);
+    return r;
+  }
+
+  function toonOverzicht(r) {
+    var andereKlas = r.klasId !== klasId;
+    klassen = r.klassen; klasId = r.klasId; rijen = r.rijen; stappen = r.stappen; weekDoel = r.doel;
+
+    var sel = $('k-klassen');
+    sel.innerHTML = '';
+    klassen.forEach(function (k) {
+      var o = document.createElement('option');
+      o.value = k.id;
+      o.textContent = k.naam + ' (' + k.aantal + ')' + (k.eigenaar ? '' : ' · van ' + k.eigenaarNaam);
+      sel.append(o);
+    });
+    sel.value = klasId;
+    if (andereKlas) {
+      $('k-fouten').innerHTML = '';
+      $('k-code-melding').hidden = true;
+    }
+
+    var k = gekozenKlas();
+    $('k-klas-info').textContent = !k ? ''
+      : !k.eigenaar ? 'Gedeeld door ' + k.eigenaarNaam
+      : k.gedeeldMet.length ? 'Gedeeld met ' + k.gedeeldMet.map(function (g) { return g.naam; }).join(', ')
+      : '';
+    toonVoortgang();
+    toonLeerlingen();
+    toonDelen();
+  }
+
+  // Na het aanmelden altijd eerst de voortgang.
   function toonBeheer(naam) {
+    naarTab('voortgang');
     toonScherm('k-beheer');
     toonUit(true, naam || '');
-    laadKlassen().catch(function (e) { meld(melding(e)); });
+    vernieuw(call('lkOverzicht', token, klasId)).catch(fout);
   }
-  afmeldActies.push(function () { token = null; });
+  // Niets van de vorige leerkracht laten staan.
+  afmeldActies.push(function () {
+    token = null; klassen = []; klasId = ''; rijen = []; stappen = [];
+    $('k-code-melding').hidden = true;
+    $('k-fouten').innerHTML = '';
+  });
 
   $('k-login-f').onsubmit = async function (ev) {
     ev.preventDefault();
@@ -733,36 +877,13 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
   };
 
   // Tabbladen
+  function naarTab(naam) {
+    document.querySelectorAll('#k-beheer .tab').forEach(function (x) { x.classList.toggle('on', x.dataset.tab === naam); });
+    document.querySelectorAll('#k-beheer [data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== naam; });
+  }
   document.querySelectorAll('#k-beheer .tab').forEach(function (b) {
-    b.onclick = function () {
-      document.querySelectorAll('#k-beheer .tab').forEach(function (x) { x.classList.toggle('on', x === b); });
-      document.querySelectorAll('#k-beheer [data-panel]').forEach(function (p) { p.hidden = p.dataset.panel !== b.dataset.tab; });
-    };
+    b.onclick = function () { naarTab(b.dataset.tab); };
   });
-
-  async function laadKlassen() {
-    var huidige = $('k-klassen').value;
-    var lijst = await call('lkKlassen', token);
-    var sel = $('k-klassen');
-    sel.innerHTML = '';
-    lijst.forEach(function (k) {
-      var o = document.createElement('option');
-      o.value = k.id;
-      o.textContent = k.naam + ' (' + k.aantal + ')';
-      sel.append(o);
-    });
-    if (huidige) sel.value = huidige;
-    await laadVoortgang();
-  }
-
-  async function laadVoortgang() {
-    var klas = $('k-klassen').value;
-    if (!klas) { rijen = []; stappen = []; toonVoortgang(); toonLeerlingen(); return; }
-    var r = await call('voortgangKlas', token, klas);
-    rijen = r.rijen; stappen = r.stappen; weekDoel = r.doel;
-    toonVoortgang();
-    toonLeerlingen();
-  }
 
   function toonVoortgang() {
     var tbody = $('k-voortgang');
@@ -815,7 +936,11 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
     });
     if (!rijen.length) {
       var leeg = document.createElement('tr');
-      leeg.append(cel('Nog geen leerlingen in deze klas.', 'muted'));
+      var td = cel(klassen.length
+        ? 'Nog geen leerlingen in deze klas.'
+        : 'Je hebt nog geen klassen. Maak er een aan bij "Klassen en leerlingen", of vraag een collega om een klas met je te delen.', 'muted fout-tekst');
+      td.colSpan = 6;
+      leeg.append(td);
       tbody.append(leeg);
     }
   }
@@ -823,6 +948,7 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
   function toonLeerlingen() {
     var tbody = $('k-leerlingen');
     tbody.innerHTML = '';
+    var k = gekozenKlas();
     rijen.forEach(function (l) {
       var tr = document.createElement('tr');
       var codeTd = document.createElement('td');
@@ -831,67 +957,93 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
       codePill.textContent = l.heeftCode ? 'ingesteld' : 'nog geen';
       codeTd.append(codePill);
       var acties = document.createElement('td');
-      acties.append(
-        knop('Code resetten', async function () {
-          if (!confirm('De pincode van ' + l.naam + ' resetten? Die kiest bij de volgende aanmelding een nieuwe code.')) return;
-          try {
-            await call('nieuweCode', token, l.id);
-            toonMelding(l.naam + ': pincode is gereset. Die kiest bij de volgende aanmelding een nieuwe code.');
-            await laadVoortgang();
-          } catch (e) { meld(melding(e)); }
-        }),
-        knop('Verwijderen', async function () {
+      acties.append(knop('Code resetten', function () {
+        if (!confirm('De pincode van ' + l.naam + ' resetten? Die kiest bij de volgende aanmelding een nieuwe code.')) return;
+        vernieuw(call('nieuweCode', token, l.id)).then(function () {
+          toonMelding(l.naam + ': pincode is gereset. Die kiest bij de volgende aanmelding een nieuwe code.');
+        }).catch(fout);
+      }));
+      if (k && k.eigenaar) {
+        acties.append(knop('Verwijderen', function () {
           if (!confirm('Alle gegevens van ' + l.naam + ' wissen?')) return;
-          try {
-            await call('verwijderLeerling', token, l.id);
-            await laadVoortgang();
-          } catch (e) { meld(melding(e)); }
-        }, 'danger')
-      );
+          vernieuw(call('verwijderLeerling', token, l.id)).catch(fout);
+        }, 'danger'));
+      }
       tr.append(cel(l.naam), codeTd, cel(l.gedaan + ' / ' + l.totaal), cel(l.weekMin + ' min deze week'), acties);
       tbody.append(tr);
     });
   }
 
-  $('k-klassen').onchange = function () { laadVoortgang().catch(function (e) { meld(melding(e)); }); };
-  $('k-vernieuwen').onclick = function () { laadKlassen().catch(function (e) { meld(melding(e)); }); };
+  // Delen: alleen de eigenaar beheert met wie de klas gedeeld is.
+  function toonDelen() {
+    var k = gekozenKlas();
+    $('k-delen').hidden = !k || !k.eigenaar;
+    $('k-knop-klas-verwijderen').hidden = !!k && !k.eigenaar;
+    $('k-gedeeld-melding').hidden = !k || k.eigenaar;
+    if (!k) return;
+    if (!k.eigenaar) {
+      $('k-gedeeld-melding').textContent = 'Deze klas is van ' + k.eigenaarNaam + ' en met jou gedeeld. Je kunt de voortgang en de fouten bekijken, leerlingen toevoegen en codes resetten.';
+      return;
+    }
+    var lijst = $('k-gedeeld-lijst');
+    lijst.innerHTML = '';
+    if (!k.gedeeldMet.length) {
+      var p = document.createElement('p');
+      p.className = 'small muted';
+      p.textContent = 'Deze klas is met niemand gedeeld.';
+      lijst.append(p);
+      return;
+    }
+    k.gedeeldMet.forEach(function (g) {
+      var rij = document.createElement('div');
+      rij.className = 'row';
+      var naam = document.createElement('span');
+      naam.textContent = g.naam;
+      rij.append(naam, knop('Niet meer delen', function () {
+        if (!confirm(g.naam + ' ziet deze klas daarna niet meer. Doorgaan?')) return;
+        vernieuw(call('stopDelen', token, k.id, g.id)).catch(fout);
+      }, 'danger'));
+      lijst.append(rij);
+    });
+  }
 
-  $('k-knop-klas-toevoegen').onclick = async function () {
-    try {
-      await call('voegKlasToe', token, $('k-nieuwe-klas').value);
+  $('k-klassen').onchange = function () { vernieuw(call('lkOverzicht', token, $('k-klassen').value)).catch(fout); };
+  $('k-vernieuwen').onclick = function () { vernieuw(call('lkOverzicht', token, klasId)).catch(fout); };
+
+  $('k-knop-klas-toevoegen').onclick = function () {
+    vernieuw(call('voegKlasToe', token, $('k-nieuwe-klas').value)).then(function () {
       $('k-nieuwe-klas').value = '';
-      await laadKlassen();
-    } catch (e) { meld(melding(e)); }
+    }).catch(fout);
   };
 
-  $('k-knop-klas-verwijderen').onclick = async function () {
+  $('k-knop-klas-verwijderen').onclick = function () {
     var sel = $('k-klassen');
     if (!sel.value) return;
     if (!confirm('Klas "' + sel.options[sel.selectedIndex].textContent + '" en alle leerlingen en resultaten wissen?')) return;
-    try {
-      await call('verwijderKlas', token, sel.value);
-      await laadKlassen();
-    } catch (e) { meld(melding(e)); }
+    vernieuw(call('verwijderKlas', token, sel.value)).catch(fout);
   };
 
-  $('k-knop-leerling-toevoegen').onclick = async function () {
-    var klas = $('k-klassen').value;
-    if (!klas) return meld('Kies eerst een klas.');
-    try {
-      var r = await call('voegLeerlingToe', token, klas, $('k-leerling-naam').value);
+  $('k-knop-leerling-toevoegen').onclick = function () {
+    if (!klasId) return meld('Kies eerst een klas.');
+    vernieuw(call('voegLeerlingToe', token, klasId, $('k-leerling-naam').value)).then(function (r) {
       $('k-leerling-naam').value = '';
       toonMelding(r.naam + ' is toegevoegd. Die kiest bij de eerste aanmelding zelf een pincode.');
-      await laadKlassen();
-    } catch (e) { meld(melding(e)); }
+    }).catch(fout);
+  };
+
+  $('k-knop-delen').onclick = function () {
+    if (!klasId) return;
+    vernieuw(call('deelKlas', token, klasId, $('k-deel-naam').value)).then(function () {
+      $('k-deel-naam').value = '';
+    }).catch(fout);
   };
 
   $('k-knop-fouten').onclick = async function () {
-    var klas = $('k-klassen').value;
     var tbody = $('k-fouten');
     tbody.innerHTML = '';
-    if (!klas) return;
+    if (!klasId) return;
     try {
-      var r = await call('foutenKlas', token, klas, $('k-module').value);
+      var r = await metStatus(call('foutenKlas', token, klasId, $('k-module').value));
       r.stappen.forEach(function (s) {
         var tr = document.createElement('tr');
         var meest = s.veelvoorkomend.length
@@ -906,16 +1058,14 @@ document.getElementById('kies-leerkracht').onclick = function () { toonScherm('k
         tr.append(cel(s.oefening), cel(s.vraag, 'fout-tekst'), cel(String(s.pogingen)), fouttd, cel(meest, 'fout-tekst'));
         tbody.append(tr);
       });
-    } catch (e) { meld(melding(e)); }
+    } catch (e) { fout(e); }
   };
 
-  $('k-knop-wis-alles').onclick = async function () {
-    try {
-      await call('wisAlles', token, $('k-bevestig').value);
+  $('k-knop-wis-alles').onclick = function () {
+    vernieuw(call('wisAlles', token, $('k-bevestig').value)).then(function () {
       $('k-bevestig').value = '';
-      meld('Alle leerlinggegevens van je klassen zijn gewist.');
-      await laadKlassen();
-    } catch (e) { meld(melding(e)); }
+      meld('Alle leerlinggegevens van je eigen klassen zijn gewist.');
+    }).catch(fout);
   };
 })();
 </script>
