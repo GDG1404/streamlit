@@ -1,0 +1,585 @@
+<title>CanSat 2027 draadschema</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+/* layout: één leeskolom (± 74 tekens) met tekeningen op volle breedte, als bladen van een technische tekening; kop = titelblok */
+:root {
+  --paper: #f2f4f6; --sheet: #ffffff; --head: #eaeef3; --ink: #18212b; --muted: #576372;
+  --rule: #d2d8df; --accent: #1d4e9e; --warn: #a3261b; --warn-bg: #fcf0ee; --cell: #e3e8ee;
+  --canopy: #f6e3c8;
+  --n3v3: #c62828; --n5v: #c25f00; --ngnd: #2b323b; --ni2c: #1565c0; --nuart: #7b2fa8;
+  --ni2s: #00808b; --nspi: #2e7d32; --nctl: #b0246c; --nink: #18212b;
+  --display: "Barlow Condensed", "Arial Narrow", "Liberation Sans Narrow", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", Roboto, "Liberation Sans", Arial, sans-serif;
+  --mono: "IBM Plex Mono", Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0e1216; --sheet: #151b21; --head: #1b232b; --ink: #e4e9ef; --muted: #9aa6b3;
+    --rule: #2c353f; --accent: #8fb3ff; --warn: #ff8f80; --warn-bg: #2a1816; --cell: #26303a;
+    --canopy: #4a3a26;
+    --n3v3: #ff6b5e; --n5v: #ffa24a; --ngnd: #c4cdd7; --ni2c: #64a7ff; --nuart: #c58cf2;
+    --ni2s: #47cfd6; --nspi: #6fcf7d; --nctl: #f27ab5; --nink: #e4e9ef;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0e1216; --sheet: #151b21; --head: #1b232b; --ink: #e4e9ef; --muted: #9aa6b3;
+  --rule: #2c353f; --accent: #8fb3ff; --warn: #ff8f80; --warn-bg: #2a1816; --cell: #26303a;
+  --canopy: #4a3a26;
+  --n3v3: #ff6b5e; --n5v: #ffa24a; --ngnd: #c4cdd7; --ni2c: #64a7ff; --nuart: #c58cf2;
+  --ni2s: #47cfd6; --nspi: #6fcf7d; --nctl: #f27ab5; --nink: #e4e9ef;
+  color-scheme: dark;
+}
+
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.page {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 72px;
+  display: grid; gap: 44px;
+}
+.tekst { max-width: 74ch; display: grid; gap: 14px; min-width: 0; }
+section { display: grid; gap: 18px; min-width: 0; }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(34px, 6vw, 52px); line-height: 1.02; letter-spacing: .01em; }
+h2 { font-family: var(--display); font-weight: 600; font-size: 30px; line-height: 1.1; padding-top: 14px; border-top: 2px solid var(--ink); }
+h3 { font-size: 17px; font-weight: 600; }
+p, ul, ol { margin: 0; }
+ul, ol { padding-left: 1.3em; display: grid; gap: 6px; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+code { background: var(--head); padding: 1px 5px; border-radius: 3px; overflow-wrap: anywhere; }
+strong { font-weight: 600; }
+
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.lead { font-size: 18px; max-width: 62ch; }
+.kop { display: grid; gap: 16px; }
+
+/* titelblok zoals onderaan een technische tekening */
+.titelblok { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); border: 1.5px solid var(--ink); background: var(--sheet); margin: 6px 0 0; }
+.titelblok div { padding: 8px 12px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); min-width: 0; }
+.titelblok dt { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.titelblok dd { margin: 2px 0 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+
+.regels { border: 1.5px solid var(--warn); background: var(--warn-bg); padding: 16px 20px; display: grid; gap: 10px; max-width: 74ch; }
+.regels h2 { border: 0; padding: 0; font-size: 24px; color: var(--warn); }
+.regels ul { gap: 8px; }
+
+/* tekeningen */
+.blad { margin: 0; background: var(--sheet); border: 1px solid var(--rule); display: grid; gap: 10px; padding: 12px 12px 14px; min-width: 0; }
+.blad-scroll { overflow-x: auto; }
+.schema { display: block; width: 100%; height: auto; min-width: 860px; }
+.blad.smal .schema { min-width: 560px; max-width: 760px; margin: 0 auto; }
+figcaption { font-size: 14px; color: var(--muted); max-width: 90ch; padding: 0 4px; }
+figcaption b { color: var(--ink); font-family: var(--mono); font-weight: 600; margin-right: 6px; }
+
+.schema text { font-family: var(--mono); font-size: 11.5px; fill: var(--ink); }
+.schema .tt { font-family: var(--display); font-weight: 600; font-size: 16px; letter-spacing: .02em; }
+.schema .tt.big { font-size: 20px; letter-spacing: .1em; }
+.schema .ts { font-family: var(--body); font-size: 11px; fill: var(--muted); }
+.schema .tn { font-family: var(--body); font-size: 10.5px; fill: var(--muted); }
+.schema .tl { font-family: var(--body); font-size: 11.5px; }
+.schema .strong { font-weight: 600; }
+.schema .dim { fill: var(--muted); opacity: .7; }
+.schema .box { fill: var(--sheet); stroke: var(--ink); stroke-width: 1.3; }
+.schema .box.teensy, .schema .box.board { fill: var(--head); }
+.schema .box.usb { fill: var(--cell); }
+.schema .box.cell { fill: var(--cell); }
+.schema .box.can { stroke-width: 1.8; }
+.schema .box.titleblock { fill: var(--sheet); stroke-width: 1.5; }
+.schema .boxrule { fill: none; stroke: var(--rule); stroke-width: 1; }
+.schema .wire { fill: none; stroke: var(--c); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.schema .comp { fill: none; stroke: var(--c, var(--ink)); stroke-width: 1.6; stroke-linejoin: round; }
+.schema .fillsheet { fill: var(--sheet); }
+.schema .pad { fill: var(--sheet); stroke: var(--c); stroke-width: 1.5; }
+.schema .dot { fill: var(--c); }
+.schema .ah { fill: var(--c); }
+.schema .tag { fill: var(--sheet); stroke: var(--c); stroke-width: 1.4; }
+.schema .tagt { fill: var(--c); font-weight: 600; font-size: 11px; }
+.schema .contact { fill: var(--sheet); stroke: var(--c); stroke-width: 1.5; }
+.schema .pin { fill: var(--c); stroke: var(--ink); stroke-width: .8; }
+.schema .pin.unused { fill: var(--sheet); stroke: var(--muted); }
+.schema .tp-ring { fill: var(--sheet); stroke: var(--c); stroke-width: 2; }
+.schema .cut { stroke: var(--warn); stroke-width: 2.4; stroke-linecap: round; }
+.schema .canopy { fill: var(--canopy); stroke: var(--ink); stroke-width: 1.3; }
+.schema .shroud { stroke: var(--muted); stroke-width: 1; }
+.schema .patch { fill: var(--muted); stroke: var(--ink); stroke-width: 1; }
+.schema .cellfill { fill: var(--cell); stroke: var(--ink); stroke-width: 1.3; }
+.schema .leader { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.schema .dim-line { stroke: var(--muted); stroke-width: 1; }
+.schema .antwire { --c: var(--ink); stroke-width: 3; }
+.schema .counter { --c: var(--ink); stroke-width: 2.2; stroke-dasharray: 7 4; }
+.schema .n3v3 { --c: var(--n3v3); } .schema .n5v { --c: var(--n5v); }
+.schema .ngnd { --c: var(--ngnd); } .schema .ni2c { --c: var(--ni2c); }
+.schema .nuart { --c: var(--nuart); } .schema .ni2s { --c: var(--ni2s); }
+.schema .nspi { --c: var(--nspi); } .schema .nctl { --c: var(--nctl); }
+.schema .nink { --c: var(--nink); }
+.schema .n3v3t { fill: var(--n3v3); } .schema .n5vt { fill: var(--n5v); }
+.schema .ngndt { fill: var(--ngnd); } .schema .ni2ct { fill: var(--ni2c); }
+.schema .nuartt { fill: var(--nuart); } .schema .ni2st { fill: var(--ni2s); }
+.schema .nspit { fill: var(--nspi); } .schema .nctlt { fill: var(--nctl); }
+.schema .ninkt { fill: var(--ink); }
+
+/* tabellen */
+.tabel-wrap { overflow-x: auto; border: 1px solid var(--rule); background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; vertical-align: top; padding: 7px 12px; border-bottom: 1px solid var(--rule); }
+thead th { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; background: var(--head); }
+tbody th[colspan] { font-family: var(--display); font-weight: 600; font-size: 18px; letter-spacing: .02em; background: var(--head); padding-top: 9px; }
+tbody th[colspan] span { font-family: var(--body); font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 8px; letter-spacing: 0; }
+td.pin { font-family: var(--mono); font-weight: 600; white-space: nowrap; }
+td.naar, td.kort { white-space: nowrap; }
+.sw { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; background: var(--ink); }
+.sw.n3v3 { background: var(--n3v3); } .sw.n5v { background: var(--n5v); } .sw.ngnd { background: var(--ngnd); }
+.sw.ni2c { background: var(--ni2c); } .sw.nuart { background: var(--nuart); } .sw.ni2s { background: var(--ni2s); }
+.sw.nspi { background: var(--nspi); } .sw.nctl { background: var(--nctl); }
+tr.totaal td { font-weight: 600; border-top: 1.5px solid var(--ink); }
+.getal { text-align: right; white-space: nowrap; }
+
+.twee { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px 36px; align-items: start; }
+.twee > * { min-width: 0; }
+.noot { font-size: 14px; color: var(--muted); }
+
+@media (max-width: 520px) {
+  body { font-size: 15.5px; }
+  h2 { font-size: 26px; }
+  th, td { padding: 6px 9px; }
+}
+
+/* afdrukken en PDF: altijd licht, tekeningen passen op het blad */
+@page { size: A4; margin: 12mm; }
+@page liggend { size: A4 landscape; margin: 9mm; }
+@media print {
+  :root, :root[data-theme="dark"] {
+    --paper: #ffffff; --sheet: #ffffff; --head: #eef1f5; --ink: #111820; --muted: #4f5b69;
+    --rule: #c9d0d8; --accent: #1d4e9e; --warn: #a3261b; --warn-bg: #fdf2f0; --cell: #e3e8ee;
+    --canopy: #f6e3c8;
+    --n3v3: #c62828; --n5v: #c25f00; --ngnd: #2b323b; --ni2c: #1565c0; --nuart: #7b2fa8;
+    --ni2s: #00808b; --nspi: #2e7d32; --nctl: #b0246c; --nink: #111820;
+    color-scheme: light;
+  }
+  /* gewone blokken: een raster breekt slecht over pagina's */
+  .page, section, .tekst, .kop, .twee, .blad, .regels { display: block; }
+  .page > * + * { margin-top: 20px; }
+  section > * + *, .tekst > * + *, .twee > * + *, .regels > * + * { margin-top: 10px; }
+  body { font-size: 10.5pt; }
+  .page { padding-block: 0; max-width: none; }
+  .schema { min-width: 0 !important; }
+  .blad { break-inside: avoid; border: 0; padding: 0; }
+  .blad figcaption { margin-top: 6px; }
+  .blad.liggend { page: liggend; }
+  .blad.liggend .schema { max-height: 168mm; }
+  .blad.smal .schema { max-height: 200mm; }
+  .tabel-wrap { overflow: visible; border: 0; }
+  tr, li { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
+  a { color: inherit; }
+  .scherm { display: none; }
+}
+</style>
+
+<div class="page">
+
+<header class="kop">
+  <p class="eyebrow">CanSat 2027 · assemblage</p>
+  <h1>Draadschema van de CanSat</h1>
+  <p class="lead">Voor wie de CanSat in elkaar zet. Je vindt hier alle draden, ook de batterij, de schakelaar, de buzzer en de antenne. De pinnen komen uit de vluchtcode. Wijk er niet van af, anders werkt de software niet meer.</p>
+  <dl class="titelblok">
+    <div><dt>Project</dt><dd>CanSat 2027</dd></div>
+    <div><dt>Tekening</dt><dd>Draadschema vlucht</dd></div>
+    <div><dt>Voor</dt><dd>Freddy (assemblage)</dd></div>
+    <div><dt>Revisie</dt><dd>A · 21-10-2026</dd></div>
+    <div><dt>Pinnen volgens</dt><dd><code>Cansat2027_teensy.ino</code></dd></div>
+  </dl>
+</header>
+
+<aside class="regels" aria-labelledby="regels-titel">
+  <h2 id="regels-titel">Vijf regels voor je begint</h2>
+  <ul>
+    <li>Alle modules krijgen 3,3 V van de pin <code>3.3V</code> van de Teensy. Zet nooit 5 V op een module.</li>
+    <li>Snij onderaan de Teensy het spoor tussen de pads <code>VIN</code> en <code>VUSB</code> door. Soldeer diode D1 erover.</li>
+    <li>Bij D1 en D2 wijst de ring (de kathode) naar <code>VIN</code>.</li>
+    <li>Zend nooit zonder antenne. De radio zendt meteen na het opstarten.</li>
+    <li>De pinnen volgen de vluchtcode. Verander je een pin, dan moet de code mee veranderen.</li>
+  </ul>
+</aside>
+
+<section aria-labelledby="schema-titel">
+  <h2 id="schema-titel">Het volledige schema</h2>
+  <figure class="blad liggend">
+    <div class="blad-scroll"><!-- FIGUUR:overzicht --></div>
+    <figcaption><b>Fig. 1</b>Alles wat in de CanSat komt. Links de voeding, de buzzer en de radio. Rechts de drie sensoren op de I²C-bus, de GPS en de microfoon. Een kaartje <code>3V3</code> of <code>GND</code> betekent: verbind met die lijn.<span class="scherm"> Op een smal scherm kan je de tekening opzij schuiven.</span></figcaption>
+  </figure>
+  <div class="tekst">
+    <p>Elke kleur is een soort verbinding. Een pijl toont de richting van het signaal. De drie I²C-sensoren hangen samen aan dezelfde twee draden: SDA (pin 18) en SCL (pin 19). Alle GND-punten zijn met elkaar verbonden.</p>
+  </div>
+</section>
+
+<section aria-labelledby="tabel-titel">
+  <h2 id="tabel-titel">Aansluitingen per onderdeel</h2>
+  <div class="tekst"><p>Per bordje: welke pin waarheen. Pinnen die niet in de tabel staan, sluit je niet aan.</p></div>
+  <div class="tabel-wrap">
+    <table>
+      <thead><tr><th scope="col">Pin op het bordje</th><th scope="col">Gaat naar</th><th scope="col">Opmerking</th></tr></thead>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">Teensy 4.1 <span>PJRC</span></th></tr>
+        <tr><td class="pin"><i class="sw n5v"></i>VIN</td><td class="naar">D2 en D1 (kathode)</td><td>Hier komt ± 4,9 V binnen.</td></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>3.3V</td><td class="naar">3V3 van alle modules</td><td>Samen hoogstens 250 mA. Wij gebruiken ± 90 mA.</td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">alle GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw n5v"></i>pads VIN–VUSB</td><td class="naar">doorsnijden, D1 erover</td><td>Onderkant. Anode van D1 op VUSB, kathode op VIN.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">BMP390 <span>Adafruit · druk en temperatuur · I²C-adres 0x77</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>VIN</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SDI</td><td class="naar">pin 18 (SDA)</td><td>Op dit bordje heet SDA “SDI”.</td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SCK</td><td class="naar">pin 19 (SCL)</td><td>Op dit bordje heet SCL “SCK”.</td></tr>
+        <tr><td class="pin">3Vo, SDO, CS, INT</td><td class="naar">niets</td><td></td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">BNO055 <span>Adafruit · oriëntatie · I²C-adres 0x28</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>VIN</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SDA</td><td class="naar">pin 18</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SCL</td><td class="naar">pin 19</td><td></td></tr>
+        <tr><td class="pin">3Vo, RST, INT, ADR, PS0, PS1</td><td class="naar">niets</td><td>ADR los laten: dan is het adres 0x28.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">LSM6DSO <span>SparkFun · trillingen en schokken · I²C-adres 0x6B</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>3V3</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SDA</td><td class="naar">pin 18</td><td>Onderste rij van het bordje.</td></tr>
+        <tr><td class="pin"><i class="sw ni2c"></i>SCL</td><td class="naar">pin 19</td><td>Onderste rij van het bordje.</td></tr>
+        <tr><td class="pin">SDO, CS</td><td class="naar">niets</td><td>Anders verandert het adres of schakelt de chip naar SPI.</td></tr>
+        <tr><td class="pin">INT1, INT2, OCS, SCX, SDX, SDOX</td><td class="naar">niets</td><td>Bovenste rij. SCX en SDX zijn níet SCL en SDA.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">GPS PA1616D <span>Adafruit Ultimate GPS · UART, 9600 baud</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>VIN</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nuart"></i>TX</td><td class="naar">pin 0 (RX1)</td><td>Zenden van de GPS gaat naar ontvangen van de Teensy.</td></tr>
+        <tr><td class="pin"><i class="sw nuart"></i>RX</td><td class="naar">pin 1 (TX1)</td><td></td></tr>
+        <tr><td class="pin">3.3V-uitgang, EN, VBAT, FIX, PPS</td><td class="naar">niets</td><td>Steek een CR1220-knoopcel in de houder.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">SPH0645 <span>Adafruit · microfoon · I²S</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>3V</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2s"></i>BCLK</td><td class="naar">pin 21</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2s"></i>LRCL</td><td class="naar">pin 20</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ni2s"></i>DOUT</td><td class="naar">pin 8</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>SEL</td><td class="naar">GND</td><td>Kiest het linkerkanaal.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">RFM95W <span>Adafruit · radio 868 MHz · SPI</span></th></tr>
+        <tr><td class="pin"><i class="sw n3v3"></i>VIN</td><td class="naar">3.3V</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>SCK</td><td class="naar">pin 13</td><td>Pin 13 is ook het lampje van de Teensy. Het flikkert tijdens het zenden.</td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>MISO</td><td class="naar">pin 12</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>MOSI</td><td class="naar">pin 11</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>CS</td><td class="naar">pin 10</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>RST</td><td class="naar">pin 9</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nspi"></i>G0</td><td class="naar">pin 2</td><td>Meldt “pakket verzonden”.</td></tr>
+        <tr><td class="pin">ANT</td><td class="naar">antenne</td><td>Zie <a href="#antenne-titel">de LoRa-antenne</a>.</td></tr>
+        <tr><td class="pin">EN, G1–G5</td><td class="naar">niets</td><td></td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">PowerBoost 1000C <span>Adafruit · laadt de batterij en maakt 5,2 V</span></th></tr>
+        <tr><td class="pin">BAT (JST)</td><td class="naar">LiPo</td><td>Kijk eerst of + en − kloppen.</td></tr>
+        <tr><td class="pin"><i class="sw n5v"></i>5V</td><td class="naar">anode van D2</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>GND</td><td class="naar">GND</td><td></td></tr>
+        <tr><td class="pin"><i class="sw nctl"></i>EN</td><td class="naar">midden van S1</td><td></td></tr>
+        <tr><td class="pin">micro-USB</td><td class="naar">van buiten bereikbaar</td><td>Om te laden. De grote USB-A-poort heb je niet nodig.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">Schakelaar S1 <span>schuifschakelaar, 1 pool, 2 standen</span></th></tr>
+        <tr><td class="pin"><i class="sw nctl"></i>midden</td><td class="naar">EN van de PowerBoost</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>zijkant 1</td><td class="naar">GND</td><td>Deze stand is UIT.</td></tr>
+        <tr><td class="pin">zijkant 2</td><td class="naar">niets</td><td>Deze stand is AAN.</td></tr>
+      </tbody>
+      <tbody>
+        <tr><th colspan="3" scope="rowgroup">Buzzer <span>BZ1, Q1, R1, R2, D3</span></th></tr>
+        <tr><td class="pin"><i class="sw n5v"></i>BZ1 +</td><td class="naar">VIN</td><td></td></tr>
+        <tr><td class="pin">BZ1 −</td><td class="naar">collector van Q1</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>Q1 emitter</td><td class="naar">GND</td><td>Q1 = BC337-40 of 2N2222A.</td></tr>
+        <tr><td class="pin"><i class="sw nctl"></i>Q1 basis</td><td class="naar">R1 (1 kΩ) naar pin 14</td><td></td></tr>
+        <tr><td class="pin"><i class="sw ngnd"></i>Q1 basis</td><td class="naar">R2 (10 kΩ) naar GND</td><td>Houdt de buzzer stil tijdens het opstarten.</td></tr>
+        <tr><td class="pin">D3 (1N4148)</td><td class="naar">over de buzzer</td><td>Ring aan de + van de buzzer.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="pinnen-titel">
+  <h2 id="pinnen-titel">Waar zitten de pinnen op de Teensy?</h2>
+  <div class="tekst">
+    <p>Zo zie je de Teensy van bovenaf, met de USB-poort boven. De gekleurde pinnen gebruik je. De Teensy heeft meer GND- en 3.3V-pinnen. Die zijn binnenin verbonden: één van elk volstaat.</p>
+  </div>
+  <figure class="blad smal">
+    <div class="blad-scroll"><!-- FIGUUR:pinnen --></div>
+    <figcaption><b>Fig. 2</b>Teensy 4.1 van bovenaf. Links GND, 0 tot 12, 3.3V, 24 tot 32. Rechts VIN, GND, 3.3V, 23 tot 13, GND, 41 tot 33. Leg het pinout-kaartje van PJRC ernaast als controle.</figcaption>
+  </figure>
+</section>
+
+<section aria-labelledby="voeding-titel">
+  <h2 id="voeding-titel">Voeding: batterij, PowerBoost en twee diodes</h2>
+  <div class="tekst">
+    <p>Eén LiPo-cel voedt alles. De PowerBoost laadt die cel op en maakt er 5,2 V van. Die spanning gaat via diode D2 naar <code>VIN</code> van de Teensy. De Teensy maakt zelf 3,3 V voor alle modules.</p>
+  </div>
+  <figure class="blad liggend">
+    <div class="blad-scroll"><!-- FIGUUR:voeding --></div>
+    <figcaption><b>Fig. 3</b>De voeding met de drie meetpunten. S1 legt EN aan GND om de 5 V uit te schakelen. Het spoor tussen VUSB en VIN is doorgesneden; D1 laat de stroom van de USB-poort nog wel door naar VIN.</figcaption>
+  </figure>
+  <div class="twee">
+    <div class="tekst">
+      <h3>Waarom de pads doorsnijden?</h3>
+      <p>Op de Teensy zijn <code>VIN</code> en <code>VUSB</code> standaard verbonden. Hangt er een batterij aan VIN en steek je ook een USB-kabel in, dan laadt de laptop de batterij zonder controle, of voedt de batterij de laptop. PJRC raadt daarom aan om het spoor door te snijden.</p>
+      <p>Met D1 en D2 kan alles veilig samen. Alleen USB: de Teensy draait, voor tests op de werkbank. Alleen de batterij: de CanSat vliegt. Beide samen mag ook.</p>
+      <h3>Zo doe je het</h3>
+      <ol>
+        <li>Zoek aan de onderkant de twee pads met het dunne spoor ertussen (zie het pinout-kaartje van PJRC).</li>
+        <li>Snij het spoor door met een scherp mesje.</li>
+        <li>Meet met de multimeter: tussen VIN en VUSB mag geen doorgang meer zijn.</li>
+        <li>Steek de USB-kabel in. De pad met 5 V is VUSB.</li>
+        <li>Soldeer D1 over de pads: anode op VUSB, kathode (ring) op VIN. Een SMD-diode (SS14) past precies.</li>
+      </ol>
+    </div>
+    <div class="tekst">
+      <h3>Meetpunten</h3>
+      <div class="tabel-wrap">
+        <table>
+          <thead><tr><th scope="col">Punt</th><th scope="col">Waar</th><th scope="col">Verwacht</th></tr></thead>
+          <tbody>
+            <tr><td class="pin">TP1</td><td>5V van de PowerBoost</td><td>5,0–5,2 V bij AAN, 0 V bij UIT</td></tr>
+            <tr><td class="pin">TP2</td><td>VIN van de Teensy</td><td>± 4,9 V op de batterij, ± 4,7 V met alleen USB</td></tr>
+            <tr><td class="pin">TP3</td><td>3.3V van de Teensy</td><td>3,3 V</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Veilig met een LiPo</h3>
+      <ul>
+        <li>Kijk de stekker na vóór je hem insteekt. Niet elk merk zet + en − op dezelfde plaats. Verkeerd = PowerBoost stuk.</li>
+        <li>Laad onder toezicht. Gebruik geen opgezwollen of beschadigde cel.</li>
+        <li>Laden mag met de schakelaar op UIT.</li>
+        <li>Ligt de CanSat lang stil? Trek de batterijstekker uit.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="tekst">
+    <h3>Waarom 2000 mAh?</h3>
+    <p>ESA eist dat de CanSat 4 uur na elkaar kan aanstaan. Dit verbruikt hij:</p>
+  </div>
+  <div class="tabel-wrap" style="max-width: 74ch">
+    <table>
+      <thead><tr><th scope="col">Verbruiker</th><th scope="col" class="getal">Stroom</th></tr></thead>
+      <tbody>
+        <tr><td>Teensy 4.1 (600 MHz)</td><td class="getal">± 100 mA</td></tr>
+        <tr><td>GPS PA1616D</td><td class="getal">± 29 mA</td></tr>
+        <tr><td>BNO055</td><td class="getal">± 12 mA</td></tr>
+        <tr><td>RFM95W, 1 pakket per seconde (± 45 mA tijdens het zenden)</td><td class="getal">± 12 mA</td></tr>
+        <tr><td>microSD (schrijven)</td><td class="getal">± 10 mA</td></tr>
+        <tr><td>BMP390, LSM6DSO en SPH0645 samen</td><td class="getal">± 2 mA</td></tr>
+        <tr class="totaal"><td>Totaal op VIN</td><td class="getal">± 165 mA</td></tr>
+        <tr><td>Uit de batterij, met de verliezen van PowerBoost en D2</td><td class="getal">± 0,27 A</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="tekst">
+    <p>Een cel van 2000 mAh houdt dat ± 7 uur vol, in de kou wat minder. Een cel van 1200 mAh haalt de 4 uur maar net. De cel van 2000 mAh (60 × 36 × 7 mm, 34 g) past rechtop in het blik.</p>
+  </div>
+</section>
+
+<section aria-labelledby="schakelaar-titel">
+  <h2 id="schakelaar-titel">Schakelaar</h2>
+  <div class="tekst">
+    <p><strong>Bestellen:</strong> een kleine schuifschakelaar met 1 pool en 2 standen (SPDT). Bijvoorbeeld C&amp;K OS102011MS2QN1 of E-Switch EG1218. Er loopt bijna geen stroom door: de schakelaar zit op de pin EN van de PowerBoost, niet in de batterijdraad.</p>
+    <p><strong>Aansluiten:</strong> de middelste pin aan EN. Eén buitenste pin aan GND. De andere buitenste pin blijft vrij.</p>
+    <ul>
+      <li>Naar de GND-kant geschoven: UIT. EN ligt aan GND en de PowerBoost geeft geen 5 V.</li>
+      <li>Weg van GND: AAN. EN hangt los en de PowerBoost trekt hem zelf hoog.</li>
+      <li>In de stand AAN raakt het contact niets. Trillingen kunnen de CanSat dus niet uitzetten.</li>
+    </ul>
+    <p><strong>Plaats:</strong> ESA vraagt een hoofdschakelaar die je makkelijk bereikt. Zet hem in de wand, een beetje verzonken, zodat hij niet blijft haken bij het inladen. Schrijf AAN en UIT op het blik.</p>
+  </div>
+</section>
+
+<section aria-labelledby="buzzer-titel">
+  <h2 id="buzzer-titel">Buzzer</h2>
+  <div class="twee">
+    <div class="tekst">
+      <p><strong>Bestellen:</strong> een <em>actieve</em> buzzer van 5 V, met een ingebouwde oscillator. Die piept zodra er spanning op staat.</p>
+      <ul>
+        <li>Diameter 12 mm, pinafstand 7,6 mm.</li>
+        <li>Minstens 85 dB op 10 cm, hoogstens 30 mA.</li>
+        <li>Bijvoorbeeld de TMB12A05 (werkt van 3 tot 7 V, 85–95 dB op 10 cm) of de Adafruit 1536 (3–5 V, 2 kHz). Neem er twee.</li>
+        <li>Geen passieve piëzo. De code zet pin 14 gewoon aan en uit. Een passieve piëzo geeft dan alleen een tikje.</li>
+      </ul>
+      <p><strong>Schakeling</strong> (fig. 1, links): een pin van de Teensy kan geen 30 mA leveren. Transistor Q1 schakelt de buzzer. R2 houdt hem stil terwijl de Teensy opstart. D3 beschermt Q1 als de buzzer een spoeltje heeft.</p>
+      <p class="noot">BC337 en 2N2222A hebben C, B en E in een andere volgorde. Kijk de datasheet na voor je soldeert.</p>
+    </div>
+    <div class="tekst">
+      <h3>Wat je hoort</h3>
+      <div class="tabel-wrap">
+        <table>
+          <thead><tr><th scope="col">Signaal</th><th scope="col">Betekenis</th></tr></thead>
+          <tbody>
+            <tr><td class="kort">3 korte piepjes</td><td>De CanSat is opgestart.</td></tr>
+            <tr><td class="kort">3 lange piepjes</td><td>Een sensor, de radio of de SD-kaart werd niet gevonden. Eén reeks per onderdeel.</td></tr>
+            <tr><td class="kort">stil</td><td>Tijdens de vlucht. Anders stoort de buzzer de microfoon.</td></tr>
+            <tr><td class="kort">3 s aan, 7 s uit</td><td>6 minuten na de lancering: terugvindsignaal.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Maak een gaatje in de wand bij de buzzer. Anders hoor je hem nauwelijks.</p>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="antenne-titel">
+  <h2 id="antenne-titel">LoRa-antenne</h2>
+  <div class="tekst">
+    <p>De radio werkt op 868 MHz. Een kwart van de golflengte is daar 8,6 cm. In de praktijk werkt een draad van 8,2 cm het best. Dat is dezelfde lengte als bij de ultieme test.</p>
+  </div>
+  <figure class="blad smal">
+    <div class="blad-scroll"><!-- FIGUUR:antenne --></div>
+    <figcaption><b>Fig. 4</b>Zo hangt de CanSat onder de parachute. De antenne steekt onderaan uit, weg van de koorden. De GPS ligt bovenaan, met de patch naar de lucht.</figcaption>
+  </figure>
+  <div class="twee">
+    <div class="tekst">
+      <h3>Aanbevolen: een dipool van twee draden</h3>
+      <ul>
+        <li>Draad 1, 8,2 cm, aan <code>ANT</code>. Recht naar beneden, door de bodem naar buiten.</li>
+        <li>Draad 2, 8,2 cm, aan de GND-pad naast <code>ANT</code>. Binnen in het blik recht naar boven, tegen de wand.</li>
+        <li>Gebruik stijve draad: koperdraad van 0,8 tot 1 mm, of verenstaal. Zet krimpkous rond de doorvoer in de bodem.</li>
+        <li>Is de wand van metaal? Verbind de wand dan met GND en laat alleen draad 1 naar buiten steken. De wand doet dan het werk van draad 2.</li>
+      </ul>
+      <h3>Waarom onderaan?</h3>
+      <p>De CanSat hangt onder de parachute. Een antenne bovenaan raakt in de koorden. Onderaan hangt ze vrij en recht.</p>
+    </div>
+    <div class="tekst">
+      <h3>Regels</h3>
+      <ul>
+        <li>ESA: antennes mogen alleen boven- of onderaan uitsteken, niet aan de zijkant. Vraag aan de organisatie hoeveel er mag uitsteken.</li>
+        <li>Hou minstens 2 cm afstand van metaal: batterij, Teensy, schroeven.</li>
+        <li>De GPS bovenaan, de radio-antenne onderaan. Zo zitten ze elkaar niet in de weg.</li>
+        <li>Zend nooit zonder antenne. Zonder antenne kan de RFM95W stukgaan.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="twee">
+    <div class="tekst">
+      <h3>Steviger alternatief</h3>
+      <p>De print van de RFM95W heeft plaats voor een u.FL-connector. Soldeer die erop. Gebruik een kabeltje van u.FL naar SMA, met een SMA-doorvoer in de bodem. Daarop schroef je een korte, buigzame antenne voor 868 MHz. Plooit hij bij de landing, dan vervang je hem.</p>
+    </div>
+    <div class="tekst">
+      <h3>Het grondstation</h3>
+      <ul>
+        <li>De antenne van de ontvanger moet ook voor 868 MHz zijn. Een Yagi voor 433 MHz werkt niet op 868 MHz.</li>
+        <li>De antenne van de CanSat hangt verticaal. Zet de antenne van het grondstation ook verticaal. Bij een Yagi staan de elementen dan rechtop.</li>
+        <li>Legt de organisatie 433 MHz op? Dan heb je de RFM96W (433 MHz) nodig, in de CanSat én in de ontvanger, met een antenne van 16,5 cm. De RFM95W kan geen 433 MHz.</li>
+        <li>Doe na de montage opnieuw de afstandstest van 100 m, met alles in het blik.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="gps-titel">
+  <h2 id="gps-titel">GPS</h2>
+  <div class="tekst">
+    <ul>
+      <li>Leg de GPS bovenaan, met de patch-antenne naar boven. Dat is het vierkante blokje op de module. Er mag geen batterij of print boven liggen.</li>
+      <li>Steek een CR1220-knoopcel in de houder op de achterkant. Dan onthoudt de GPS de satellieten en vindt hij sneller een positie.</li>
+      <li>De GPS heeft vrij zicht op de lucht nodig. Binnen vindt hij meestal niets.</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="montage-titel">
+  <h2 id="montage-titel">Montage in het blik</h2>
+  <div class="tekst">
+    <ul>
+      <li>Geen breadboard in de vlucht. Soldeer alles op een gaatjesprint of op een eigen print.</li>
+      <li>Gebruik soepele, gevlochten draad (siliconendraad, AWG 26) en hou de draden kort. Massieve draad breekt door trillingen.</li>
+      <li>Hou de I²C-draden korter dan 15 cm. Hebben de drie I²C-sensoren een Qwiic- of STEMMA QT-connector? Dan kan je ze met zulke kabeltjes aan elkaar hangen: minder kans op verwisselde draden. Zet de stekkers vast met een druppel lijm.</li>
+      <li>ESA vraagt dat de CanSat 20 g verdraagt. Dan duwt de batterij van 34 g even hard als 680 g. Zet ze vast met een bandje of een klem, niet alleen met dubbelzijdige tape.</li>
+      <li>Leg de BNO055 en de LSM6DSO plat, evenwijdig met het deksel. De onderdelen wijzen naar boven als de CanSat rechtop staat. De software verwacht dat: in rust geeft de BNO055 dan <code>grav_z</code> ≈ +9,8 en de LSM6DSO <code>acc_peak_g</code> ≈ 1,00.</li>
+      <li>Schroef de LSM6DSO stevig vast, zonder schuim. Hij moet de trillingen van het blik meten, niet die van het schuim.</li>
+      <li>De Teensy is 61 mm lang. Plat past hij nauwelijks in het blik: zet hem rechtop.</li>
+      <li>Steek de microSD-kaart erin en kleef er een stukje kaptontape over.</li>
+      <li>Van buiten bereikbaar: de schakelaar, de micro-USB van de PowerBoost (laden) en de USB-poort van de Teensy (programmeren en testen). Zo niet, dan moet de batterij snel uit te nemen zijn. Dat is een eis van ESA.</li>
+      <li>Maak gaatjes in de wand bij de microfoon en bij de buzzer.</li>
+      <li>ESA vraagt een massa van 300 tot 350 g. De batterij, de PowerBoost, de buzzer en de schakelaar wegen samen ± 45 g. Weeg de CanSat opnieuw.</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="bestel-titel">
+  <h2 id="bestel-titel">Bestellijst</h2>
+  <div class="tekst"><p>De onderdelen van Adafruit en SparkFun vind je bijvoorbeeld bij Kiwi Electronics. De kleine onderdelen ook bij Farnell, Mouser of Conrad.</p></div>
+  <div class="tabel-wrap">
+    <table>
+      <thead><tr><th scope="col">Onderdeel</th><th scope="col">Voorbeeld</th><th scope="col" class="getal">Aantal</th><th scope="col">Waarvoor</th></tr></thead>
+      <tbody>
+        <tr><td>LiPo 3,7 V, 2000 mAh, met beveiliging en JST-PH-stekker</td><td>Adafruit 2011</td><td class="getal">1</td><td>voeding</td></tr>
+        <tr><td>Laad- en boostprint</td><td>Adafruit PowerBoost 1000C (2465)</td><td class="getal">1</td><td>laden en 5,2 V</td></tr>
+        <tr><td>Schottky-diode 1 A</td><td>1N5817, of SMD: SS14</td><td class="getal">3</td><td>D1, D2 en 1 reserve</td></tr>
+        <tr><td>Actieve buzzer 5 V, Ø 12 mm</td><td>TMB12A05 of Adafruit 1536</td><td class="getal">2</td><td>BZ1</td></tr>
+        <tr><td>NPN-transistor</td><td>BC337-40 of 2N2222A</td><td class="getal">2</td><td>Q1</td></tr>
+        <tr><td>Weerstand ¼ W, 1 kΩ</td><td>—</td><td class="getal">2</td><td>R1</td></tr>
+        <tr><td>Weerstand ¼ W, 10 kΩ</td><td>—</td><td class="getal">2</td><td>R2</td></tr>
+        <tr><td>Signaaldiode</td><td>1N4148</td><td class="getal">2</td><td>D3</td></tr>
+        <tr><td>Schuifschakelaar SPDT</td><td>C&amp;K OS102011MS2QN1 of E-Switch EG1218</td><td class="getal">2</td><td>S1</td></tr>
+        <tr><td>Knoopcel</td><td>CR1220</td><td class="getal">1</td><td>GPS</td></tr>
+        <tr><td>microSD-kaart 4–32 GB</td><td>goed merk, FAT32</td><td class="getal">1</td><td>gegevens</td></tr>
+        <tr><td>Antennedraad</td><td>koperdraad 0,8–1 mm, 30 cm</td><td class="getal">1</td><td>dipool</td></tr>
+        <tr><td>Optie: u.FL-connector, kabeltje u.FL naar SMA, 868 MHz-antenne met SMA</td><td>—</td><td class="getal">1</td><td>steviger antenne</td></tr>
+        <tr><td>Optie: Qwiic- of STEMMA QT-kabeltjes, 50–100 mm</td><td>—</td><td class="getal">3</td><td>I²C-sensoren</td></tr>
+        <tr><td>Montage: siliconendraad AWG 26 in 7 kleuren, krimpkous, gaatjesprint, afstandsbusjes M2,5, kaptontape, kabelbinders</td><td>—</td><td class="getal"></td><td>bouwen</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="controle-titel">
+  <h2 id="controle-titel">Controle na het solderen</h2>
+  <div class="tekst">
+    <p>Doe dit in deze volgorde. Stop bij de eerste fout.</p>
+    <ol>
+      <li>Kijk alles na met een loep: geen soldeerbruggen, geen losse draden.</li>
+      <li>Multimeter op de piepstand, zonder batterij en zonder USB. Geen doorgang tussen 3.3V en GND, tussen VIN en GND, en tussen VIN en VUSB.</li>
+      <li>Batterij erin (let op + en −), schakelaar op UIT. TP1 is 0 V.</li>
+      <li>Schakelaar op AAN. TP1 is 5,0–5,2 V, TP2 ± 4,9 V, TP3 3,3 V.</li>
+      <li>De buzzer geeft 3 korte piepjes. Hoor je lange piepjes? Dan ontbreekt er iets.</li>
+      <li>Open de Serial Monitor (115200 baud) en herstart. BMP390, BNO055, LSM6DSO, LoRa en SD staan op OK.</li>
+      <li>CanSat rechtop en stil: <code>grav_z</code> ≈ +9,8 en <code>acc_peak_g</code> ≈ 1,00. De trillingsbanden zijn niet 0.</li>
+      <li>Schakelaar op UIT, alleen de USB-kabel: de Teensy start ook. TP2 is ± 4,7 V.</li>
+      <li>De ontvanger krijgt pakketten. Doe de afstandstest van 100 m.</li>
+      <li>Duurtest: laat de CanSat 4 uur aanstaan op de batterij en log alles.</li>
+      <li>Weeg de CanSat: 300 tot 350 g.</li>
+    </ol>
+  </div>
+</section>
+
+<section aria-labelledby="bronnen-titel">
+  <h2 id="bronnen-titel">Bronnen</h2>
+  <div class="tekst">
+    <ul>
+      <li><a href="https://www.esa.int/Education/CanSat/What_is_a_CanSat">ESA: What is a CanSat</a>: 4 uur aan, hoofdschakelaar, bereikbare batterij, antennes alleen boven of onder, 300–350 g.</li>
+      <li><a href="https://www.pjrc.com/teensy/schematic.html">PJRC: schema van de Teensy 4.1</a>: de pads tussen VIN en VUSB.</li>
+      <li><a href="https://forum.pjrc.com/showthread.php?p=24424">PJRC-forum</a>: Paul Stoffregen over het doorsnijden bij batterij en USB samen.</li>
+      <li><a href="https://protosupplies.com/learn/prototyping-system-for-teensy-4-1-powering-up-the-system/">ProtoSupplies</a>: twee diodes, kathode naar VIN.</li>
+      <li><a href="https://www.adafruit.com/product/2465">Adafruit PowerBoost 1000C</a>: EN, 5,2 V, laden met 1 A.</li>
+      <li><a href="https://www.adafruit.com/product/2011">Adafruit LiPo 2000 mAh</a>: 60 × 36 × 7 mm, 34 g.</li>
+      <li><a href="https://www.adafruit.com/product/5440">Adafruit Ultimate GPS PA1616D</a>: houder voor de CR1220, ± 29 mA.</li>
+      <li><a href="https://www.electrokit.com/en/active-piezo-buzzer-95db-5vdc-pcb-12x9.5mm">Electrokit: TMB12A05</a>: 5 V, hoogstens 30 mA.</li>
+      <li>De pinnen: <code>vluchtcode/Cansat2027_teensy.ino</code> in de repository van het project.</li>
+    </ul>
+  </div>
+</section>
+
+</div>
