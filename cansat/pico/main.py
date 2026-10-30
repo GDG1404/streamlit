@@ -83,6 +83,12 @@ CRC_IN_HEADER = 0x40
 BANDBREEDTES = ((7.8, 0), (10.4, 1), (15.6, 2), (20.8, 3), (31.25, 4),
                 (41.7, 5), (62.5, 6), (125.0, 7), (250.0, 8), (500.0, 9))
 
+# Na het instellen lezen we deze registers terug: frequentie, bandbreedte en
+# coding rate, spreading factor en CRC, AGC en sync word. Die moeten kloppen
+# om de CanSat te horen. Andere registers past de radio soms zelf aan (zoals
+# 0x2F en 0x30 bij automatische IF): die lezen we niet terug.
+CONTROLE = (0x06, 0x07, 0x08, 0x1D, 0x1E, 0x26, 0x39)
+
 
 def instellingen():
     """Alle registers die de radio-instellingen bepalen: (register, waarde)."""
@@ -183,10 +189,14 @@ class Radio:
         regs = instellingen()
         for reg, waarde in regs:
             self.schrijf(reg, waarde)
-        for reg, waarde in regs:                    # alles goed aangekomen?
-            if self.lees(reg) != waarde:
+        for reg, waarde in regs:                    # goed aangekomen?
+            if reg not in CONTROLE:
+                continue
+            gelezen = self.lees(reg)
+            if gelezen != waarde:
                 return ("De radio onthoudt zijn instellingen niet (register "
-                        "0x%02X). Zit de MOSI-draad goed?" % reg)
+                        "0x%02X: 0x%02X geschreven, 0x%02X gelezen). Zit de "
+                        "MOSI-draad goed?" % (reg, waarde, gelezen))
         self.schrijf(REG_IRQ_FLAGS, 0xFF)
         self.schrijf(REG_FIFO_ADDR_PTR, 0x00)
         self.schrijf(REG_OP_MODE, LORA | RX_CONTINU)
