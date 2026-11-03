@@ -776,7 +776,8 @@ h1 { font-size: 40px; line-height: 1.15; margin: 0 0 8px; letter-spacing: -.01em
          border-radius: 99px; margin-left: 6px; vertical-align: 2px; }
 .badge.ok { color: var(--good); background: var(--good-soft); }
 .badge.check { color: var(--warn); background: var(--warn-soft); }
-nav ol { columns: 2; margin: 6px 0 0; padding-left: 22px; color: var(--ink2); }
+nav ol { columns: 2; column-gap: 48px; margin: 6px 0 0; padding-left: 26px; color: var(--ink2); }
+nav li { margin: 0; padding: 3px 0; break-inside: avoid; }
 nav a { color: var(--ink); text-decoration: none; }
 nav a:hover { color: var(--blue); }
 .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px; }
@@ -813,11 +814,28 @@ footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 1
   .kpi .value, .kpi .value.long { font-size: 20px; line-height: 1.4; }
   td.v { white-space: normal; }
 }
+@page { size: A4; margin: 14mm 12mm; }
 @media print {
-  body { background: #fff; } .page { max-width: none; padding: 0; }
-  .sheet { border: none; border-radius: 0; padding: 18px 8px; page-break-after: always; }
-  figure, table, .kpi { page-break-inside: avoid; }
-  nav { display: none; }
+  html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: #fff; font-size: 14px; }
+  .page { max-width: none; padding: 0; }
+  .sheet { background: #fff; border: none; border-radius: 0; padding: 0; margin: 0;
+           break-after: page; page-break-after: always; }
+  .sheet.cover { break-after: auto; page-break-after: auto; margin-bottom: 30px; }
+  section.sheet:last-of-type { break-after: auto; page-break-after: auto; }
+  h1 { font-size: 32px; } h2 { font-size: 22px; }
+  .lead { font-size: 16px; margin-left: 42px; }
+  .kpis { grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 22px; }
+  .kpi { padding: 10px 12px; } .kpi .label { font-size: 10px; letter-spacing: .06em; }
+  .kpi .value { font-size: 21px; } .kpi .value.long { font-size: 16px; line-height: 1.65; }
+  .kpi .note { font-size: 11.5px; }
+  .cols { grid-template-columns: 1fr 1fr; gap: 22px; }
+  nav ol { columns: 2; }
+  table { font-size: 13px; } td.v { white-space: nowrap; } .tbl { overflow: visible; }
+  figcaption { font-size: 12px; } .note-box { font-size: 13px; }
+  figure, table, .kpi, .cols, .question, .note-box { break-inside: avoid; page-break-inside: avoid; }
+  h3 { break-after: avoid; page-break-after: avoid; }
+  footer { margin-top: 18px; }
 }
 """
 
@@ -1342,7 +1360,7 @@ def write_html(rep, team, src_name, fl, vb, q, gps, r, d, folder):
                  f"</div>" for a, b, c in kpis(fl, vb, q, r))
     toc = "".join(f"<li><a href='#{sid}'>{esc(t)}</a></li>" for sid, t, _, _ in rep.sections)
     when = f" · launch at {gps['utc_launch']} UTC" if gps.get("utc_launch") else ""
-    head = (f"<section class='sheet'><p class='eyebrow'>CanSat 2027 · Flight report</p>"
+    head = (f"<section class='sheet cover'><p class='eyebrow'>CanSat 2027 · Flight report</p>"
             f"<h1>{esc(team) if team else 'The flight of our CanSat'}</h1>"
             f"<p class='meta'>Data: {esc(src_name)} "
             f"({'ground station, radio' if q.get('radio') else 'SD card'}) · {q['rows']} measurements"
