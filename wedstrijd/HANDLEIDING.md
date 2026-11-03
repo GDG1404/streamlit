@@ -264,8 +264,8 @@ antennetest.
    LoRa   : OK
    SD     : OK
    ```
-   Daarna komt er elke seconde een lange regel met getallen bij. `BMP390` is ook jullie
-   BMP388: ze werken met dezelfde code.
+   Daarna komt er elke seconde een lange regel met getallen bij. `BMP390` is de
+   druksensor. Zit er nog een BMP388 in? Die werkt met dezelfde code.
 8. Sluit de Arduino IDE helemaal (alle vensters, het kruisje rechtsboven).
 
 > **Zet nooit de sensortest op de CanSat.** Die zendt niets via de radio, bewaart niets op
@@ -875,7 +875,7 @@ De CanSat herkent de lancering met de BMP390: 50 m hoger binnen 5 seconden
 
 | Wat | Pinnen |
 |---|---|
-| I2C: BMP388, BNO055, LSM6DSO | SDA = 18, SCL = 19 |
+| I2C: BMP390, BNO055, LSM6DSO | SDA = 18, SCL = 19 |
 | GPS | Serial1: RX = 0, TX = 1 |
 | microfoon (I2S) | DATA = 8, LRCLK = 20, BCLK = 21 |
 | radio (RFM95W) | SCK = 13, MISO = 12, MOSI = 11, CS = 10, RST = 9, G0 = 2 |

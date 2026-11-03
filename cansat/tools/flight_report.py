@@ -60,7 +60,7 @@ K = KA.K
 
 # ── fill in: shown on the report ─────────────────────────────
 TEAM_NAME = ""                 # e.g. "Team Kepler · Sint-Jozefcollege"
-BAROMETER = "BMP388"           # the pressure sensor (the flight code calls it BMP390)
+BAROMETER = "BMP390"           # the pressure sensor (a BMP388 works with the same code)
 
 RESEARCH_QUESTION = ("What forces and vibrations does a CanSat feel during "
                      "its flight, and which zones of the can carry the most load?")
