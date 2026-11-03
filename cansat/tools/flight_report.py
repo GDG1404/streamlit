@@ -58,6 +58,7 @@ K = KA.K
 
 # ── fill in: shown on the report ─────────────────────────────
 TEAM_NAME = ""                 # e.g. "Team Kepler · Sint-Jozefcollege"
+BAROMETER = "BMP388"           # the pressure sensor (the flight code calls it BMP390)
 
 RESEARCH_QUESTION = ("What forces and vibrations does a CanSat feel during "
                      "its flight, and which zones of the can carry the most load?")
@@ -483,10 +484,10 @@ def fig_atmosphere(d, r, fl, sub, path):
             shade_phases(a, r, label=a is a1)
             events(a, r)
         a1.plot(t[sel], d["temp_C"][sel], color=ORANGE)
-        a1.set_title("Air temperature (BMP390, inside the can)")
+        a1.set_title(f"Air temperature ({BAROMETER}, inside the can)")
         a1.set_ylabel("temperature (°C)")
         a2.plot(t[sel], d["press_hPa"][sel], color=BLUE)
-        a2.set_title("Air pressure (BMP390)")
+        a2.set_title(f"Air pressure ({BAROMETER})")
         a2.set_ylabel("pressure (hPa)")
         a2.set_xlabel("time since the launch (s)" if r is not None else "time (s)")
         a1.set_xlim(x0, x1)
@@ -955,7 +956,7 @@ def build(args, src):
     # ── 2. primary mission ────────────────────────────────────
     fig_atmosphere(d, r, fl, sub, fp("02_temperature_pressure.png"))
     body = rep.figure(fp("02_temperature_pressure.png"),
-                      "Temperature and pressure, one value per second, measured by the BMP390.")
+                      f"Temperature and pressure, one value per second, measured by the {BAROMETER}.")
     rows = []
     if fl is not None:
         p0 = args.sea_level
@@ -979,7 +980,7 @@ def build(args, src):
                                                  f"(R² = {lr['r2_raw']:.2f})")]
     rep.keep("Primary mission", rows)
     explain = [
-        "The BMP390 measures the air pressure and the temperature once per second. "
+        f"The {BAROMETER} measures the air pressure and the temperature once per second. "
         "The CanSat sends both to the ground station every second.",
         "The pressure gives the height: <span class='formula'>h = 44330 · (1 − (p / p₀)^(1/5.255))</span>. "
         "The height zero is the pressure on the pad.",
@@ -1209,7 +1210,7 @@ def build(args, src):
         ("Seconds received" if is_radio else "Seconds on the SD card",
          f"{q['complete'] * 100:.1f} %", q["complete"] > 0.97),
         ("Gaps longer than 1.6 s", f"{q['gaps']} (longest {q['longest_gap']:.1f} s)", q["gaps"] == 0),
-        ("Barometer BMP390", f"{q['bmp'] * 100:.0f} % valid", q["bmp"] > 0.99),
+        (f"Barometer {BAROMETER}", f"{q['bmp'] * 100:.0f} % valid", q["bmp"] > 0.99),
         ("Orientation BNO055", f"{q['bno'] * 100:.0f} % valid", q["bno"] > 0.99),
         ("Vibrations LSM6DSO (FFT)", f"{q['lsm'] * 100:.0f} % valid", q["lsm"] > 0.99),
     ] + ([] if is_radio else [
@@ -1279,7 +1280,7 @@ def build(args, src):
     # ── 12. methods ───────────────────────────────────────────
     meth = [
         ("Flight computer", "Teensy 4.1, one log line per second on the SD card (34 values)"),
-        ("Pressure, temperature", "BMP390, 1 per second"),
+        ("Pressure, temperature", f"{BAROMETER}, 1 per second"),
         ("Acceleration, vibrations", "LSM6DSO, 416 per second, ±16 g; FFT of 512 samples"),
         ("Orientation", "BNO055"),
         ("Position", "GPS PA1616D, 1 per second"),
