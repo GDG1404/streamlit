@@ -151,7 +151,7 @@ def num(x, nd=1, unit=""):
     if x is None or not np.isfinite(x):
         return "—"
     s = f"{x:,.{nd}f}"
-    return f"{s} {unit}".strip() if unit else s
+    return f"{s}\u00a0{unit}" if unit else s          # no line break before the unit
 
 
 def duration(s):
@@ -185,7 +185,7 @@ def at_moment(name):
 
 def at_least(r, name):
     """'≥ ' when the sensor reached its 16 g limit at this moment."""
-    return "≥ " if r["afgeknipt"].get(name) else ""
+    return "≥\u00a0" if r["afgeknipt"].get(name) else ""
 
 
 def window(r):
@@ -1315,8 +1315,9 @@ def build(args, src):
 
     # ── write ─────────────────────────────────────────────────
     out = write_html(rep, team, src_name, fl, vb, q, gps, r, d, folder)
-    with open(os.path.join(folder, "key_numbers.csv"), "w", newline="", encoding="utf-8") as fh:
-        w = csv.writer(fh)
+    # for Excel in Belgium: ";" between the columns, and a BOM so that ° ≥ − show well
+    with open(os.path.join(folder, "key_numbers.csv"), "w", newline="", encoding="utf-8-sig") as fh:
+        w = csv.writer(fh, delimiter=";")
         w.writerow(["section", "number", "value"])
         w.writerows(rep.numbers)
     return out, folder, fl, rep
