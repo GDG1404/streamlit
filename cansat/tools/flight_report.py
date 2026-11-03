@@ -52,7 +52,9 @@ import krachten_analyse as KA  # noqa: E402  (also loads dashboard/krachten.py)
 
 import matplotlib.pyplot as plt  # noqa: E402  (Agg: set by krachten_analyse)
 from matplotlib.collections import LineCollection  # noqa: E402
-from matplotlib.colors import LinearSegmentedColormap, LogNorm, Normalize  # noqa: E402
+from matplotlib.colors import (BoundaryNorm, LinearSegmentedColormap,  # noqa: E402
+                               ListedColormap, LogNorm, Normalize)
+from matplotlib.patches import Patch  # noqa: E402
 
 K = KA.K
 
@@ -82,10 +84,28 @@ BANDS = [("vib_0_10_g", "0–10 Hz"), ("vib_10_30_g", "10–30 Hz"),
          ("vib_120_208_g", "120–208 Hz")]
 STRONG_G = 0.05                # a vibration counts as strong (as on screen 1)
 F_NYQUIST = 208.0              # half of 416 samples per second
+FS_LSM, N_FFT = 416.0, 512     # samples per second, samples in one FFT (as the Teensy)
+QUIET_G = 0.01                 # all bands together below this: quiet
+ALL_BANDS_G = 0.02             # every band at least this, at the same time: a shock
 NO_FIX = "00:00:00"            # time_utc before the first GPS fix
 PHASE_NAMES = [("pad", "on the pad"), ("ascent", "ascent"),
                ("chute opening", "chute opening"), ("descent", "descent"),
                ("landing", "landing"), ("landed", "after landing")]
+# the vibration pattern of one second, from the five bands only, with the
+# rules of our six FFT lab tests in class: key, label, colour
+PATTERNS = [("quiet", "quiet", "#dcdad3"),
+            ("slow", "slow: 0–10 Hz", "#9ec5f4"),
+            ("medium", "medium: 10–60 Hz", "#3987e5"),
+            ("fast", "fast: 60–208 Hz", "#104281"),
+            ("all", "all bands at once: a shock", ORANGE)]
+EXPECTED = {   # what the lab tests predicted for each phase of the flight
+    "pad": ("quiet", "quiet: all bands low, about 0.001\u00a0g"),
+    "ascent": ("fast", "fast: a strong peak in a high band (lab test 4: the motor)"),
+    "chute opening": ("all", "all bands at once, for about 1\u00a0s (lab test 3: a shock)"),
+    "descent": ("slow", "slow: only 0–10\u00a0Hz, about 1.5–3\u00a0Hz (lab test 1: the swing)"),
+    "landing": ("all", "all bands at once (lab test 3: a shock)"),
+    "landed": ("quiet", "quiet again"),
+}
 COMPASS = ["north", "north-east", "east", "south-east", "south", "south-west",
            "west", "north-west"]
 
@@ -328,6 +348,86 @@ def vibration_numbers(d, r):
                 out["top_phase"].append(names.get(ph[int(np.argmax(n))], ""))
     out["strong_t"], out["strong_hz"], out["strong_amp"] = t[strong], hz[strong], amp[strong]
     return out
+
+
+def pattern_of(b):
+    """The vibration pattern of one second (an index in PATTERNS), from the
+    five bands only. -1 when a band is missing."""
+    if not np.isfinite(b).all():
+        return -1
+    if math.sqrt(float(np.sum(b ** 2))) < QUIET_G:
+        return 0                                       # quiet
+    if b.min() >= ALL_BANDS_G:
+        return 4                                       # all bands at once: a shock
+    j = int(np.argmax(b))
+    return 1 if j == 0 else (2 if j <= 2 else 3)       # slow, medium or fast
+
+
+def vibration_patterns(d, r):
+    """Every second gets a pattern from the five bands only: no height, no
+    GPS. Per phase of the flight: the pattern seen most, against the one our
+    lab tests predicted. Also the envelope: the highest value in each band."""
+    bands = np.vstack([col(d, k) for k, _ in BANDS]).T
+    if not np.isfinite(bands).any():
+        return None
+    pat = np.array([pattern_of(b) for b in bands], dtype=int)
+    total = np.sqrt(np.sum(bands ** 2, axis=1))         # nan when a band is missing
+    out = {"pattern": pat, "total": total, "rows": [], "n_ok": 0}
+    if r is None:
+        return out
+    t, fase = r["t"], phases(d, r)
+    hz, amp = col(d, "fft_peak_hz"), col(d, "fft_peak_amp")
+    t_land = float(t[r["f"]["klap"]])
+    keys = [k for k, _, _ in PATTERNS]
+    for key, label in PHASE_NAMES:
+        sel = (fase == key) & (pat >= 0)
+        if key == "pad":
+            sel &= t >= -60.0                            # the last minute
+        if key == "landed":
+            sel &= t <= t_land + 60.0
+        if not sel.any():
+            continue
+        exp, exp_text = EXPECTED[key]
+        e = keys.index(exp)
+        counts = np.bincount(pat[sel], minlength=len(PATTERNS))
+        mode = int(np.argmax(counts))
+        if exp == "all":                 # a shock lasts about 1 s: seen at least once
+            ts = t[sel]                  # (the FFT comes up to 1.2 s later)
+            seen = int(((t >= ts.min() - 1.0) & (t <= ts.max() + 2.0) & (pat == e)).sum())
+            match = seen > 0
+        else:
+            seen = int(counts[e])
+            match = mode == e
+        tone = sel & np.isfinite(hz) & np.isfinite(amp) & (amp >= QUIET_G)
+        med = np.median(bands[sel], axis=0)
+        out["rows"].append({
+            "key": key, "label": label, "expected": exp, "expected_text": exp_text,
+            "mode": mode, "share": float(counts[mode]) / float(sel.sum()), "seen": seen,
+            "n": int(sel.sum()), "match": bool(match),
+            "f_typ": float(np.median(hz[tone])) if tone.any() else float("nan"),
+            "band": BANDS[int(np.argmax(med))][1],
+            "level": float(np.median(total[sel])), "level_max": float(np.max(total[sel]))})
+    out["n_ok"] = sum(1 for x in out["rows"] if x["match"])
+    fl = (t >= -1.0) & (t <= t_land + 2.0) & np.isfinite(total)
+    if fl.any():
+        names = dict(PHASE_NAMES)
+        env = []
+        for j, (_, lab) in enumerate(BANDS):
+            i = int(np.argmax(np.where(fl, bands[:, j], -1.0)))
+            env.append((lab, float(bands[i, j]), names.get(fase[i], fase[i])))
+        out["envelope"] = env
+        i = int(np.argmax(np.where(fl, total, -1.0)))
+        out["total_max"] = (float(total[i]), names.get(fase[i], fase[i]))
+    return out
+
+
+def g_text(v):
+    """A vibration in g, with sensible decimals."""
+    if not np.isfinite(v):
+        return "—"
+    if v < 0.001:
+        return "<\u00a00.001\u00a0g"
+    return f"{v:.3f}\u00a0g" if v < 0.1 else f"{v:.2f}\u00a0g"
 
 
 def gps_numbers(d, r):
@@ -661,6 +761,164 @@ def fig_top_frequencies(vb, sub, path):
     return True
 
 
+def fig_fft_explained(path):
+    """How the FFT works, with a made-up signal and the same steps as the
+    flight computer: 512 samples at 416 per second, the steady part removed,
+    a Hamming window, the amplitude of each frequency and the five bands."""
+    n = np.arange(N_FFT)
+    t = n / FS_LSM
+    df = FS_LSM / N_FFT                                    # 0.8125 Hz between two frequencies
+    f1, f2 = 4 * df, 105 * df                              # 3.25 Hz and 85.3 Hz
+    rng = np.random.default_rng(7)
+    z = (1.0 + 0.30 * np.sin(2 * np.pi * f1 * t) + 0.15 * np.sin(2 * np.pi * f2 * t + 0.6)
+         + rng.normal(0.0, 0.01, N_FFT))                   # 1 g: gravity
+    w = 0.54 - 0.46 * np.cos(2 * np.pi * n / (N_FFT - 1))  # Hamming window
+    X = np.fft.rfft((z - z.mean()) * w)[: N_FFT // 2]
+    f = np.arange(len(X)) * df
+    amp = 2.0 * np.abs(X) / w.sum()                        # the amplitude of a sine, in g
+    power = np.abs(X) ** 2
+    edges = [0.0, 10.0, 30.0, 60.0, 120.0, F_NYQUIST + 1.0]
+    k = np.arange(len(f))
+    rms = [math.sqrt(2.0 * float(power[(f >= lo) & (f < hi) & (k > 0)].sum())
+                     / (N_FFT ** 2 * float(np.mean(w ** 2))))
+           for lo, hi in zip(edges, edges[1:])]
+    with plt.rc_context(STYLE):
+        fig = plt.figure(figsize=FIG)
+        gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.3, 0.95], wspace=0.30,
+                              left=0.06, right=0.985, top=0.78, bottom=0.13)
+        a1, a2, a3 = (fig.add_subplot(gs[0, i]) for i in range(3))
+        KA.titel(fig, "How our FFT works: from a vibration to five numbers",
+                 "Illustration with a made-up signal, not flight data · the same steps as the "
+                 "flight computer: 512 samples at 416 per second, Hamming window")
+        a1.plot(t, z, color=BLUE, lw=1.3)
+        a1.set_xlim(0, N_FFT / FS_LSM)
+        a1.set_ylim(0.45, 1.62)
+        a1.set_title("1 · The sensor: 512 values in 1.23 s")
+        a1.set_xlabel("time (s)")
+        a1.set_ylabel("acceleration (g)")
+        a1.text(0.04, 0.96, "a slow swing (3.3 Hz)\nwith a fast vibration on top (85 Hz)",
+                transform=a1.transAxes, fontsize=10, color=INK2, va="top")
+        for i, (lo, hi) in enumerate(zip(edges, edges[1:])):      # the five bands
+            if i % 2:
+                a2.axvspan(lo, min(hi, F_NYQUIST), color=SHADE, lw=0, zorder=0)
+        a2.plot(f, amp, color=BLUE, lw=1.3, zorder=3)
+        a2.annotate("3.3 Hz: the slow swing", (f1, 0.30), xytext=(30, 0.30), va="center",
+                    fontsize=10, color=INK, arrowprops=dict(arrowstyle="-", color=MUTED, lw=1))
+        a2.annotate("85 Hz: the fast vibration", (f2, 0.15), xytext=(98, 0.215), va="center",
+                    fontsize=10, color=INK, arrowprops=dict(arrowstyle="-", color=MUTED, lw=1))
+        a2.set_xlim(0, F_NYQUIST)
+        a2.set_ylim(0, 0.37)
+        a2.set_xticks([0, 10, 30, 60, 120, 208])
+        a2.grid(axis="x", visible=False)
+        a2.set_title("2 · The FFT: how strong each frequency is")
+        a2.set_xlabel("frequency (Hz) · shaded: the five bands")
+        a2.set_ylabel("amplitude (g)")
+        x = np.arange(len(rms))
+        a3.bar(x, rms, width=0.62, color=BLUE, zorder=3)
+        a3.set_yscale("log")
+        a3.set_ylim(0.001, 1.0)
+        a3.set_yticks([0.001, 0.01, 0.1, 1.0])
+        a3.set_yticklabels(["0.001", "0.01", "0.1", "1"])
+        a3.minorticks_off()
+        for xi, v in zip(x, rms):
+            a3.text(xi, v * 1.18, f"{v:.2f}" if v >= 0.1 else f"{v:.3f}", ha="center",
+                    va="bottom", fontsize=10, color=INK)
+        a3.set_xticks(x)
+        a3.set_xticklabels([lab.replace(" Hz", "") for _, lab in BANDS], fontsize=9.5)
+        a3.grid(axis="x", visible=False)
+        a3.set_xlabel("band (Hz)")
+        a3.set_ylabel("vibration (g RMS)")
+        a3.set_title("3 · Five numbers: one per band")
+        save(fig, path)
+    return True
+
+
+def fig_phase_recognition(d, r, pt, sub, path):
+    """The flight phases from the barometer, next to the pattern of every
+    second from the five bands only, and how strong it vibrated."""
+    t = r["t"]
+    x0, x1 = window(r)
+    sel = (t >= x0) & (t <= x1)
+    tt, pat, tot = t[sel], pt["pattern"][sel], pt["total"][sel]
+    fase = phases(d, r)[sel]
+    if len(tt) < 3:
+        return False
+    edges = np.concatenate([[tt[0] - 0.5], (tt[1:] + tt[:-1]) / 2, [tt[-1] + 0.5]])
+    colors = [c for _, _, c in PATTERNS]
+    names = dict(PHASE_NAMES)
+    with plt.rc_context(STYLE):
+        fig = plt.figure(figsize=FIG)
+        gs = fig.add_gridspec(3, 1, height_ratios=[0.36, 0.36, 1.5], hspace=0.55,
+                              left=0.115, right=0.975, top=0.79, bottom=0.17)
+        a1 = fig.add_subplot(gs[0])
+        a2 = fig.add_subplot(gs[1], sharex=a1)
+        a3 = fig.add_subplot(gs[2], sharex=a1)
+        KA.titel(fig, f"From the vibrations alone: {pt['n_ok']} of the {len(pt['rows'])} "
+                      f"flight phases as the lab tests predicted",
+                 sub + " · every second gets a pattern from the five bands only: "
+                       "no height, no GPS")
+        px_s = FIG[0] * DPI * a1.get_position().width / (x1 - x0)   # pixels per second
+        char = DPI / 72 * 0.56                                       # pixels per character, per pt
+        right = [-1e9, -1e9]                                         # labels above: two rows
+        start, k = 0, 0
+        for i in range(1, len(fase) + 1):                # 1 · the phases (barometer)
+            if i < len(fase) and fase[i] == fase[start]:
+                continue
+            lo, hi = edges[start], edges[i]
+            a1.axvspan(lo, hi, color="#e9e7e0" if k % 2 else "#f3f2ee", lw=0)
+            label = names.get(fase[start], fase[start])
+            mid = (lo + hi) / 2
+            if (hi - lo) * px_s >= len(label) * 10.5 * char + 14:     # fits inside
+                a1.text(mid, 0.5, label, ha="center", va="center", fontsize=10.5, color=INK)
+            else:
+                cx, half = (mid - x0) * px_s, len(label) * 9.5 * char / 2
+                row = 0 if cx - half > right[0] + 10 else 1
+                right[row] = cx + half
+                a1.text(mid, 1.12 if row == 0 else 1.75, label, ha="center", va="bottom",
+                        fontsize=9.5, color=INK2, transform=a1.get_xaxis_transform())
+            start, k = i, k + 1
+        cmap = ListedColormap(colors)                     # 2 · the pattern (FFT only)
+        norm = BoundaryNorm(np.arange(-0.5, len(PATTERNS) + 0.5), cmap.N)
+        a2.pcolormesh(edges, [0, 1], np.ma.masked_less(pat, 0).astype(float)[None, :],
+                      cmap=cmap, norm=norm, shading="flat")
+        for a, text in ((a1, "flight phase\n(barometer)"), (a2, "pattern\n(FFT only)")):
+            a.set_ylim(0, 1)
+            a.set_yticks([])
+            a.grid(False)
+            a.tick_params(labelbottom=False, length=0)
+            for spine in a.spines.values():
+                spine.set_visible(False)
+            a.text(-0.012, 0.5, text, transform=a.transAxes, ha="right", va="center",
+                   fontsize=10.5, color=INK2)
+        ok = np.isfinite(tot) & (pat >= 0)               # 3 · how strong
+        if ok.any():
+            a3.plot(tt[ok], tot[ok], color=AXIS, lw=1.0, zorder=2)
+            a3.scatter(tt[ok], tot[ok], c=[colors[p] for p in pat[ok]], s=22, zorder=3,
+                       edgecolor=PAPER, linewidth=0.5)
+            lo = max(3e-4, float(np.min(tot[ok])) * 0.6)
+            hi = max(float(np.max(tot[ok])) * 1.8, QUIET_G * 3)
+            a3.set_yscale("log")
+            a3.set_ylim(lo, hi)
+            ticks = [v for v in (0.001, 0.01, 0.1, 1.0, 10.0) if lo <= v <= hi]
+            a3.set_yticks(ticks)
+            a3.set_yticklabels([f"{v:g}" for v in ticks])
+            a3.minorticks_off()
+        a3.axhline(QUIET_G, color=MUTED, lw=1, ls=(0, (4, 3)), zorder=1)
+        a3.text(x1, QUIET_G, f"quiet below {QUIET_G:g} g ", ha="right", va="bottom",
+                fontsize=9.5, color=INK2)
+        events(a3, r)
+        a3.set_ylabel("vibration (g RMS)")
+        a3.set_xlabel("time since the launch (s)")
+        a3.set_title("How strong it vibrated: all five bands together")
+        a1.set_xlim(x0, x1)
+        handles = [Patch(facecolor=c, edgecolor="none", label=lab) for _, lab, c in PATTERNS]
+        fig.legend(handles=handles, loc="lower center", ncol=len(PATTERNS), frameon=False,
+                   bbox_to_anchor=(0.54, 0.012), fontsize=10.5, handlelength=1.4,
+                   columnspacing=1.8)
+        save(fig, path)
+    return True
+
+
 def fig_track(gps, r, sub, path):
     x, y, fix = gps["x"], gps["y"], gps["fix"]
     h = r["f"]["hoogte"] if r is not None else np.zeros(len(x))
@@ -772,7 +1030,7 @@ h1 { font-size: 40px; line-height: 1.15; margin: 0 0 8px; letter-spacing: -.01em
 .kpi .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .kpi .value { font-size: 28px; font-weight: 700; margin: 2px 0; font-variant-numeric: tabular-nums; }
 .kpi .note { font-size: 13px; color: var(--ink2); }
-.badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px;
+.badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; white-space: nowrap;
          border-radius: 99px; margin-left: 6px; vertical-align: 2px; }
 .badge.ok { color: var(--good); background: var(--good-soft); }
 .badge.check { color: var(--warn); background: var(--warn-soft); }
@@ -807,6 +1065,9 @@ table.plain th.r { text-align: left; }
 .formula { white-space: nowrap; font-family: Consolas, "Cascadia Mono", Menlo, monospace; font-size: 14px;
            background: #f4f3ef; padding: 1px 6px; border-radius: 5px; }
 footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 10px; }
+.small { font-size: 13px; color: var(--ink2); margin: 8px 0 0; }
+table.wide { font-size: 14px; margin-bottom: 22px; }
+table.wide th, table.wide td { padding: 7px 8px; }
 @media (max-width: 820px) {
   .sheet { padding: 24px 18px; } h1 { font-size: 30px; }
   .kpis { grid-template-columns: repeat(2, 1fr); } .cols { grid-template-columns: 1fr; }
@@ -832,6 +1093,8 @@ footer { color: var(--muted); font-size: 13px; text-align: center; margin-top: 1
   .cols { grid-template-columns: 1fr 1fr; gap: 22px; }
   nav ol { columns: 2; }
   table { font-size: 13px; } td.v { white-space: nowrap; } .tbl { overflow: visible; }
+  table.wide { font-size: 11.5px; } table.wide th, table.wide td { padding: 5px 5px; }
+  table.wide td.v { white-space: normal; } .small { font-size: 12px; }
   figcaption { font-size: 12px; } .note-box { font-size: 13px; }
   figure, table, .kpi, .cols, .question, .note-box { break-inside: avoid; page-break-inside: avoid; }
   h3 { break-after: avoid; page-break-after: avoid; }
@@ -869,6 +1132,24 @@ def table_n(rows, head):
         out.append("<tr>" + "".join(
             f"<td class='v'>{esc(c)}</td>" if i else f"<td>{esc(c)}</td>"
             for i, c in enumerate(row)) + "</tr>")
+    out.append("</tbody></table></div>")
+    return "".join(out)
+
+
+def table_k(rows, head, kinds):
+    """A table with a kind per column: t = text (left, wraps), v = value
+    (right), h = raw HTML (right), e.g. a badge."""
+    def th(h, k):
+        return f"<th>{esc(h)}</th>" if k == "t" else f"<th class='r'>{esc(h)}</th>"
+
+    def td(c, k):
+        if k == "t":
+            return f"<td>{esc(c)}</td>"
+        return f"<td class='v'>{c if k == 'h' else esc(c)}</td>"
+    out = ["<div class='tbl'><table class='wide'><thead><tr>"
+           + "".join(th(h, k) for h, k in zip(head, kinds)) + "</tr></thead><tbody>"]
+    for row in rows:
+        out.append("<tr>" + "".join(td(c, k) for c, k in zip(row, kinds)) + "</tr>")
     out.append("</tbody></table></div>")
     return "".join(out)
 
@@ -913,6 +1194,9 @@ def build(args, src):
     folder = base + "_report"
     figs = os.path.join(folder, "figures")
     os.makedirs(figs, exist_ok=True)
+    for old in os.listdir(figs):                   # only the charts of this report
+        if old.lower().endswith(".png"):
+            os.remove(os.path.join(figs, old))
     team = args.team or TEAM_NAME
     src_name = os.path.basename(src)
     sub = f"{team} · {src_name}" if team else src_name
@@ -922,6 +1206,7 @@ def build(args, src):
     fl = flight_numbers(d, r)
     lr = lapse_rate(d, r)
     vb = vibration_numbers(d, r)
+    pt = vibration_patterns(d, r) if vb is not None else None
     gps = gps_numbers(d, r)
     q = quality_numbers(d, rows_in_file, restarted)
     q["radio"] = is_radio
@@ -1048,17 +1333,20 @@ def build(args, src):
 
     # ── 4. research question: vibrations ──────────────────────
     if vb is not None:
-        body = ""
-        if fig_vibration_timeline(d, r, vb, sub, fp("05_vibration_timeline.png")):
-            body += rep.figure(fp("05_vibration_timeline.png"),
+        fig_fft_explained(fp("05_fft_explained.png"))
+        body = rep.figure(fp("05_fft_explained.png"),
+                          "How the flight computer turns 1.23 s of vibration into five numbers. "
+                          "A made-up signal: a slow swing of 3.3 Hz with a fast vibration of 85 Hz.")
+        if fig_vibration_timeline(d, r, vb, sub, fp("06_vibration_timeline.png")):
+            body += rep.figure(fp("06_vibration_timeline.png"),
                                "Top: the vibration in each of the five frequency bands, every "
                                "second (darker = stronger, log scale). Bottom: the strongest "
                                "frequency in each second.")
-        if fig_fingerprint(vb, sub, fp("06_vibration_fingerprint.png")):
-            body += rep.figure(fp("06_vibration_fingerprint.png"),
+        if fig_fingerprint(vb, sub, fp("07_vibration_fingerprint.png")):
+            body += rep.figure(fp("07_vibration_fingerprint.png"),
                                "The median vibration per band in each phase of the flight.")
-        if fig_top_frequencies(vb, sub, fp("07_frequent_frequencies.png")):
-            body += rep.figure(fp("07_frequent_frequencies.png"),
+        if fig_top_frequencies(vb, sub, fp("08_frequent_frequencies.png")):
+            body += rep.figure(fp("08_frequent_frequencies.png"),
                                "How often each frequency was the strongest one, during the flight.")
         rows = []
         if "max_g" in vb:
@@ -1072,11 +1360,15 @@ def build(args, src):
         rows.append(("Seconds with a strong vibration (> 0.05 g)", str(vb["n_strong"])))
         rep.keep("Vibrations", rows)
         explain = [
-            "The LSM6DSO measures the acceleration along the axis of the can 416 times per "
-            "second. Every 512 samples (1.2 s) the flight computer makes an FFT: it splits the "
-            "vibration into frequencies.",
-            "The FFT gives the strength in five bands, from slow (0–10 Hz: swinging under the "
-            "parachute) to fast (120–208 Hz: the rocket motor).",
+            "The LSM6DSO measures the acceleration along its Z-axis 416 times per second. "
+            "Every 512 samples (1.23 s) the flight computer removes the steady part (gravity), "
+            "applies a Hamming window and makes an FFT: it splits the vibration into "
+            "frequencies.",
+            "It keeps the strongest frequency (<i>fft_peak_hz</i>) with its amplitude "
+            "(<i>fft_peak_amp</i>, in g), and the vibration in five bands, from slow "
+            "(0–10 Hz) to fast (120–208 Hz).",
+            "A band value is an RMS: a kind of average strength. For one sine: "
+            "<span class='formula'>RMS = amplitude / √2</span>.",
             "Faster than 208 Hz cannot be measured: that is half of the sample rate "
             "(the Nyquist limit)."]
         body += f"<div class='cols'><div><h3>How we measured</h3>{bullets(explain)}</div>" \
@@ -1088,10 +1380,70 @@ def build(args, src):
                     f"vibration fingerprint.")
         rep.add("vibrations", "Research question 2: the vibrations", lead, body)
 
+    # ── 4b. research question 2: the phases in the vibrations ──
+    if pt is not None and pt["rows"]:
+        body = ""
+        if fig_phase_recognition(d, r, pt, sub, fp("09_phase_recognition.png")):
+            body += rep.figure(fp("09_phase_recognition.png"),
+                               "Top: the flight phases from the barometer. Middle: the vibration "
+                               "pattern of every second, from the five bands only. Bottom: how "
+                               "strong the vibration was, all bands together.")
+        pname = [lab for _, lab, _ in PATTERNS]
+        rowsn, keep = [], []
+        for x in pt["rows"]:
+            seen = f"{pname[x['mode']]} ({x['share'] * 100:.0f}\u00a0%)"
+            if x["expected"] == "all" and x["mode"] != len(PATTERNS) - 1:
+                seen += f"; a shock in {x['seen']} s" if x["seen"] else "; no shock"
+            if x["mode"] == 0:                           # quiet: no band stands out
+                band = "—"
+            else:
+                f = x["f_typ"]
+                band = x["band"] + (f" · {num(f, 1 if f < 10 else 0, 'Hz')}"
+                                    if np.isfinite(f) else "")
+            rowsn.append((x["label"], x["expected_text"], seen, band, g_text(x["level"]),
+                          badge(x["match"], "as expected", "different")))
+            keep += [(f"{x['label']}: expected", x["expected_text"]),
+                     (f"{x['label']}: seen most", seen),
+                     (f"{x['label']}: strongest band and frequency", band),
+                     (f"{x['label']}: vibration level (median)", g_text(x["level"])),
+                     (f"{x['label']}: as the lab tests predicted", "yes" if x["match"] else "no")]
+        body += table_k(rowsn, ("phase", "expected from the lab tests", "seen most",
+                                "strongest band · frequency", "level", "result"),
+                        "tttvvh")
+        limits = [
+            "<b>Slowest:</b> about 0.8 Hz. One FFT looks at 1.23 s; a slower movement does "
+            "not fit in it.",
+            "<b>Finest step:</b> 0.81 Hz between two frequencies (416 / 512). The flight "
+            "computer refines the strongest peak.",
+            "<b>Fastest:</b> 208 Hz, half of 416. A faster vibration is filtered out, or shows "
+            "up at a mirrored frequency (lab test 4: 230 Hz looks like 186 Hz).",
+            "<b>One direction:</b> only the Z-axis of the LSM6DSO. Sideways vibrations are "
+            "not in the FFT.",
+            "<b>A new FFT every 1.23 s.</b> A short shock is spread over that time. Its size "
+            "is better in the largest acceleration of each second (research question 1).",
+            "<b>Sensor noise:</b> about 0.001 g per band. A weaker vibration cannot be seen."]
+        env = [(lab, f"{g_text(v)} · {ph}") for lab, v, ph in pt.get("envelope", [])]
+        if "total_max" in pt:
+            env.append(("all bands together", f"{g_text(pt['total_max'][0])} · "
+                                              f"{pt['total_max'][1]}"))
+        keep += [(f"Envelope {lab}", v) for lab, v in env]
+        rep.keep("Vibration patterns", keep)
+        body += (f"<div class='cols'><div><h3>What our FFT can and cannot see</h3>"
+                 f"{bullets(limits)}</div><div><h3>The vibration envelope</h3>"
+                 f"{table(env, ('band', 'highest in the flight'))}<p class='small'>The highest "
+                 f"value in each band during the flight: what a shaker table must reach to "
+                 f"repeat our flight in the lab.</p></div></div>")
+        differ = [x["label"] for x in pt["rows"] if not x["match"]]
+        lead = (f"From the five bands alone, without height or GPS, <b>{pt['n_ok']} of the "
+                f"{len(pt['rows'])} flight phases</b> looked the way our lab tests predicted.")
+        if differ:
+            lead += f" Different: {esc(', '.join(differ))}."
+        rep.add("phases", "Research question 2: the flight phases in the vibrations", lead, body)
+
     # ── 5. research question: zones ───────────────────────────
     if r is not None and r["krachten"]:
-        KA.fig_kracht_hoogte(r, sub, fp("08_force_height.png"))
-        KA.fig_zones(r, sub, fp("09_zones.png"))
+        KA.fig_kracht_hoogte(r, sub, fp("10_force_height.png"))
+        KA.fig_zones(r, sub, fp("11_zones.png"))
         bottom = max(((n, F[0]) for n, F in r["krachten"].items()), key=lambda x: x[1])
         top = max(((n, F[-1]) for n, F in r["krachten"].items()), key=lambda x: x[1])
         bpre, tpre = at_least(r, bottom[0]), at_least(r, top[0])
@@ -1115,9 +1467,9 @@ def build(args, src):
             "So the closer to where the force comes in, the larger the force.",
             f"The mass ({K.MASS_KG * 1000:.0f} g) and the heavy parts are filled in in "
             "dashboard/krachten.py. Only forces along the axis of the can are modelled."]
-        body = rep.figure(fp("08_force_height.png"), "The force through the can at each height, "
+        body = rep.figure(fp("10_force_height.png"), "The force through the can at each height, "
                           "for each moment of the flight.")
-        body += rep.figure(fp("09_zones.png"), "The same forces as colours on the can: green is "
+        body += rep.figure(fp("11_zones.png"), "The same forces as colours on the can: green is "
                            "little, red is close to the ESA design load.")
         body += f"<div class='cols'><div><h3>How we calculated</h3>{bullets(explain)}</div>" \
                 f"<div><h3>Key numbers</h3>{table(rows)}</div></div>"
@@ -1125,8 +1477,8 @@ def build(args, src):
 
     # ── 6. the parachute ──────────────────────────────────────
     if r is not None and np.isfinite(fl["cd"]):
-        KA.fig_cd(r, sub, fp("10_parachute_cd.png"))
-        KA.fig_controle(r, sub, fp("11_parachute_check.png"))
+        KA.fig_cd(r, sub, fp("12_parachute_cd.png"))
+        KA.fig_controle(r, sub, fp("13_parachute_check.png"))
         lo, hi = K.DESCENT_RATE_MS
         in_range = lo <= fl["v_rustig"] <= hi
         rows = [("Steady descent rate", f"{fl['v_rustig']:.1f} m/s ({fl['v_p10']:.1f}–{fl['v_p90']:.1f})"),
@@ -1145,9 +1497,9 @@ def build(args, src):
             "<span class='formula'>ρ = p / (287 · T)</span>. So the main mission helps our own "
             "research.",
             "High up the air is thinner, so the CanSat falls faster there, but Cd stays the same."]
-        body = rep.figure(fp("10_parachute_cd.png"), "Left: the descent rate against height, with "
+        body = rep.figure(fp("12_parachute_cd.png"), "Left: the descent rate against height, with "
                           "the parachute model. Right: Cd in each second of the steady descent.")
-        body += rep.figure(fp("11_parachute_check.png"), "Check: the load the parachute model "
+        body += rep.figure(fp("13_parachute_check.png"), "Check: the load the parachute model "
                            "predicts, next to what the sensors measured.")
         body += f"<div class='cols'><div><h3>How we calculated</h3>{bullets(explain)}</div>" \
                 f"<div><h3>Key numbers</h3>{table(rows)}</div></div>"
@@ -1158,7 +1510,7 @@ def build(args, src):
 
     # ── 7. energy ─────────────────────────────────────────────
     if r is not None and "p_mgv" in r:
-        KA.fig_energie(r, sub, fp("12_energy.png"))
+        KA.fig_energie(r, sub, fp("14_energy.png"))
         rows = [("Height energy at the apogee", num(r["e_top"] / 1000, 2, "kJ")),
                 ("Energy the parachute turned into heat", num(r["e_omgezet"] / 1000, 2, "kJ")),
                 ("Power of the parachute (steady descent)", num(r["p_mgv"], 0, "W")),
@@ -1168,7 +1520,7 @@ def build(args, src):
                    "<span class='formula'>½ · m · v²</span> (vertical).",
                    "Under the parachute the CanSat loses <span class='formula'>m · g · v</span> "
                    "every second: the parachute turns it into heat and swirls of air."]
-        body = rep.figure(fp("12_energy.png"), "The energy of the CanSat, and the power of the "
+        body = rep.figure(fp("14_energy.png"), "The energy of the CanSat, and the power of the "
                           "parachute.")
         body += f"<div class='cols'><div><h3>How we calculated</h3>{bullets(explain)}</div>" \
                 f"<div><h3>Key numbers</h3>{table(rows)}</div></div>"
@@ -1178,7 +1530,7 @@ def build(args, src):
 
     # ── 8. GPS ────────────────────────────────────────────────
     if "x" in gps:
-        fig_track(gps, r, sub, fp("13_ground_track.png"))
+        fig_track(gps, r, sub, fp("15_ground_track.png"))
         rows = [("Distance launch site → landing", num(gps["distance"], 0, "m")),
                 ("Direction", f"{compass(gps['bearing'])} ({gps['bearing']:.0f}°)"),
                 ("Landing position", f"{gps['lat_land']:.5f}, {gps['lon_land']:.5f}"),
@@ -1192,7 +1544,7 @@ def build(args, src):
         explain = ["Under the parachute the CanSat drifts with the wind. Its speed over the "
                    "ground and its direction come from the GPS.",
                    "The wind blows from the opposite direction of the drift."]
-        body = rep.figure(fp("13_ground_track.png"), "The path over the ground, in metres from "
+        body = rep.figure(fp("15_ground_track.png"), "The path over the ground, in metres from "
                           "the launch site.")
         body += f"<div class='cols'><div><h3>How we measured</h3>{bullets(explain)}</div>" \
                 f"<div><h3>Key numbers</h3>{table(rows)}</div></div>"
@@ -1202,14 +1554,14 @@ def build(args, src):
 
     # ── 9. radio ──────────────────────────────────────────────
     if radios:
-        fig_radio(radios, r, sub, fp("14_radio_link.png"))
+        fig_radio(radios, r, sub, fp("16_radio_link.png"))
         rowsn = [(x["name"], str(x["packets"]),
                   f"{x['share'] * 100:.0f} %" if x["aligned"] else "—",
                   num(x["rssi_med"], 0, "dBm"), num(x["rssi_min"], 0, "dBm"),
                   num(x["snr_med"], 1, "dB")) for x in radios]
         rep.keep("Radio", [(f"{x['name']}: received in the flight",
                             f"{x['share'] * 100:.0f} %" if x["aligned"] else "—") for x in radios])
-        body = rep.figure(fp("14_radio_link.png"), "Signal strength of every packet, and the "
+        body = rep.figure(fp("16_radio_link.png"), "Signal strength of every packet, and the "
                           "share of the packets that arrived during the flight.")
         body += table_n(rowsn, ("ground station", "packets", "in the flight", "RSSI median",
                                 "RSSI weakest", "SNR median"))
@@ -1271,6 +1623,15 @@ def build(args, src):
     if vb is not None and "max_g" in vb:
         find.append(f"The strongest vibration was {vb['max_g']:.2f} g RMS in the {vb['max_band']} "
                     f"band, during the {vb['max_phase']}.")
+    if pt is not None and pt["rows"]:
+        differ = [x["label"] for x in pt["rows"] if not x["match"]]
+        find.append(f"From the vibrations alone, {pt['n_ok']} of the {len(pt['rows'])} flight "
+                    f"phases looked as our lab tests predicted"
+                    + (f" (different: {', '.join(differ)})." if differ else "."))
+        desc = next((x for x in pt["rows"] if x["key"] == "descent"), None)
+        if desc is not None and np.isfinite(desc["f_typ"]):
+            find.append(f"Under the parachute the strongest frequency was about "
+                        f"{desc['f_typ']:.1f} Hz, in the {desc['band']} band.")
     if r is not None and r["krachten"]:
         find.append(f"The bottom of the can carried the most force ({bpre}{bottom[1]:.0f} N at "
                     f"{MOMENT.get(bottom[0], bottom[0])}); the top {tpre}{top[1]:.0f} N at "
@@ -1285,6 +1646,8 @@ def build(args, src):
         "Which phase loaded the CanSat the most, and why?",
         "Which zone of the can could be lighter? Which zone must be stronger?",
         "Which phase had the strongest vibrations, and what caused them?",
+        "Which lab test predicted the flight best? Which phase looked different, and why?",
+        "What can our FFT not see: faster than 208 Hz, sideways, shorter than 1.2 s?",
         "Do the descent rate and the Cd match the design of the parachute?",
         "How reliable are these numbers: sensor limits, sample rate, model assumptions?",
         "What would you change in the next CanSat?"]
@@ -1300,6 +1663,13 @@ def build(args, src):
         ("Flight computer", "Teensy 4.1, one log line per second on the SD card (34 values)"),
         ("Pressure, temperature", f"{BAROMETER}, 1 per second"),
         ("Acceleration, vibrations", "LSM6DSO, 416 per second, ±16 g; FFT of 512 samples"),
+        ("FFT", "512 samples (1.23 s) on the Z-axis, steady part removed, Hamming window; "
+                "frequency step 0.81 Hz, up to 208 Hz"),
+        ("Vibration pattern of a second", f"quiet: all bands together below {QUIET_G:g} g · "
+                                          f"shock: every band at least {ALL_BANDS_G:g} g · "
+                                          "otherwise the strongest band: slow 0–10 Hz, "
+                                          "medium 10–60 Hz, fast 60–208 Hz"),
+        ("Expected patterns", "from our six FFT lab tests in class"),
         ("Orientation", "BNO055"),
         ("Position", "GPS PA1616D, 1 per second"),
         ("Mass of the CanSat", f"{K.MASS_KG * 1000:.0f} g (dashboard/krachten.py)"),

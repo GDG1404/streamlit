@@ -732,6 +732,7 @@ py tools\krachten_analyse.py metingen\vlucht.csv
 - Speel de vlucht af op scherm 1 (G3). Kijk naar VIBRATION PER BAND: op de grond, tijdens
   de motor, onder de parachute en bij de landing.
 - Vergelijk met jullie metingen in de klas: de gsm in trilstand, het kloppen op de tafel.
+- Het vluchtrapport (G7) doet die vergelijking ook: voor elke fase, met de fiches.
 
 ### G6. Alles bewaren
 
@@ -772,6 +773,10 @@ presentatie voor.
 drie delen van de onderzoeksvraag (de krachten, de trillingen en de zones van het blik), de
 parachute, de energie, de GPS, de radio en de kwaliteit van de metingen. Op het einde staan
 de belangrijkste resultaten, met vragen voor de presentatie.
+
+Bij de trillingen staat ook hoe de FFT werkt. En het rapport kijkt of je elke fase van de
+vlucht herkent aan de trillingen alleen, zonder hoogte en zonder GPS. Het vergelijkt dat met
+wat de zes FFT-fiches voorspelden.
 
 > **De naam van het team** zet je bovenaan in `tools\flight_report.py`, bij
 > `TEAM_NAME = ""`. Of typ `--team "Team ..."` achter het commando.

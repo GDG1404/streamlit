@@ -1073,6 +1073,8 @@ py tools\flight_report.py metingen\vlucht.csv --radio metingen\wedstrijd_1.csv m
   krachten, de trillingen, de zones van het blik, de parachute, de energie, de GPS, de
   radio en de kwaliteit van de metingen. Op het einde staan de belangrijkste resultaten,
   met vragen voor de presentatie.
+- **De trillingen:** het rapport toont hoe de FFT werkt. Het kijkt ook of je elke fase van
+  de vlucht herkent aan de trillingen alleen, en vergelijkt dat met de zes FFT-fiches.
 - **`--radio`**: de bestanden van de grondstations. Dan zie je hoeveel pakketten
   aankwamen, en hoe sterk het signaal was.
 - **De naam van het team** kan ook bovenaan in het programma, bij `TEAM_NAME = ""`.
