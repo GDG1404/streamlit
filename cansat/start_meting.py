@@ -9,7 +9,8 @@ Druk op Run (F5). Het programma stelt vier vragen:
   2. Hoe heet je meting?
   3. Welk dashboard wil je zien? Staat het streamdashboard (de livestream)
      in de map 'stream'? Dan kan je ook alle drie samen kiezen: scherm 1,
-     scherm 2 en de livestream, met één ontvanger.
+     scherm 2 en de livestream, met één ontvanger. Of alleen de livestream:
+     voor een laptop met een eigen ontvanger.
   4. Wat is vandaag de luchtdruk op zeeniveau? (Enter = 1013 hPa)
      Daarmee berekenen de dashboards de hoogte. Het getal komt ook in een
      klein bestand naast de meting (bv. metingen\test_01_luchtdruk.txt).
@@ -59,6 +60,7 @@ DASHBOARDS = {"1": ["dashboard_scherm1.py"],
               "3": ["dashboard_scherm1.py", "dashboard_scherm2.py"],
               "4": ["dashboard_scherm1.py", "dashboard_scherm2.py",
                     "stream_dashboard.py"],
+              "5": ["stream_dashboard.py"],
               "0": []}
 
 
@@ -142,13 +144,15 @@ def kies_naam():
 # ── vraag 3: de dashboards ──
 def kies_dashboards(titel="\n3) Welk dashboard wil je zien?"):
     met_stream = os.path.isfile(STREAM)
-    keuzes = {k: v for k, v in DASHBOARDS.items() if met_stream or k != "4"}
+    keuzes = {k: v for k, v in DASHBOARDS.items()
+              if met_stream or os.path.basename(STREAM) not in v}
     print(titel)
     print("   1 = scherm 1 (grafieken)")
     print("   2 = scherm 2 (3D-baan, kaart en oriëntatie)")
     print("   3 = allebei")
     if met_stream:
         print("   4 = alle drie: scherm 1, scherm 2 en de livestream")
+        print("   5 = alleen de livestream (laptop met een eigen ontvanger)")
     print("   0 = geen (alleen opslaan)")
     while True:
         keuze = vraag("   Keuze", "4" if met_stream else "3")

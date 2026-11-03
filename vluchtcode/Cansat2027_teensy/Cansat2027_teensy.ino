@@ -502,6 +502,7 @@ void initSD() {
             Serial.println(fname);
         } else {
             Serial.println("FOUT! Kan bestand niet openen.");
+            errorBeep();
         }
     } else {
         Serial.println("FOUT! SD kaart niet gevonden.");

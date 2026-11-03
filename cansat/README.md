@@ -337,8 +337,9 @@ via de radio (3,5 minuten), één meting per seconde, net zoals bij een echte me
 meting zelf loopt gewoon door.
 
 **De livestream erbij?** Staat het streamdashboard in de map `stream`, zoals in
-`CanSat_antennetest.zip`? Dan is er bij vraag 3 ook keuze 4: scherm 1, scherm 2 en de
-livestream samen, met één ontvanger.
+`CanSat_antennetest.zip` en `CanSat_wedstrijd.zip`? Dan is er bij vraag 3 ook keuze 4:
+scherm 1, scherm 2 en de livestream samen, met één ontvanger. Keuze 5 opent alleen de
+livestream: voor een laptop met een eigen ontvanger.
 
 **Geen Thonny?** Dan gebruik je de Python uit A5. De pakketten uit A6 zijn genoeg:
 je hoeft niets extra te installeren.
