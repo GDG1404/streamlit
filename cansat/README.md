@@ -77,7 +77,8 @@ C:\CanSat\
     ├── serial_logger.py         ← schrijft de metingen van de Teensy naar een bestand
     ├── check_csv.py             ← controleert een meetbestand
     ├── gen_test_csv.py          ← maakt nep-metingen om te oefenen (ook een oefenvlucht)
-    └── krachten_analyse.py      ← na de vlucht: Cd, controle en krachten per zone
+    ├── krachten_analyse.py      ← na de vlucht: Cd, controle en krachten per zone
+    └── flight_report.py         ← na de vlucht: het vluchtrapport in het Engels
 ```
 
 De map `metingen` bestaat nog niet. Die wordt vanzelf gemaakt bij je eerste test.
@@ -903,6 +904,7 @@ py tools\gen_test_csv.py metingen\oefen.csv               nep-metingen maken
 py tools\gen_test_csv.py metingen\oefen.csv --live        nep-metingen, 1 per seconde
 py tools\gen_test_csv.py metingen\oefenvlucht.csv --vlucht   een oefenvlucht (Cd 0,50)
 py tools\krachten_analyse.py metingen\vlucht.csv          na de vlucht: Cd en krachten
+py tools\flight_report.py metingen\vlucht.csv            na de vlucht: het rapport in het Engels
 py start_meting.py                                         logger + 2 dashboards in één keer
 py start_meting.py --opnieuw                               een gesloten dashboard opnieuw openen
 ```
@@ -1049,6 +1051,35 @@ De tekst in de figuren is in het Engels, net als in de dashboards.
    en vergelijk.
 6. Na de motor blijft de totale energie bijna gelijk. Bij een echte vlucht daalt ze
    een beetje. Waar gaat die energie naartoe?
+
+---
+
+## Deel G — Na de vlucht: het vluchtrapport in het Engels
+
+`tools\flight_report.py` maakt van het bestand van de SD-kaart een volledig rapport in
+het Engels, rond jullie onderzoeksvraag. Daarmee bereiden jullie de presentatie voor.
+
+```
+py tools\flight_report.py metingen\vlucht.csv
+py tools\flight_report.py metingen\vlucht.csv --team "Team Kepler"
+py tools\flight_report.py metingen\vlucht.csv --radio metingen\wedstrijd_1.csv metingen\wedstrijd_2.csv
+```
+
+- Het rapport gaat vanzelf open in de browser. Alles staat in `metingen\vlucht_report\`:
+  - `flight_report.html`: het rapport. Als PDF bewaren: **Ctrl + P** → **Opslaan als PDF**.
+  - `figures\`: elke grafiek apart, in 16:9. Die kan je zo in de dia's zetten.
+  - `key_numbers.csv`: alle getallen van het rapport.
+- **Wat staat erin?** De vlucht, de primaire missie (temperatuur en luchtdruk), de
+  krachten, de trillingen, de zones van het blik, de parachute, de energie, de GPS, de
+  radio en de kwaliteit van de metingen. Op het einde staan de belangrijkste resultaten,
+  met vragen voor de presentatie.
+- **`--radio`**: de bestanden van de grondstations. Dan zie je hoeveel pakketten
+  aankwamen, en hoe sterk het signaal was.
+- **De naam van het team** kan ook bovenaan in het programma, bij `TEAM_NAME = ""`.
+- **Oefenen:** maak eerst de oefenvlucht (F4). Typ dan
+  `py tools\flight_report.py metingen\oefenvlucht.csv`.
+
+Het programma vult de metingen in. De uitleg en het besluit maken jullie zelf.
 
 ---
 

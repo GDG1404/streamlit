@@ -121,6 +121,7 @@ C:\CanSat\
 ├── HANDLEIDING.md            ← dezelfde tekst
 ├── START_METING.bat          ← start de meting (dubbelklik)
 ├── DASHBOARD_OPNIEUW.bat     ← een gesloten venster opnieuw openen (H4)
+├── FLIGHT_REPORT.bat         ← het vluchtrapport in het Engels, na de vlucht (G7)
 ├── INSTALLEER_PAKKETTEN.bat  ← installeert de Python-pakketten (één keer)
 ├── requirements.txt          ← de lijst van die pakketten
 ├── start_meting.py           ← het startprogramma (ook te gebruiken in Thonny)
@@ -128,7 +129,7 @@ C:\CanSat\
 ├── stream\                   ← het streamdashboard (de livestream)
 ├── logos\                    ← hier komen logo_school.png en logo_team.png
 ├── obs\                      ← achtergronden voor OBS (de livestream)
-├── tools\                    ← de logger, de controle, de oefenvlucht en de analyse
+├── tools\                    ← de logger, de controle, de oefenvlucht, de analyse en het rapport
 ├── Cansat2027_teensy\        ← de vluchtcode voor de Teensy (met de buzzer)
 ├── pico\
 │   └── main.py               ← het ontvangerprogramma voor de drie Pico's
@@ -741,6 +742,47 @@ Kopieer alles naar een USB-stick, en geef een kopie aan de leerkracht:
 - [ ] de figuren van G4 en de schermafbeeldingen van G3
 - [ ] de foto's en de filmpjes
 - [ ] de tabel van E3
+- [ ] de map `metingen\vlucht_report` van G7
+
+### G7. Het vluchtrapport, in het Engels
+
+Het programma `flight_report.py` maakt van het bestand van de SD-kaart een volledig rapport
+in het Engels. Alles staat erin, rond jullie onderzoeksvraag. Daarmee bereiden jullie de
+presentatie voor.
+
+1. Kopieer eerst het bestand van de SD-kaart naar `metingen\vlucht.csv` (G2).
+2. Sleep `vlucht.csv` met de muis op **`FLIGHT_REPORT.bat`**. Na een paar seconden gaat het
+   rapport open in de browser.
+3. Wil je ook de radio van de drie grondstations erbij? Typ dan in een opdrachtprompt in
+   `C:\CanSat`:
+   ```
+   py tools\flight_report.py metingen\vlucht.csv --radio metingen\wedstrijd_1.csv metingen\wedstrijd_2.csv metingen\wedstrijd_3.csv
+   ```
+   Kopieer daarvoor eerst `wedstrijd_2.csv` en `wedstrijd_3.csv` van laptop 2 en 3 naar de
+   map `metingen` van laptop 1.
+
+**Wat krijg je?** Een map `metingen\vlucht_report\` met:
+
+- `flight_report.html`: het rapport. Afdrukken of bewaren als PDF: **Ctrl + P** →
+  **Opslaan als PDF**.
+- `figures\`: elke grafiek apart, in 16:9. Die kan je zo in de dia's zetten.
+- `key_numbers.csv`: alle getallen van het rapport, ook om in te vullen in het verslag.
+
+**Wat staat erin?** De vlucht in één beeld, de primaire missie (temperatuur en luchtdruk), de
+drie delen van de onderzoeksvraag (de krachten, de trillingen en de zones van het blik), de
+parachute, de energie, de GPS, de radio en de kwaliteit van de metingen. Op het einde staan
+de belangrijkste resultaten, met vragen voor de presentatie.
+
+> **De naam van het team** zet je bovenaan in `tools\flight_report.py`, bij
+> `TEAM_NAME = ""`. Of typ `--team "Team ..."` achter het commando.
+
+> **Oefenen kan nu al**, met een oefenvlucht:
+> ```
+> py tools\gen_test_csv.py metingen\oefenvlucht.csv --vlucht
+> py tools\flight_report.py metingen\oefenvlucht.csv
+> ```
+
+Het programma vult de metingen in. De uitleg en het besluit maken jullie zelf.
 
 ---
 
@@ -905,6 +947,7 @@ py dashboard\dashboard_scherm2.py --replay metingen\vlucht.csv --speed 5
 py tools\krachten_analyse.py metingen\vlucht.csv     de krachten en de parachute
 py tools\gen_test_csv.py metingen\oefenvlucht.csv --vlucht     een oefenvlucht maken
 py stream\stream_dashboard.py --demo                 de livestream met een nagebootste vlucht
+py tools\flight_report.py metingen\vlucht.csv        het vluchtrapport in het Engels (G7)
 ```
 
 ### I7. Checklist voor de wedstrijddag (druk af)

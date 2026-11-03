@@ -196,6 +196,7 @@ de schermen.</p>
 ├── HANDLEIDING.md            ← dezelfde tekst
 ├── START_METING.bat          ← start de meting (dubbelklik)
 ├── DASHBOARD_OPNIEUW.bat     ← een gesloten venster opnieuw openen (H4)
+├── FLIGHT_REPORT.bat         ← het vluchtrapport in het Engels, na de vlucht (G7)
 ├── INSTALLEER_PAKKETTEN.bat  ← installeert de Python-pakketten (één keer)
 ├── requirements.txt          ← de lijst van die pakketten
 ├── start_meting.py           ← het startprogramma (ook te gebruiken in Thonny)
@@ -203,7 +204,7 @@ de schermen.</p>
 ├── stream\                   ← het streamdashboard (de livestream)
 ├── logos\                    ← hier komen logo_school.png en logo_team.png
 ├── obs\                      ← achtergronden voor OBS (de livestream)
-├── tools\                    ← de logger, de controle, de oefenvlucht en de analyse
+├── tools\                    ← de logger, de controle, de oefenvlucht, de analyse en het rapport
 ├── Cansat2027_teensy\        ← de vluchtcode voor de Teensy (met de buzzer)
 ├── pico\
 │   └── main.py               ← het ontvangerprogramma voor de drie Pico's
@@ -1089,7 +1090,44 @@ de motor, onder de parachute en bij de landing.</li>
 <li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> de figuren van G4 en de schermafbeeldingen van G3</li>
 <li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> de foto's en de filmpjes</li>
 <li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> de tabel van E3</li>
+<li class="task-list-item enabled"><input class="task-list-item-checkbox"  type="checkbox"> de map <code>metingen\vlucht_report</code> van G7</li>
 </ul>
+<h3 id="g7-het-vluchtrapport-in-het-engels">G7. Het vluchtrapport, in het Engels</h3>
+<p>Het programma <code>flight_report.py</code> maakt van het bestand van de SD-kaart een volledig rapport
+in het Engels. Alles staat erin, rond jullie onderzoeksvraag. Daarmee bereiden jullie de
+presentatie voor.</p>
+<ol>
+<li>Kopieer eerst het bestand van de SD-kaart naar <code>metingen\vlucht.csv</code> (G2).</li>
+<li>Sleep <code>vlucht.csv</code> met de muis op <strong><code>FLIGHT_REPORT.bat</code></strong>. Na een paar seconden gaat het
+rapport open in de browser.</li>
+<li>Wil je ook de radio van de drie grondstations erbij? Typ dan in een opdrachtprompt in
+<code>C:\CanSat</code>:<pre><code>py tools\flight_report.py metingen\vlucht.csv --radio metingen\wedstrijd_1.csv metingen\wedstrijd_2.csv metingen\wedstrijd_3.csv
+</code></pre>
+Kopieer daarvoor eerst <code>wedstrijd_2.csv</code> en <code>wedstrijd_3.csv</code> van laptop 2 en 3 naar de
+map <code>metingen</code> van laptop 1.</li>
+</ol>
+<p><strong>Wat krijg je?</strong> Een map <code>metingen\vlucht_report\</code> met:</p>
+<ul>
+<li><code>flight_report.html</code>: het rapport. Afdrukken of bewaren als PDF: <strong>Ctrl + P</strong> →
+<strong>Opslaan als PDF</strong>.</li>
+<li><code>figures\</code>: elke grafiek apart, in 16:9. Die kan je zo in de dia's zetten.</li>
+<li><code>key_numbers.csv</code>: alle getallen van het rapport, ook om in te vullen in het verslag.</li>
+</ul>
+<p><strong>Wat staat erin?</strong> De vlucht in één beeld, de primaire missie (temperatuur en luchtdruk), de
+drie delen van de onderzoeksvraag (de krachten, de trillingen en de zones van het blik), de
+parachute, de energie, de GPS, de radio en de kwaliteit van de metingen. Op het einde staan
+de belangrijkste resultaten, met vragen voor de presentatie.</p>
+<blockquote>
+<p><strong>De naam van het team</strong> zet je bovenaan in <code>tools\flight_report.py</code>, bij
+<code>TEAM_NAME = &quot;&quot;</code>. Of typ <code>--team &quot;Team ...&quot;</code> achter het commando.</p>
+</blockquote>
+<blockquote>
+<p><strong>Oefenen kan nu al</strong>, met een oefenvlucht:</p>
+<pre><code>py tools\gen_test_csv.py metingen\oefenvlucht.csv --vlucht
+py tools\flight_report.py metingen\oefenvlucht.csv
+</code></pre>
+</blockquote>
+<p>Het programma vult de metingen in. De uitleg en het besluit maken jullie zelf.</p>
 <hr />
 <h2 id="deel-h--het-lukt-niet">Deel H — Het lukt niet</h2>
 <h3 id="h1-de-cansat-teensy-en-buzzer">H1. De CanSat (Teensy en buzzer)</h3>
@@ -1573,6 +1611,7 @@ py dashboard\dashboard_scherm2.py --replay metingen\vlucht.csv --speed 5
 py tools\krachten_analyse.py metingen\vlucht.csv     de krachten en de parachute
 py tools\gen_test_csv.py metingen\oefenvlucht.csv --vlucht     een oefenvlucht maken
 py stream\stream_dashboard.py --demo                 de livestream met een nagebootste vlucht
+py tools\flight_report.py metingen\vlucht.csv        het vluchtrapport in het Engels (G7)
 </code></pre>
 <h3 id="i7-checklist-voor-de-wedstrijddag-druk-af">I7. Checklist voor de wedstrijddag (druk af)</h3>
 <p><strong>Team CanSat</strong></p>
