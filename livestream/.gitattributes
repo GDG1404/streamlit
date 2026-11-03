@@ -1,0 +1,5 @@
+# Windows-bestanden: regeleinden niet aanpassen
+*.bat -text
+*.txt -text
+# niet mee in de zip voor de leerlingen
+.gitattributes export-ignore

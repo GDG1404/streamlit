@@ -1,0 +1,355 @@
+READY FOR THE ENGINEERS
+Episode 1: Our mission
+Briefing for the podcast about our CanSat 2027 project
+
+This podcast prepares the students of our CanSat team for the questions of
+the engineers in the jury. This episode explains the whole mission: what we
+want to find out, how our CanSat works, the forces on the can, the parachute
+and the energy, and how we test everything.
+
+Important: our CanSat has not flown yet. All flight numbers in this text come
+from a PRACTICE FLIGHT: a full flight that we calculated with physics on the
+computer. After the launch we will replace them with the real numbers.
+
+
+EPISODE PLAN
+1. What is a CanSat? (short)
+2. Our mission: the main mission and our own research question.
+3. How our CanSat works, from sensor to screen.
+4. The forces on the can: which zones carry the most?
+5. The parachute and the energy.
+6. How do we know it works? Tests, the practice flight, the problems we
+   solved, and what comes next.
+7. Questions from the engineers, with good answers.
+8. The numbers to remember.
+
+
+1. WHAT IS A CANSAT?
+
+- A CanSat is a very small satellite, as big as a soft-drink can. Our can is
+  66 mm wide and 115 mm high.
+- A rocket takes it up to about 1 kilometre. There it leaves the rocket and
+  comes down under a parachute.
+- During the flight it measures, and it sends its data to the ground by radio,
+  every second.
+- It works like a real satellite in miniature: a computer, sensors, a radio,
+  power, and a ground station.
+- Two rules from ESA (the European Space Agency) that we use:
+  - the CanSat must survive an acceleration of 20 g;
+  - under the parachute it should come down at 8 to 11 metres per second.
+- Our CanSat weighs 330 grams, with the parachute.
+
+
+2. OUR MISSION
+
+The main mission (the same for every team):
+- Measure the air temperature and the air pressure.
+- Send the data to the ground station at least once per second.
+- From the pressure we calculate the height.
+
+Our own mission, our research question:
+"What forces and vibrations does a CanSat feel during its flight, and which
+zones of the can carry the most load?"
+
+Why is this useful?
+- Every real satellite must survive its launch. Before a launch, engineers
+  test satellites on a vibration table (a shaker).
+- We measure what our CanSat really feels during a real launch.
+- Then we calculate where the can is loaded the most. That shows where the can
+  must be strong, and where we could save mass.
+
+How the two missions work together:
+- To calculate the parachute's drag coefficient (Cd), we need the air density.
+- We calculate the air density from our OWN pressure and temperature.
+- So the main mission helps our own research.
+
+
+3. HOW OUR CANSAT WORKS, FROM SENSOR TO SCREEN
+
+The flight computer is a Teensy 4.1: a small and fast microcontroller.
+
+The sensors:
+- BMP390: air pressure and temperature. From the pressure: the height.
+  Once per second.
+- LSM6DSO: acceleration, 416 times per second. We use it for the vibrations
+  (with an FFT, see below) and for the biggest shock in each second. It
+  measures up to 16 g.
+- BNO055: how the can turns and tilts (orientation). 100 times per second.
+- GPS: the position, and how fast the can drifts with the wind.
+- A small microphone: how loud it is.
+- An RFM95W radio: LoRa radio on 868 MHz.
+
+What happens every second:
+- The Teensy writes one line with 34 values on the SD card. That is
+  everything we measure.
+- It also sends 19 values by radio to the ground: the most important ones,
+  also the vibration results.
+
+What is an FFT? A calculation that finds which frequencies are in a vibration.
+For example: "the can shakes 85 times per second". We split the vibrations
+into 5 frequency bands, from slow (0 to 10 Hz) to fast (120 to 208 Hz).
+
+The ground station:
+- A Raspberry Pi Pico with the same radio receives the packets.
+- A laptop saves every line in a file (a CSV file) and shows two live
+  dashboards:
+  - Screen 1: graphs of height, temperature, pressure, acceleration, the
+    vibrations per frequency band, and the sound.
+  - Screen 2: the flight path in 3D, a map, how the can turns, and the load
+    on each zone of the can, in colours.
+
+Built to keep going:
+- If one sensor fails, the flight program keeps running with the others.
+- If the USB cable of the receiver comes loose, the program waits and then
+  continues in the same file.
+
+After the flight:
+- We copy the file from the SD card.
+- Our analysis program reads it and calculates the parachute's Cd, the forces
+  on the can, the zones, and the energy. It makes six figures and a table.
+
+
+4. THE FORCES ON THE CAN
+
+What the sensor measures:
+- The accelerometer measures how many g the can feels. Standing still on a
+  table: 1 g.
+- At 10 g, every part pushes or pulls with 10 times its own weight.
+- So the force is: F = m x n x g. Here m is the mass, n is the number of g,
+  and g is 9.81 m/s2.
+
+Where the force comes into the can:
+- At the BOTTOM during the launch (the rocket pushes) and at the landing (the
+  ground pushes). The can is pressed together: compression.
+- At the TOP when the parachute pulls. The can is stretched: tension.
+
+The rule:
+- A slice of the can must carry all the mass on the other side, seen from
+  where the force comes in.
+- So the force is biggest close to the place where the force comes in.
+
+Results of the practice flight:
+- Launch: 11.2 g. That gives 36 newton at the bottom.
+- The parachute opens: 4.1 g. That gives 13 newton at the top, at the
+  parachute attachment.
+- Steady descent under the parachute: 1 g. About 3 newton at the top.
+- Landing: at least 16 g. That gives at least 52 newton at the bottom. We say
+  "at least", because our sensor cannot measure more than 16 g.
+- The ESA rule of 20 g would give 65 newton at the bottom.
+
+What this means:
+- The bottom and the parachute attachment carry the most.
+- The middle carries less. The least loaded place is at about 92 mm height
+  (the can is 115 mm high).
+- Where the material is thin, for example around a hole or at a narrow edge,
+  the stress is highest. That is where something breaks first.
+- On screen 2 the can changes colour: green means a small load, red means
+  20 g on the bottom. The colour stays at the highest value. After the flight
+  you can see which zones carried the most.
+
+What we say honestly:
+- No sensor measures the force inside the can. We calculate it with a model:
+  the measured g times the mass. Engineers work the same way.
+- We spread the mass evenly over the height. We can add heavy parts, like the
+  battery, at their real height.
+- We only calculate forces along the can. The BNO055 shows that the sideways
+  forces are small: at most 0.15 g in the steady descent.
+
+
+5. THE PARACHUTE AND THE ENERGY
+
+The parachute:
+- In our code the parachute has a diameter of 45 cm. Its area is 0.159 square
+  metres.
+- Under the parachute the CanSat falls at a steady speed. Then the drag (the
+  push of the air) is exactly as big as the weight.
+- From that we calculate the drag coefficient:
+  Cd = 2 x m x g / (air density x speed x speed x area)
+- The speed comes from the barometer: one height every second.
+- The air density comes from our own pressure and temperature:
+  air density = pressure / (287 x temperature in kelvin).
+
+Two checks:
+- Check 1: the Cd must be the same at every height. High up, the air is
+  thinner, so the CanSat falls a bit faster. But the Cd stays the same. In the
+  practice flight the Cd was 0.50 at every height.
+- Check 2: with this Cd we calculate how hard the parachute pulls, every
+  second, and we compare it with the sensor.
+  - In the steady descent both say 1.0 g.
+  - When the parachute opens, the model says 2.8 g and the sensor 4.1 g.
+  - Why the difference? The barometer gives only one height per second. So
+    our speed is an average over 2 seconds. When the parachute opened, the
+    real top speed was higher than that average.
+
+Descent speed:
+- In the practice flight: about 8.5 metres per second, and 8.3 near the
+  ground.
+- That is inside the ESA range of 8 to 11 metres per second.
+
+Energy (practice flight, highest point 955 metres):
+- At the highest point the CanSat has height energy: m x g x h, about
+  3.1 kilojoule (3100 joule).
+- Under the parachute it loses m x g x v every second: about 27 watt. That is
+  as much as a small lamp.
+- So the parachute turns about 3 kilojoule into heat and swirls in the air.
+- Just before the landing only about 12 joule of motion energy is left.
+
+
+6. HOW DO WE KNOW IT WORKS?
+
+Our way of working, in five steps:
+1. Test each part alone.
+2. Test everything together on the table.
+3. Test outside: a radio test with the breadboard at 100 metres.
+4. A drop test.
+5. The launch.
+
+What we built, step by step:
+- First a test program for all sensors, with the FFT and a CSV file.
+- Then two live dashboards, test tools, a manual, and the full flight
+  program.
+- Then one button that starts the logger and both dashboards.
+- Then a livestream setup, so other people can follow the flight.
+- Then the radio test: a receiver on a Raspberry Pi Pico, and radio data in
+  the logger and the dashboards.
+- Then the analysis of the forces and the energy, with a practice flight.
+- Next: the radio test outside at 100 metres, then the drop test, then the
+  launch.
+
+The practice flight, our big test:
+- We calculated a full flight with physics: a launch at 10 g, a highest point
+  of about 950 metres, a parachute, and a landing.
+- In this flight we KNOW the right answer: the Cd is 0.50.
+- Our analysis program found 0.50 (between 0.48 and 0.52). So the method
+  works.
+
+Problems we found and solved:
+1. Wrong frequencies. The FFT gave frequencies that were 15 percent too low:
+   25 Hz became 21 Hz. The reason: sending a radio packet stopped the program
+   for about a quarter of a second, so measurements were missing. The fix: the
+   radio now sends in the background, and we use the fixed measuring rate.
+   Now the frequency is right within 0.1 Hz.
+2. A loose cable. When the USB cable of the receiver came loose, the logging
+   program stopped. Now it waits and continues in the same file.
+3. A wrong average. Screen 1 showed a Cd that was 10 percent too high. It took
+   the average over all seconds, also the first seconds after the parachute
+   opened. Now it takes the median of the descent.
+4. The wrong force. A script from last year calculated the net force. Under
+   the parachute the net force is 0 newton, but the can carries 3 newton. Now
+   we use what the sensor feels.
+5. The GPS. The GPS had trouble finding satellites. We test it outside, with
+   a clear view of the sky. The first fix can take a few minutes.
+
+The limits we say honestly:
+- The forces are a model, not a direct measurement.
+- Our acceleration sensor stops at 16 g.
+- We save one line per second. We see how big a shock is, but not how long
+  it lasts.
+- The temperature sensor is inside the can, so it reacts slowly.
+- There is no real flight yet. The numbers come from the practice flight.
+
+
+7. QUESTIONS FROM THE ENGINEERS, WITH GOOD ANSWERS
+
+Q: What is your own mission, in one sentence?
+A: We measure the forces and vibrations our CanSat feels during the flight,
+   and we calculate which zones of the can carry the most load.
+
+Q: Why is that useful?
+A: Every satellite must survive its launch. We measure what a launch really
+   does to our can, and we find where the can must be strong and where we
+   could save mass.
+
+Q: You have no force sensor. How do you measure a force?
+A: The accelerometer measures how many g the can feels. We multiply by the
+   mass: F = m x n x g. That is a model. We say that honestly, and engineers
+   work the same way.
+
+Q: Which part of your CanSat carries the most load?
+A: The bottom, at the launch and at the landing. And the parachute attachment
+   when the parachute opens. In the practice flight: at least 52 newton on the
+   bottom at the landing, and 13 newton at the attachment.
+
+Q: Your sensor stops at 16 g, and ESA asks 20 g. Is that a problem?
+A: The CanSat must survive 20 g. The sensor does not have to measure it. If a
+   shock is bigger than 16 g, we report "at least 16 g". 16 g is the largest
+   range of this sensor.
+
+Q: Why only one line per second?
+A: ESA asks for at least one per second, and the radio needs time to send.
+   Inside the Teensy, the sensors measure much faster: 416 times per second
+   for the vibrations. We keep the biggest shock of every second, so we do
+   not miss it.
+
+Q: How do you know your Cd is right?
+A: Three ways. First, in our practice flight we knew the answer, 0.50, and we
+   found 0.50. Second, the Cd must be the same at every height, and it is.
+   Third, we compare the parachute model with the sensor.
+
+Q: Why do you need the temperature for the parachute?
+A: For the air density: pressure divided by 287 times the temperature in
+   kelvin. Warmer air is thinner. So our main mission helps our own research.
+
+Q: What if the radio loses packets?
+A: The SD card keeps everything: 34 values every second. The radio is for the
+   live view. The analysis after the flight uses the SD card.
+
+Q: What if a sensor fails during the flight?
+A: The flight program checks every sensor at the start, and it keeps running
+   with the other sensors.
+
+Q: What was your biggest problem?
+A: The FFT gave frequencies that were 15 percent too low. The radio stopped
+   the program for a quarter of a second, so measurements were missing. Now
+   the radio sends in the background, and the frequencies are right within
+   0.1 Hz.
+
+Q: Where does the energy go when the CanSat comes down?
+A: Into the air. The parachute turns about 3 kilojoule into heat and swirls,
+   about 27 watt during the descent. At the landing only about 12 joule of
+   motion energy is left.
+
+Q: What will you do after the launch?
+A: We copy the file from the SD card and run our analysis program. We compare
+   the real flight with the practice flight, and we check the ESA rules: a
+   descent speed of 8 to 11 metres per second, and 20 g.
+
+
+8. THE NUMBERS TO REMEMBER
+
+- 330 grams: our CanSat with its parachute.
+- 1 line per second: 34 values on the SD card, 19 values by radio.
+- 416 times per second: the vibration sensor. It measures up to 16 g.
+- 20 g: what ESA asks a CanSat to survive.
+- 8 to 11 metres per second: the ESA range for the descent. Practice flight:
+  8.5.
+- Cd 0.50: what our analysis found in the practice flight, and the right
+  answer.
+- 3 kilojoule and 27 watt: the energy the parachute turns into heat, and how
+  fast.
+- At least 52 newton: the bottom at the landing, the zone that carries the
+  most.
+
+
+WORDS WE USE
+
+- g: the acceleration of gravity, 9.81 m/s2. "4 g" means four times your own
+  weight.
+- Accelerometer: a sensor that measures acceleration, in g.
+- Load: the force that a part of the can must carry.
+- Compression: pressed together. Tension: stretched.
+- Model: a calculation that copies the real world, with formulas and measured
+  numbers.
+- FFT: a calculation that finds the frequencies in a vibration.
+- Frequency: how many times per second something shakes, in hertz (Hz).
+- Drag: the push of the air against a moving object.
+- Drag coefficient (Cd): a number that says how well the parachute catches
+  the air.
+- Air density: how many kilograms of air there are in one cubic metre.
+- Barometer: a sensor that measures the air pressure. We use it for the
+  height.
+- Telemetry: the data that the CanSat sends to the ground by radio.
+- Ground station: the receiver and the laptop on the ground.
+- LoRa: a kind of radio that can send small messages over a long distance.
+- Practice flight: a full flight that we calculated on the computer, with
+  a known answer, to test our analysis.
