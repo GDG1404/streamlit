@@ -1517,19 +1517,19 @@ self.onmessage = function (e) {
   function viewSpiek(doel) {
     zetTab("spiekbrief");
     const sterren = (b) => `<span class="sterren" aria-label="belang ${b} van 3">${"★".repeat(b)}<span class="uit">${"★".repeat(3 - b)}</span></span>`;
-    const belangTekst = { 3: "moet je kennen", 2: "handig", 1: "mag je voorlopig overslaan" };
+    const belangTekst = { 3: "komt bijna altijd terug", 2: "staat in je cursus", 1: "staat weinig in je cursus" };
     const zichtbaar = SPIEK.filter((v) => spiekFilter === "alles" || (spiekFilter === "3" && v.belang === 3) || spiekFilter === v.kant);
     const vakken = zichtbaar
       .map(
         (v) => `<article class="vak" id="spiek-${v.id}">
         <div class="vak-kop">
-          <div class="blok"><span class="naam">${esc(v.naam)} · ${v.kant}</span><h3>${esc(v.nl)}</h3></div>
+          <div class="blok"><span class="naam">${esc(v.naam)} · ${v.kant} · cursus H${esc(NIV_KEY[v.niveau].hoofdstuk)}</span><h3>${esc(v.nl)}</h3></div>
           <div class="blok" style="align-items:flex-end">${sterren(v.belang)}<span class="label">${belangTekst[v.belang]}</span></div>
         </div>
         <div class="tekst">${md(v.uitleg)}</div>
         <div class="twee-kol">
-          <div class="blok"><div class="label">Dit moet je kennen</div><ul class="lijstje">${v.kennen.map((x) => `<li>${inline(x)}</li>`).join("")}</ul></div>
-          ${v.overslaan.length ? `<div class="blok"><div class="label">Mag je voorlopig overslaan</div><ul class="lijstje weg">${v.overslaan.map((x) => `<li>${inline(x)}</li>`).join("")}</ul></div>` : ""}
+          <div class="blok"><div class="label">Staat in je cursus</div><ul class="lijstje">${v.kennen.map((x) => `<li>${inline(x)}</li>`).join("")}</ul></div>
+          ${v.overslaan.length ? `<div class="blok"><div class="label">Staat niet in je cursus</div><ul class="lijstje weg">${v.overslaan.map((x) => `<li>${inline(x)}</li>`).join("")}</ul></div>` : ""}
         </div>
         ${v.code ? `<div class="code-en-uitvoer"><div class="blok"><div class="label">Voorbeeld</div>${codeHTML(v.code)}</div><div class="blok"><div class="label">Uitvoer</div>${uitvoerHTML(v.uitvoer)}</div></div>` : ""}
         <div class="rij">${v.niveau != null ? `<a class="knop tweede klein" href="#niveau-${v.niveau}">Oefenen in niveau ${NIV_KEY[v.niveau].nr}: ${esc(NIV_KEY[v.niveau].titel)}</a>` : '<span class="chip grijs">komt in een later niveau</span>'}${v.code ? `<button type="button" class="knop stil klein" data-klad="${v.id}">Probeer in het kladblok</button>` : ""}</div>
@@ -1541,7 +1541,8 @@ self.onmessage = function (e) {
       <section class="kop">
         <div class="oogje">Spiekbrief</div>
         <h1>Je spiekbrief, in gewone taal</h1>
-        <p class="inleiding">Het blad van de prof is de <i>Python 3 Mémento</i> van Laurent Pointal. Er staat veel op, maar je hebt niet alles nodig. Per vak zie je hoe belangrijk het is: <b>★★★</b> moet je kennen (${telMoet} vakken), <b>★★</b> is handig, <b>★</b> mag je voorlopig overslaan.</p>
+        <p class="inleiding">Het blad van de prof is de <i>Python 3 Mémento</i> van Laurent Pointal. Dat blad is niet voor jouw vak gemaakt: het vat heel Python samen. Daarom staat er meer op dan in je cursus. Bij elk vak zie je wat in je cursus (<i>De Programmeursleerling</i>, hoofdstuk 3 tot 17) staat, met het hoofdstuk erbij, en wat er niet in staat. Wat niet in je cursus staat, is minder waarschijnlijk op het examen. Zekerheid geeft alleen de prof.</p>
+        <p class="inleiding">De sterren zeggen hoe vaak je iets nodig hebt: <b>★★★</b> komt bijna altijd terug (${telMoet} vakken), <b>★★</b> staat in je cursus, <b>★</b> staat er weinig in.</p>
         <div class="papiertip"><div><b>Tip voor het examen:</b> markeer de ★★★-vakken met fluo op je eigen blad. Dan vind je ze snel terug.</div></div>
       </section>
       <div class="filters" role="group" aria-label="Filter">

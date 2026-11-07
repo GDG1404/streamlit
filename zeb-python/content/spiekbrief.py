@@ -1,6 +1,8 @@
 """De spiekbrief (Python 3 Mémento van Laurent Pointal) uitgelegd in gewone taal.
 
-belang: 3 = moet je echt kennen, 2 = handig, 1 = mag je voorlopig overslaan.
+belang: 3 = komt (bijna) altijd terug, 2 = staat in je cursus, 1 = staat weinig in je cursus.
+kennen = staat in het cursusboek (hoofdstuk 3-17), overslaan = staat er niet in
+(of pas vanaf hoofdstuk 18). Nagekeken in "De Programmeursleerling".
 niveau: de sleutel van het niveau in de app waar dit vak aan bod komt.
 """
 
@@ -24,17 +26,17 @@ VAKKEN = [
         De soorten enkelvoudige waarden. Elke waarde in Python heeft een type.
         """,
         [
-            "`int`: geheel getal, zoals `783`, `0`, `-192`",
-            "`float`: kommagetal met een **punt**: `9.23`, `0.0`",
-            "`-1.7e-6` betekent -1,7 · 10⁻⁶ (wetenschappelijke notatie)",
-            "`bool`: `True` of `False` (met hoofdletter!)",
-            "`str`: tekst tussen `\"...\"` of `'...'`",
-            "`\\n` in een tekst betekent: nieuwe regel",
+            '`int`: geheel getal, zoals `783`, `0`, `-192` (H3.2)',
+            '`float`: kommagetal met een **punt**: `9.23`, `0.0` (H3.2)',
+            '`-1.7e-6` betekent -1,7 · 10⁻⁶ (wetenschappelijke notatie, H3.2)',
+            '`bool`: `True` of `False`, met hoofdletter (H6.1)',
+            '`str`: tekst tussen `"..."` of `\'...\'` (H3.2)',
+            '`\\n` (nieuwe regel) en `\\t` (tab) in een string (H10.3)',
+            'tekst over meerdere regels tussen `"""` (H10.2)',
         ],
         [
-            "`0b010`, `0o642`, `0xF3` (binair, octaal, hexadecimaal)",
-            "`bytes` (`b\"toto\"`)",
-            "tekst over meerdere regels met `\"\"\"`",
+            '`0b010`, `0o642`, `0xF3` (binair, octaal, hexadecimaal): pas in H19',
+            '`bytes` (`b"toto"`): pas in H18',
         ],
         """
         print(type(783), type(9.23))
@@ -50,16 +52,16 @@ VAKKEN = [
         reeksen* (met een index), onderaan de *sleutel-containers*.
         """,
         [
-            "`list`: `[1, 5, 9]`, kan je aanpassen; `[]` is leeg",
-            "`tuple`: `(1, 5, 9)`, kan je **niet** aanpassen",
-            "`str` is ook een reeks: van letters",
-            "`dict`: `{\"sleutel\": \"waarde\"}` (cursus hoofdstuk 13)",
+            '`list`: `[1, 5, 9]`, kan je aanpassen; `[]` is leeg (H12)',
+            '`tuple`: `(1, 5, 9)`, kan je **niet** aanpassen (H11)',
+            '`("mot",)`: een tuple met één element heeft een komma nodig (H11)',
+            '`str` is ook een reeks: van tekens (H10)',
+            '`dict`: `{"key": "waarde"}` (H13)',
+            '`set` en `frozenset` (H14)',
         ],
         [
-            "`set` en `frozenset`",
-            "`bytes`",
-            "de opmerking over *hashable values*",
-            "`(\"mot\",)`: een tuple met één element heeft een komma nodig",
+            'de opmerking over *hashable values*',
+            '`bytes`: pas in H18',
         ],
         """
         lst = [1, 5, 9]
@@ -88,14 +90,17 @@ VAKKEN = [
         uit** en steekt het resultaat daarna in de naam links.
         """,
         [
-            "`x = 1.2 + 8`: rechts eerst uitrekenen",
-            "`a = b = c = 0`: drie variabelen tegelijk op 0",
-            "`y, z, r = 9.2, -7.6, 0`: meerdere tegelijk",
-            "`a, b = b, a`: twee waarden wisselen",
-            "`x += 3` is `x = x + 3`; zo ook `-=`, `*=`, `/=`, `%=`",
-            "`x = None`: een lege waarde, \"nog niets\"",
+            '`x = 1.2 + 8`: rechts eerst uitrekenen (H4.1)',
+            '`a = b = c = 0`: drie variabelen tegelijk op 0',
+            '`y, z, r = 9.2, -7.6, 0`: meerdere tegelijk (H11.1)',
+            '`a, b = b, a`: twee waarden wisselen (H4, opgave 4.4)',
+            '`x += 3` is `x = x + 3`; zo ook `-=`, `*=`, `/=` (H4.5)',
+            '`x = None`: een lege waarde, "nog niets" (H8.2.5)',
+            '`del`: een element uit een list of dictionary verwijderen (H12.4, H13.1)',
         ],
-        ["`a, *b = seq` (uitpakken met sterretje)", "`del x`"],
+        [
+            '`a, *b = seq` (uitpakken met sterretje)',
+        ],
         """
         a = b = 0
         y, z = 9.2, -7.6
@@ -112,20 +117,21 @@ VAKKEN = [
         altijd tekst.
         """,
         [
-            "`int(\"15\")` → `15`",
-            "`int(15.56)` → `15`: kapt af, rondt **niet** af!",
-            "`float(\"2.5\")` → `2.5`",
-            "`str(15)` → `\"15\"`",
-            "`round(15.56, 1)` → `15.6`",
-            "`list(\"abc\")` → `['a', 'b', 'c']`",
-            "`type(x)` toont het type",
+            '`int("15")` → `15` (H5.2.1)',
+            '`int(15.56)` → `15`: kapt af, rondt **niet** af!',
+            '`float("2.5")` → `2.5`, `str(15)` → `"15"`',
+            '`round(15.56, 1)` → `15.6` (H5.2.2)',
+            '`type(x)` toont het type',
+            "`chr(64)` → `'@'` en `ord('@')` → `64` (H10.7)",
+            '`list("abc")` → `[\'a\', \'b\', \'c\']` (H12.7)',
+            '`set(...)` maakt een set (H14)',
+            '`":".join([...])` en `"...".split()` (H10.6)',
+            '`[int(x) for x in ...]`: list comprehension (H12.8)',
         ],
         [
-            "`int(\"3f\", 16)` (andere talstelsels)",
-            "`bool(x)`, `chr`/`ord`, `repr`, `bytes`",
-            "`dict(...)` en `set(...)`",
-            "`split` en `join` (die komen bij Strings, hoofdstuk 10)",
-            "`[int(x) for x in ...]` (list comprehension, bij Lists, hoofdstuk 12)",
+            '`int("3f", 16)` (andere talstelsels)',
+            '`bool(x)` en `repr(x)`',
+            '`bytes`: pas in H18',
         ],
         """
         print(int("15") + 1)
@@ -141,19 +147,16 @@ VAKKEN = [
         met `lst = [10, 20, 30, 40, 50]` is het belangrijkste deel van deze kant.
         """,
         [
-            "de index begint bij **0**: `lst[0]` → 10",
-            "negatief telt van achteren: `lst[-1]` → 50 (laatste)",
-            "`len(lst)` → 5; de laatste index is `len(lst) - 1`",
-            "`lst[1:3]` → `[20, 30]`: het einde zit er **niet** in",
-            "`lst[:3]` de eerste drie, `lst[3:]` vanaf index 3",
-            "`lst[::-1]` achterstevoren",
-            "`lst[4] = 25` verandert een element",
+            'de index begint bij **0**: `lst[0]` → 10 (H10.4, H12.1)',
+            'negatief telt van achteren: `lst[-1]` → 50 (laatste)',
+            '`len(lst)` → 5; de laatste index is `len(lst) - 1`',
+            '`lst[1:3]` → `[20, 30]`: het einde zit er **niet** in',
+            '`lst[:3]`, `lst[3:]`, en met stap: `lst[::2]`, `lst[::-1]` (H10.4.3)',
+            '`lst[4] = 25` verandert een element (H12.2)',
+            '`lst[1:4] = [15, 25]` en `del lst[3:5]` (H12.2, H12.4)',
+            '`lst[:]` maakt een (ondiepe) kopie (H12.5)',
         ],
-        [
-            "`lst[::2]`, `lst[::-2]` (met stap)",
-            "`del lst[3:5]` en `lst[1:4] = [15, 25]`",
-            "*shallow copy* met `lst[:]`",
-        ],
+        [],
         """
         lst = [10, 20, 30, 40, 50]
         print(lst[0], lst[-1], len(lst))
@@ -174,7 +177,9 @@ VAKKEN = [
             "`not a`: omgekeerd",
             "`=` is toekennen, `==` is vergelijken",
         ],
-        ["de *pitfall* over wat `and`/`or` teruggeven: gebruik ze gewoon met True/False"],
+        [
+            'de *pitfall* over wat `and`/`or` teruggeven als a en b geen booleans zijn',
+        ],
         """
         a, b = 4, 9
         print(a < b, a == b, a != b)
@@ -193,7 +198,7 @@ VAKKEN = [
             "het blok stopt waar het inspringen stopt",
             "blokken kunnen in elkaar zitten (een if in een for)",
         ],
-        ["de tip over je editor instellen"],
+        [],
     ),
     vak(
         "imports", "Modules/Names Imports", "Importeren", "voorkant", 2, "rekenen",
@@ -202,10 +207,14 @@ VAKKEN = [
         importeren.
         """,
         [
-            "`from math import sqrt, pi`: daarna gewoon `sqrt(16)`",
-            "`import math`: daarna `math.sqrt(16)`",
+            '`from math import sqrt, pi`: daarna gewoon `sqrt(16)` (H5.3)',
+            '`import math`: daarna `math.sqrt(16)` (H5.3)',
+            '`from math import sqrt as wortel`: hernoemen met `as` (H5.3)',
+            'een eigen module is gewoon een bestand `truc.py` (H8.5)',
         ],
-        ["`as` (hernoemen)", "`sys.path`", "een module is een bestand `truc.py`"],
+        [
+            '`sys.path`',
+        ],
         """
         from math import sqrt, pi
         import math
@@ -224,7 +233,9 @@ VAKKEN = [
             "zoveel `elif` als je wil, maximaal één `else` op het einde",
             "het voorbeeld met `age` en `state`",
         ],
-        ["`if x:` als kortere versie van `if bool(x) == True:` (handig, maar niet nodig)"],
+        [
+            '`if x:` als kortere versie van `if bool(x) == True:`',
+        ],
         """
         age = 30
         if age <= 18:
@@ -246,17 +257,18 @@ VAKKEN = [
         `pow(4, 3)` gewoon `64`; alleen `math.pow(4, 3)` geeft `64.0`.
         """,
         [
-            "`+ - * /` en `**` (macht)",
-            "`//` gehele deling, `%` rest",
-            "voorrang: haakjes, dan `**`, dan `* / // %`, dan `+ -`",
-            "`abs(-3.2)` → 3.2, `round(3.57, 1)` → 3.6",
-            "`sqrt`, `floor`, `ceil`, `pi` uit `math`",
-            "hoeken in **radialen**",
+            '`+ - * /` en `**` (macht) (H3.3)',
+            '`//` integer deling, `%` modulo (rest) (H3.3)',
+            'voorrang: haakjes, dan `**`, dan `* / // %`, dan `+ -`',
+            '`abs(-3.2)` → 3.2, `round(3.57, 1)` → 3.6, `pow`, `max`, `min` (H5.2.2)',
+            'uit `math`: `sqrt`, `exp`, `log`, `floor`, `ceil`, `pi` (H5.3.1)',
+            'uit `random`: `random()`, `randint(a, b)`, `seed()` (H5.3.2)',
         ],
         [
-            "`@` (matrices)",
-            "`log`, `sin`, `cos` (tenzij je prof ze gebruikt)",
-            "de modules `statistics`, `random`, `decimal`, `numpy`",
+            '`@` (matrices)',
+            '`sin`, `cos` (wel in `math`, maar het boek gebruikt ze niet)',
+            'de modules `decimal` en `numpy`',
+            '`statistics`: pas in H27',
         ],
         """
         from math import sqrt, floor, ceil
@@ -273,9 +285,13 @@ VAKKEN = [
         vang je ze op. Dat staat in hoofdstuk 17 van je cursus.
         """,
         [
-            "weten hoe een foutmelding eruitziet: `NameError`, `TypeError`, `IndexError`, ...",
+            'hoe een foutmelding eruitziet: `NameError`, `TypeError`, `IndexError`, ... (H17.1)',
+            '`try:` ... `except ValueError:` (H17.2)',
+            '`except ValueError as ex:` (H17.2.5)',
+            '`else` en `finally` (H17.2.3 en 17.2.4)',
+            '`raise ValueError("...")` (H17.4)',
         ],
-        ["`raise`", "`finally`", "het schema met de pijlen"],
+        [],
         """
         try:
             x = int("abc")
@@ -296,7 +312,7 @@ VAKKEN = [
             "de variabele verandert in de loop (`i = i + 1`)",
             "*beware of infinite loops*: verandert er niets, dan stopt de loop nooit",
         ],
-        ["het sommatieteken Σ is gewoon de wiskundige uitleg"],
+        [],
         """
         s = 0
         i = 1
@@ -313,13 +329,13 @@ VAKKEN = [
         manieren: over de **waarden** lopen en over de **indexen** lopen.
         """,
         [
-            "`for c in s:`: over de waarden (voorbeeld: e's tellen)",
-            "`for idx in range(len(lst)):`: over de indexen, als je `lst[idx]` wil aanpassen",
-            "*good habit*: verander de loop-variabele niet zelf",
+            '`for c in s:`: over de waarden (H7.2)',
+            '`for idx in range(len(lst)):`: over de indexen, als je `lst[idx]` wil aanpassen (H12.2)',
+            '`for key in d.keys():` over een dictionary (H13.2)',
+            '*good habit*: verander de loop-variabele niet zelf',
         ],
         [
-            "`enumerate` (handig, maar niet nodig)",
-            "loops over een dict of set",
+            '`enumerate`',
         ],
         """
         lst = [11, 18, 9, 12, 23, 4, 17]
@@ -338,10 +354,11 @@ VAKKEN = [
         Een loop vroeger stoppen of een ronde overslaan.
         """,
         [
-            "`break`: stop de loop meteen",
-            "`continue`: sla de rest van deze ronde over",
+            '`break`: stop de loop meteen (H7.3.2)',
+            '`continue`: sla de rest van deze ronde over (H7.3.3)',
+            '`else` na een loop: alleen als er geen `break` was (H7.3.1)',
         ],
-        ["`else` na een loop"],
+        [],
         """
         for i in range(10):
             if i == 2:
@@ -361,7 +378,9 @@ VAKKEN = [
             "`sep=\"-\"`: iets anders dan een spatie ertussen",
             "`end=\"\"`: niet naar een nieuwe regel springen",
         ],
-        ["`file=sys.stdout`"],
+        [
+            '`file=sys.stdout`',
+        ],
         """
         x, y = 3, 5
         print("v=", 3, "cm :", x, ",", y + 4)
@@ -386,16 +405,16 @@ VAKKEN = [
         Functies die werken op lists, tuples, tekst, ... Een paar zie je heel vaak.
         """,
         [
-            "`len(c)`, `min(c)`, `max(c)`, `sum(c)`",
-            "`sorted(c)`: een **nieuwe** gesorteerde list",
-            "`x in c` en `x not in c`",
-            "`c + c2` aan elkaar plakken, `c * 5` herhalen",
-            "`c.index(x)` positie, `c.count(x)` aantal keer",
+            '`len(c)`, `min(c)`, `max(c)`, `sum(c)`',
+            '`sorted(c)`: een **nieuwe** gesorteerde list (H12.4)',
+            '`x in c` en `x not in c` (H6.1.3)',
+            '`c + c2` aan elkaar plakken, `c * 5` herhalen (H12.3)',
+            '`c.index(x)` positie, `c.count(x)` aantal keer (H12.4)',
+            '`copy.copy(c)` en `copy.deepcopy(c)`: ondiepe en diepe kopie (H12.5.2)',
         ],
         [
-            "`enumerate` en `zip` (handig, maar niet nodig)",
-            "`all`, `any`, `reversed`",
-            "`copy` en `deepcopy`",
+            '`enumerate` en `all`, `any`',
+            '`zip` en `reversed`: pas in H23',
         ],
         """
         c = [4, 8, 15, 16, 8]
@@ -417,7 +436,7 @@ VAKKEN = [
             "`range(20, 5, -5)` → 20 15 10",
             "`range(len(seq))` → alle indexen van seq",
         ],
-        ["*immutable sequence ... constructed as needed*"],
+        [],
         """
         print(*range(5))
         print(*range(3, 8))
@@ -431,13 +450,14 @@ VAKKEN = [
         Methodes die de list **zelf** veranderen.
         """,
         [
-            "`lst.append(x)`: achteraan toevoegen",
-            "`lst.insert(i, x)`: invoegen op index i",
-            "`lst.remove(x)`: eerste x verwijderen",
-            "`lst.pop()`: laatste verwijderen en teruggeven",
-            "`lst.sort()`: de list zelf sorteren",
+            '`lst.append(x)`: achteraan toevoegen (H12.4)',
+            '`lst.extend(lst2)`: een hele list achteraan toevoegen',
+            '`lst.insert(i, x)`: invoegen op index i',
+            '`lst.remove(x)`: eerste x verwijderen',
+            '`lst.pop()`: laatste verwijderen en teruggeven',
+            '`lst.sort()` en `lst.reverse()`: de list zelf sorteren of omdraaien',
         ],
-        ["`extend`, `reverse`"],
+        [],
         """
         lst = [3, 1, 2]
         lst.append(5)
@@ -455,15 +475,15 @@ VAKKEN = [
         (parameters) en uitvoer (`return`).
         """,
         [
-            "`def naam(x, y):` met dubbele punt",
-            "`return res` geeft het resultaat terug",
-            "zonder return geeft de functie `None` terug",
-            "variabelen in de functie bestaan alleen in die functie",
+            '`def naam(x, y):` met dubbele punt (H8.2)',
+            '`return res` geeft het resultaat terug (H8.2.5)',
+            'zonder return geeft de functie `None` terug',
+            'variabelen in de functie bestaan alleen in die functie: scope (H8.3)',
+            'standaardwaarden zoals `def f(x, a=3):` (H8.2.4)',
+            'documentatie tussen `"""` bovenaan de functie (H8.2.11)',
         ],
         [
-            "de documentatie tussen `\"\"\"`: mag, moet niet",
-            "*Advanced*: `*args`, `**kwargs`",
-            "*Advanced*: standaardwaarden zoals `a=3` staan wel in je cursus (8.2.4)",
+            '*Advanced*: `*args`, `**kwargs`',
         ],
         """
         def fct(x, y, z):
@@ -484,7 +504,9 @@ VAKKEN = [
             "één argument per parameter, in dezelfde volgorde",
             "zonder haakjes wordt de functie niet uitgevoerd",
         ],
-        ["*Advanced*: `*sequence`, `**dict`"],
+        [
+            '*Advanced*: `*sequence`, `**dict`',
+        ],
         """
         def fct(a, b, c):
             return a * 100 + b * 10 + c
@@ -501,12 +523,15 @@ VAKKEN = [
         In je cursus is dat hoofdstuk 13.
         """,
         [
-            "`d[sleutel] = waarde`: toevoegen of aanpassen",
-            "`d[sleutel]`: opzoeken",
-            "`d.get(sleutel, standaard)`: opzoeken zonder fout",
-            "`d.keys()`, `d.values()`, `d.items()`",
+            '`d[key] = waarde`: toevoegen of aanpassen (H13.1)',
+            '`d[key]`: opzoeken, en `del d[key]`: verwijderen (H13.1)',
+            '`d.get(key, standaard)`: opzoeken zonder fout (H13.2.3)',
+            '`d.keys()`, `d.values()`, `d.items()` (H13.2.2)',
+            '`d.copy()` (H13.2.1)',
         ],
-        ["`update`, `pop`, `popitem`, `setdefault`, `clear`"],
+        [
+            '`update`, `pop`, `popitem`, `setdefault`, `clear`',
+        ],
         """
         punten = {"Zeb": 14, "Lies": 16}
         punten["Tom"] = 12
@@ -522,13 +547,17 @@ VAKKEN = [
         bewerkingen van de wiskunde: unie `|`, doorsnede `&`, verschil `-`.
         """,
         [
-            "een set heeft geen dubbels en geen vaste volgorde",
-            "`s.add(x)`, `s.remove(x)`, `s.discard(x)`",
-            "`a | b` of `a.union(b)`: vereniging",
-            "`a & b` of `a.intersection(b)`: doorsnede",
-            "`a - b` of `a.difference(b)`: verschil",
+            'een set heeft geen dubbels en geen vaste volgorde (H14.1)',
+            '`s.add(x)`, `s.update(...)`, `s.remove(x)`, `s.discard(x)`, `s.clear()` (H14.2)',
+            '`a.union(b)` of `a | b`: vereniging',
+            '`a.intersection(b)` of `a & b`: doorsnede',
+            '`a.difference(b)` of `a - b`: verschil',
+            '`issubset`, `issuperset`, `isdisjoint` (H14.2.8)',
+            '`frozenset`: een set die je niet kan veranderen (H14.3)',
         ],
-        ["`^` (symmetrisch verschil)", "`frozenset`", "inclusie met `<` en `<=`"],
+        [
+            'de operatoren `^`, `<` en `<=` (je cursus gebruikt de methodes)',
+        ],
         """
         a = {1, 2, 3}
         b = {2, 3, 4}
@@ -542,13 +571,19 @@ VAKKEN = [
         oorspronkelijke tekst verandert niet (cursus hoofdstuk 10).
         """,
         [
-            "`s.upper()`, `s.lower()`",
-            "`s.strip()`: spaties vooraan en achteraan weg",
-            "`s.split(\",\")`: opsplitsen in een list",
-            "`\",\".join(list)`: list samenvoegen tot tekst",
-            "`s.count(\"e\")`, `s.find(\"e\")`, `s.startswith(\"a\")`",
+            '`s.strip()`: spaties vooraan en achteraan weg (H10.6)',
+            '`s.upper()`, `s.lower()`',
+            '`s.find(x)`: index van x, of -1',
+            '`s.replace(oud, nieuw)`',
+            '`s.split(",")`: opsplitsen in een list',
+            '`",".join(lst)`: list samenvoegen tot tekst',
         ],
-        ["`partition`, `casefold`, `center`, `ljust`, `rjust`, `zfill`, `encode`, `swapcase`"],
+        [
+            '`count`, `startswith`, `endswith` (handig, maar niet in je cursus)',
+            '`isalpha()` en de andere `is...()` (handig, maar niet in je cursus)',
+            '`partition`, `casefold`, `center`, `ljust`, `rjust`, `zfill`, `swapcase`',
+            '`encode`: pas in H18',
+        ],
         """
         s = "  Python op papier  "
         print(s.strip().upper())
@@ -563,13 +598,17 @@ VAKKEN = [
         Tekst opslaan in een bestand en terug inlezen (cursus hoofdstuk 16).
         """,
         [
-            "`fp = open(\"pc_rose.txt\")` en op het einde `fp.close()`",
-            "`fp.read()` (alles), `fp.readline()` (één regel), `fp.readlines()` (list van regels)",
-            "`with open(\"file.txt\") as fp:` sluit het bestand vanzelf (onderaan rechts)",
-            "`for line in f:` leest regel per regel",
-            "modes: `\"r\"` lezen, `\"w\"` schrijven, `\"a\"` toevoegen",
+            '`fp = open("pc_rose.txt")` en op het einde `fp.close()` (H16.2)',
+            '`fp.read()` (alles), `fp.readline()` (één regel), `fp.readlines()` (list van regels)',
+            '`with open("file.txt") as fp:` sluit het bestand vanzelf (onderaan rechts)',
+            'modes: `"r"` lezen, `"w"` schrijven, `"a"` toevoegen (H16.3, 16.4)',
+            '`fp.write(...)` en `fp.writelines(...)` (H16.3)',
+            '`os.path.exists()`, `os.path.getsize()`, `os.path.join()` (H16.5)',
         ],
-        ["`seek`, `tell`, `flush`, `truncate`", "binaire modus `b`"],
+        [
+            '`seek`, `tell`, binaire modus `b`: pas in H18',
+            '`flush`, `truncate`',
+        ],
     ),
     vak(
         "formatting", "Formatting", "Opmaak", "achterkant", 2, "functies-basis",
@@ -577,10 +616,14 @@ VAKKEN = [
         Getallen netjes in tekst zetten, bijvoorbeeld met 2 cijfers na de komma.
         """,
         [
-            "`\"{:.2f}\".format(x)`: 2 cijfers na de komma",
-            "`\"{} en {}\".format(a, b)`: waarden invullen",
+            '`"{} en {}".format(a, b)`: waarden invullen (H5.2.6)',
+            '`"{:.2f}".format(x)`: 2 cijfers na de komma',
+            '`{:5}`, `{:<5}`, `{:^5}`, `{:>5}`: breedte en uitlijning (H5.2.6)',
+            '`{:d}` voor gehele getallen, `{:f}` voor kommagetallen',
         ],
-        ["alle andere codes (`!r`, `>10s`, `+2.3f`, ...)"],
+        [
+            '`!r` en `!s`, en het teken `+` (zoals in `{:+2.3f}`)',
+        ],
         """
         x = 45.72793
         print("{:.2f}".format(x))
