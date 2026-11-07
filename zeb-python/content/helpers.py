@@ -1,4 +1,11 @@
-"""Kleine hulpfuncties om de inhoud leesbaar te kunnen schrijven."""
+"""Kleine hulpfuncties om de inhoud leesbaar te kunnen schrijven.
+
+Elke functie aanvaardt ook:
+- boek="Opgave 7.10": de oefening komt (aangepast) uit het cursusboek
+  "De Programmeursleerling" van Pieter Spronck (CC BY-NC 3.0);
+- bestanden={"pc_rose.txt": "..."}: tekstbestanden die de code kan openen
+  (ze bestaan alleen in het geheugen, in de build en in de browser).
+"""
 
 import textwrap
 
@@ -13,7 +20,15 @@ def t(tekst: str) -> str:
     return textwrap.dedent(tekst).strip()
 
 
-def les(titel, tekst, code=None, inputs=None, papier=None):
+def _extra(d, boek=None, bestanden=None):
+    if boek:
+        d["boek"] = boek
+    if bestanden:
+        d["bestanden"] = {naam: textwrap.dedent(inhoud).lstrip("\n") for naam, inhoud in bestanden.items()}
+    return d
+
+
+def les(titel, tekst, code=None, inputs=None, papier=None, **extra):
     """Een uitlegkaart. Als er code is, berekent de build de uitvoer."""
     d = {"titel": titel, "tekst": t(tekst)}
     if code:
@@ -22,10 +37,10 @@ def les(titel, tekst, code=None, inputs=None, papier=None):
         d["inputs"] = inputs
     if papier:
         d["papier"] = t(papier)
-    return d
+    return _extra(d, **extra)
 
 
-def voorspel(code, uitleg, tip=None, inputs=None, vraag=None):
+def voorspel(code, uitleg, tip=None, inputs=None, vraag=None, **extra):
     """'Wat print dit?' - de build berekent de juiste uitvoer en de stappen."""
     d = {"t": "voorspel", "code": c(code), "uitleg": t(uitleg)}
     if tip:
@@ -34,11 +49,11 @@ def voorspel(code, uitleg, tip=None, inputs=None, vraag=None):
         d["inputs"] = inputs
     if vraag:
         d["vraag"] = t(vraag)
-    return d
+    return _extra(d, **extra)
 
 
 def keuze(vraag, opties, juist, uitleg, code=None, inputs=None, lees=False,
-          controleer_uitvoer=False, draai=True):
+          controleer_uitvoer=False, draai=True, **extra):
     """Meerkeuze. Met controleer_uitvoer=True moet de juiste optie gelijk zijn
     aan de echte uitvoer van de code (de build controleert dat)."""
     d = {"t": "lees" if lees else "keuze", "vraag": t(vraag), "opties": opties,
@@ -51,35 +66,35 @@ def keuze(vraag, opties, juist, uitleg, code=None, inputs=None, lees=False,
         d["controleer_uitvoer"] = True
     if not draai:
         d["draai"] = False
-    return d
+    return _extra(d, **extra)
 
 
-def fout(vraag, code, regel, verbeterd, uitleg, inputs=None):
+def fout(vraag, code, regel, verbeterd, uitleg, inputs=None, **extra):
     """'Zoek de fout' - klik op de regel met de fout."""
     d = {"t": "fout", "vraag": t(vraag), "code": c(code), "regel": regel,
          "verbeterd": c(verbeterd), "uitleg": t(uitleg)}
     if inputs:
         d["inputs"] = inputs
-    return d
+    return _extra(d, **extra)
 
 
-def aanvullen(vraag, code, antwoorden, uitleg, inputs=None, tip=None):
+def aanvullen(vraag, code, antwoorden, uitleg, inputs=None, tip=None, **extra):
     """'Vul aan' - elke ___ in de code is een vakje. antwoorden: per vakje een
-    lijst aanvaarde antwoorden (het eerste wordt gebruikt om te testen)."""
+    list aanvaarde antwoorden (het eerste wordt gebruikt om te testen)."""
     d = {"t": "aanvullen", "vraag": t(vraag), "code": c(code),
          "antwoorden": antwoorden, "uitleg": t(uitleg)}
     if inputs:
         d["inputs"] = inputs
     if tip:
         d["tip"] = t(tip)
-    return d
+    return _extra(d, **extra)
 
 
 def schrijf(vraag, oplossing, uitleg, tests=None, ptests=None, start=None,
-            tip=None, verboden=None, uitdaging=False):
+            tip=None, verboden=None, uitdaging=False, **extra):
     """'Schrijf op papier'.
-    tests:  lijst van (python-expressie, verwachte waarde) voor functies.
-    ptests: lijst van (invoerlijst, verwachte uitvoer) voor programma's."""
+    tests:  list van (python-expressie, verwachte waarde) voor functies.
+    ptests: list van (invoer, verwachte uitvoer) voor programma's."""
     d = {"t": "schrijf", "vraag": t(vraag), "oplossing": c(oplossing),
          "uitleg": t(uitleg)}
     if tests:
@@ -94,4 +109,4 @@ def schrijf(vraag, oplossing, uitleg, tests=None, ptests=None, start=None,
         d["verboden"] = verboden
     if uitdaging:
         d["uitdaging"] = True
-    return d
+    return _extra(d, **extra)

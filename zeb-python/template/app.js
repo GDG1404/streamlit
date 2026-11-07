@@ -12,12 +12,16 @@
   const ALLE_OEF = [];
   NIV.forEach((n) =>
     n.oefeningen.forEach((o, i) => {
-      o.niv = n.nr;
+      o.niv = n.key;
       o.idx = i;
       ALLE_OEF.push(o);
     })
   );
   const OEF_ID = Object.fromEntries(ALLE_OEF.map((o) => [o.id, o]));
+  const NIV_KEY = Object.fromEntries(NIV.map((n) => [n.key, n]));
+  const MIGRATIE = DATA.migratie || {};
+  // Volgorde van de niveaus in de eerste versie van de app (voor oude voortgang).
+  const OUDE_VOLGORDE = ["start", "rekenen", "functies-basis", "condities", "while", "for", "lists", "functies"];
   const SOORT = {
     voorspel: "Wat print dit?",
     keuze: "Meerkeuze",
@@ -60,15 +64,15 @@
       .map((blok) => {
         const regels = blok.split("\n");
         let html = "";
-        let lijst = null; // {tag, items}
+        let list = null; // {tag, items}
         let para = [];
         const sluitPara = () => {
           if (para.length) html += "<p>" + inline(para.join(" ")) + "</p>";
           para = [];
         };
         const sluitLijst = () => {
-          if (lijst) html += `<${lijst.tag}>` + lijst.items.map((i) => "<li>" + inline(i) + "</li>").join("") + `</${lijst.tag}>`;
-          lijst = null;
+          if (list) html += `<${list.tag}>` + list.items.map((i) => "<li>" + inline(i) + "</li>").join("") + `</${list.tag}>`;
+          list = null;
         };
         for (const r of regels) {
           const ul = r.match(/^\s*-\s+(.*)$/);
@@ -76,13 +80,13 @@
           if (ul || ol) {
             sluitPara();
             const tag = ul ? "ul" : "ol";
-            if (!lijst || lijst.tag !== tag) {
+            if (!list || list.tag !== tag) {
               sluitLijst();
-              lijst = { tag, items: [] };
+              list = { tag, items: [] };
             }
-            lijst.items.push((ul || ol)[1]);
-          } else if (lijst && /^\s+\S/.test(r)) {
-            lijst.items[lijst.items.length - 1] += " " + r.trim();
+            list.items.push((ul || ol)[1]);
+          } else if (list && /^\s+\S/.test(r)) {
+            list.items[list.items.length - 1] += " " + r.trim();
           } else {
             sluitLijst();
             if (r.trim()) para.push(r.trim());
@@ -163,6 +167,12 @@
     });
     return `<div class="code${opt.klik ? " klikbaar" : ""}">${rijen.join("")}</div>`;
   }
+  function bestandenHTML(b) {
+    if (!b) return "";
+    return Object.keys(b)
+      .map((naam) => `<div class="blok"><div class="label">Bestand <code>${esc(naam)}</code></div>${b[naam] ? `<pre class="uitvoer bestand">${esc(b[naam].replace(/\n$/, ""))}</pre>` : '<div class="uitvoer leeg">(leeg bestand)</div>'}</div>`)
+      .join("");
+  }
   function uitvoerHTML(uit, leegTekst) {
     if (!uit) return `<div class="uitvoer leeg">${esc(leegTekst || "(geen uitvoer)")}</div>`;
     return `<div class="uitvoer">${esc(uit.replace(/\n$/, ""))}</div>`;
@@ -176,14 +186,42 @@
   function leeg() {
     return { ex: {}, days: {}, test: null, last: null };
   }
+  function migreer(s) {
+    // Zet voortgang van de eerste versie (oefeningen "3-5", niveaus als getal) om.
+    if (!s || typeof s !== "object") return s;
+    const oud = (id) => /^\d+-\d+$/.test(id);
+    if (s.ex && typeof s.ex === "object") {
+      const nieuw = {};
+      for (const id of Object.keys(s.ex)) {
+        const doel = oud(id) ? MIGRATIE[id] : id;
+        if (!doel) continue;
+        if (!nieuw[doel] || (RANG[s.ex[id].b] || 0) > (RANG[nieuw[doel].b] || 0)) nieuw[doel] = s.ex[id];
+      }
+      s.ex = nieuw;
+    }
+    if (s.last && oud(s.last)) s.last = MIGRATIE[s.last] || null;
+    if (s.test && typeof s.test.start === "number") {
+      s.test.start = OUDE_VOLGORDE[s.test.start] || "start";
+      if (s.test.per) {
+        const p = {};
+        for (const k of Object.keys(s.test.per)) p[OUDE_VOLGORDE[+k] || k] = s.test.per[k];
+        s.test.per = p;
+      }
+    }
+    if (s.test && !NIV_KEY[s.test.start]) s.test.start = NIV[0].key;
+    return s;
+  }
   function laad() {
     try {
       const s = JSON.parse(localStorage.getItem(SLEUTEL) || "null");
-      if (s && typeof s === "object") return Object.assign(leeg(), s);
+      if (s && typeof s === "object") return migreer(Object.assign(leeg(), s));
     } catch (e) {}
     return leeg();
   }
   let S = laad();
+  try {
+    localStorage.setItem(SLEUTEL, JSON.stringify(S));
+  } catch (e) {}
   function bewaar() {
     try {
       localStorage.setItem(SLEUTEL, JSON.stringify(S));
@@ -229,7 +267,8 @@
     return n;
   }
   function aanbevolenNiveau() {
-    const start = S.test && typeof S.test.start === "number" ? S.test.start : 0;
+    const startNiv = S.test ? NIV_KEY[S.test.start] : null;
+    const start = startNiv ? startNiv.nr : 0;
     for (const n of NIV) {
       if (n.nr < start) continue;
       if (!niveauStat(n).klaar) return n;
@@ -245,6 +284,7 @@
   const SYNC = { ref: null, db: null, user: null, id: null, owner: false, bezig: false, opnieuw: false, timer: null };
   function voegSamen(ander) {
     if (!ander || typeof ander !== "object") return;
+    ander = migreer(JSON.parse(JSON.stringify(ander)));
     const ex = ander.ex || {};
     for (const id of Object.keys(ex)) {
       const a = ex[id];
@@ -339,8 +379,8 @@ self.onmessage = function (e) {
   if (m.type === "call") {
     try {
       var res = m.fn === "run"
-        ? self.zebRun(m.src, JSON.stringify(m.inputs || []))
-        : self.zebTest(m.src, JSON.stringify(m.tests || []), JSON.stringify(m.ptests || []));
+        ? self.zebRun(m.src, JSON.stringify(m.inputs || []), JSON.stringify(m.bestanden || {}))
+        : self.zebTest(m.src, JSON.stringify(m.tests || []), JSON.stringify(m.ptests || []), JSON.stringify(m.bestanden || {}));
       postMessage({ type: "res", id: m.id, res: JSON.parse(res) });
     } catch (err) {
       postMessage({ type: "res", id: m.id, err: String(err) });
@@ -416,7 +456,7 @@ self.onmessage = function (e) {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         delete PY.wacht[id];
-        // Waarschijnlijk een oneindige lus: worker afbreken en opnieuw starten.
+        // Waarschijnlijk een eindeloze loop: worker afbreken en opnieuw starten.
         if (PY.worker) PY.worker.terminate();
         PY.worker = null;
         zetPyStaat("uit");
@@ -444,10 +484,10 @@ self.onmessage = function (e) {
     UnboundLocalError: ["Variabele zonder waarde (UnboundLocalError)", "In je functie gebruik je een variabele voor ze een waarde kreeg. Geef ze eerst een beginwaarde."],
     TypeError: ["Verkeerd type (TypeError)", "Je combineert waarden die niet samengaan, zoals tekst + getal (gebruik `int(...)` of `str(...)`). Of je roept een functie aan met het verkeerde aantal argumenten."],
     ValueError: ["Verkeerde waarde (ValueError)", "De waarde past niet, bijvoorbeeld `int(\"abc\")`: dat is geen getal."],
-    IndexError: ["Index bestaat niet (IndexError)", "Je vraagt een positie die niet in de lijst of tekst zit. De laatste index is `len(...) - 1`."],
+    IndexError: ["Index bestaat niet (IndexError)", "Je vraagt een positie die niet in de list of tekst zit. De laatste index is `len(...) - 1`."],
     KeyError: ["Sleutel bestaat niet (KeyError)", "Die sleutel zit niet in het woordenboek."],
     ZeroDivisionError: ["Delen door nul (ZeroDivisionError)", "Je deelt door 0. Controleer de waarde van de deler."],
-    AttributeError: ["Onbekende methode (AttributeError)", "Deze waarde heeft die methode niet. Een tikfout? Bij een lijst is het bijvoorbeeld `append`, niet `add`."],
+    AttributeError: ["Onbekende methode (AttributeError)", "Deze waarde heeft die methode niet. Een tikfout? Bij een list is het bijvoorbeeld `append`, niet `add`."],
     EOFError: ["Geen invoer meer (EOFError)", "Je programma vraagt vaker `input()` dan er invoer is. Zet in het invoervak meer regels."],
     RecursionError: ["Te diep (RecursionError)", "Je functie roept zichzelf te vaak aan."],
   };
@@ -466,8 +506,12 @@ self.onmessage = function (e) {
   // =====================================================================
   // Stap-voor-stap-weergave
   // =====================================================================
-  function frameLabel(f) {
-    return f.f ? `In functie ${f.f}()` : "Hoofdprogramma";
+  function frameLabel(f, i, frames) {
+    if (!f.f) return "Hoofdprogramma";
+    const zelfde = frames.filter((x) => x.f === f.f).length;
+    if (zelfde < 2) return `In functie ${f.f}()`;
+    const nr = frames.slice(0, i + 1).filter((x) => x.f === f.f).length;
+    return `In functie ${f.f}() · aanroep ${nr}`;
   }
   function regelVanRij(stappen, i) {
     // Welke regel werd uitgevoerd tussen stap i-1 en stap i?
@@ -511,16 +555,16 @@ self.onmessage = function (e) {
 
     function varsHTML(st, vorig) {
       const vorigeMap = {};
-      if (vorig) vorig.fr.forEach((f) => f.v.forEach(([k, v]) => (vorigeMap[f.f + ":" + k] = v)));
+      if (vorig) vorig.fr.forEach((f, i) => f.v.forEach(([k, v]) => (vorigeMap[i + ":" + f.f + ":" + k] = v)));
       return st.fr
-        .map((f) => {
+        .map((f, i) => {
           const rijen = f.v
             .map(([k, v]) => {
-              const nieuw = vorig && vorigeMap[f.f + ":" + k] !== v;
+              const nieuw = vorig && vorigeMap[i + ":" + f.f + ":" + k] !== v;
               return `<tr><td>${esc(k)}</td><td class="${nieuw ? "nieuw" : ""}">${esc(v)}</td></tr>`;
             })
             .join("");
-          return `<div class="frame"><div class="frame-kop">${esc(frameLabel(f))}</div>${rijen ? "<table>" + rijen + "</table>" : '<div class="leeg">nog geen variabelen</div>'}</div>`;
+          return `<div class="frame"><div class="frame-kop">${esc(frameLabel(f, i, st.fr))}</div>${rijen ? "<table>" + rijen + "</table>" : '<div class="leeg">nog geen variabelen</div>'}</div>`;
         })
         .join("");
     }
@@ -575,19 +619,21 @@ self.onmessage = function (e) {
       const kolommen = [];
       const gezien = new Set();
       stappen.forEach((st) =>
-        st.fr.forEach((f) =>
+        st.fr.forEach((f, i) =>
           f.v.forEach(([k]) => {
-            const sleutel = f.f + ":" + k;
+            const sleutel = i + ":" + f.f + ":" + k;
             if (!gezien.has(sleutel)) {
               gezien.add(sleutel);
-              kolommen.push({ sleutel, kop: f.f ? `${k} (${f.f})` : k });
+              const aanroep = st.fr.slice(0, i + 1).filter((x) => x.f === f.f).length;
+              const meer = stappen.some((x) => x.fr.filter((y) => y.f === f.f).length > 1);
+              kolommen.push({ sleutel, kop: f.f ? `${k} (${f.f}${meer ? " " + aanroep : ""})` : k });
             }
           })
         )
       );
       const waarden = (st) => {
         const m = {};
-        st.fr.forEach((f) => f.v.forEach(([k, v]) => (m[f.f + ":" + k] = v)));
+        st.fr.forEach((f, i) => f.v.forEach(([k, v]) => (m[i + ":" + f.f + ":" + k] = v)));
         return m;
       };
       let rijen = "";
@@ -662,8 +708,9 @@ self.onmessage = function (e) {
       (oef.t === "voorspel" ? "Wat verschijnt er op het scherm als je dit programma uitvoert?" : "");
     houder.innerHTML = `
       <div class="sectie">
-        <div class="rij"><span class="soort">${esc(SOORT[oef.t])}</span>${oef.uitdaging ? '<span class="chip uitdaging">uitdaging</span>' : ""}</div>
+        <div class="rij"><span class="soort">${esc(SOORT[oef.t])}</span>${oef.uitdaging ? '<span class="chip uitdaging">uitdaging</span>' : ""}${oef.boek ? `<span class="chip grijs">uit je cursus: ${esc(oef.boek)}</span>` : ""}</div>
         ${vraag ? `<div class="tekst">${md(vraag)}</div>` : ""}
+        ${bestandenHTML(oef.bestanden)}
         <div class="oef-lijf"></div>
         <div class="oef-acties rij"></div>
         <div class="oef-feedback" hidden></div>
@@ -950,7 +997,7 @@ self.onmessage = function (e) {
             <li><code>==</code> om te vergelijken, <code>=</code> om iets in een variabele te steken</li>
             <li><code>return</code> (niet <code>print</code>) als er "teruggeven" staat</li>
             <li><code>range(a, b)</code> stopt vóór b</li>
-            <li>Tellers en sommen krijgen een beginwaarde vóór de lus</li>
+            <li>Tellers en sommen krijgen een beginwaarde vóór de loop</li>
           </ul>
         </details>
         <div class="blok">
@@ -1001,7 +1048,7 @@ self.onmessage = function (e) {
         }
         $ctrl.disabled = true;
         $ctrl.textContent = "Bezig…";
-        const r = await roepPython({ fn: "test", src, tests: oef.tests || [], ptests: oef.ptests || [] }, 6000);
+        const r = await roepPython({ fn: "test", src, tests: oef.tests || [], ptests: oef.ptests || [], bestanden: oef.bestanden || {} }, 6000);
         $ctrl.disabled = false;
         $ctrl.textContent = "Controleer opnieuw";
         gecontroleerd++;
@@ -1013,7 +1060,7 @@ self.onmessage = function (e) {
           return;
         }
         if (r.tijd) {
-          $res.innerHTML = `<div class="feedback fout"><div class="notitie rood">Je programma stopt niet.</div><p>Waarschijnlijk een <b>oneindige lus</b>: verandert de variabele in je while-lus wel? Of vraagt je programma meer invoer dan er is?</p></div>`;
+          $res.innerHTML = `<div class="feedback fout"><div class="notitie rood">Je programma stopt niet.</div><p>Waarschijnlijk een <b>eindeloze loop</b>: verandert de variabele in je while loop wel? Of vraagt je programma meer invoer dan er is?</p></div>`;
           return;
         }
         if (r.jsfout) {
@@ -1027,7 +1074,7 @@ self.onmessage = function (e) {
         }
         const tests = r.resultaten || [];
         const okAantal = tests.filter((x) => x.ok).length;
-        const lijst = tests
+        const list = tests
           .map((x) => {
             const vraagT = x.vraag ? `<code>${esc(x.vraag)}</code>` : x.invoer && x.invoer.length ? `invoer <code>${x.invoer.map(esc).join(", ")}</code>` : "uitvoeren";
             let detail = "";
@@ -1039,12 +1086,15 @@ self.onmessage = function (e) {
             return `<div class="test ${x.ok ? "ok" : "nok"}"><span class="ic">${x.ok ? "✓" : "✗"}</span><div class="blok">${vraagT}${detail}</div></div>`;
           })
           .join("");
-        const verboden = (oef.verboden || []).filter((v) => src.includes(v));
+        const verboden = (oef.verboden || []).filter((v) => {
+          if (/^[A-Za-z0-9_]/.test(v)) return new RegExp("(^|[^A-Za-z0-9_])" + v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(src);
+          return src.includes(v);
+        });
         const allesOk = okAantal === tests.length && !verboden.length;
         let extra = "";
         if (verboden.length) extra = `<div class="foutuitleg"><div class="titel">Niet toegelaten</div><div>Je gebruikt <code>${esc(verboden.join(", "))}</code>. Deze opdracht vraagt het zonder.</div></div>`;
         const noneHint = tests.some((x) => !x.ok && x.kreeg === "None") ? `<div class="papiertip"><b>Je functie geeft None terug.</b> Vergeten om <code>return</code> te schrijven? Of staat er <code>print</code> in plaats van <code>return</code>?</div>` : "";
-        $res.innerHTML = `<div class="feedback ${allesOk ? "goed" : "fout"}">${allesOk ? '<div class="notitie groen">Alle tests geslaagd!</div>' : `<div class="notitie rood">${okAantal} van ${tests.length} tests geslaagd.</div>`}${extra}${noneHint}<div class="testlijst">${lijst}</div></div>`;
+        $res.innerHTML = `<div class="feedback ${allesOk ? "goed" : "fout"}">${allesOk ? '<div class="notitie groen">Alle tests geslaagd!</div>' : `<div class="notitie rood">${okAantal} van ${tests.length} tests geslaagd.</div>`}${extra}${noneHint}<div class="testlijst">${list}</div></div>`;
         if (allesOk) {
           $ctrl.remove();
           rond(gecontroleerd === 1 && !oplossingGezien ? "goed" : "hulp");
@@ -1161,8 +1211,8 @@ self.onmessage = function (e) {
       : `<div class="kaart">
           <div class="oogje">Begin hier</div>
           <h2>De instaptest</h2>
-          <p>12 korte vragen, ongeveer 10 minuten. Daarna weet je bij welk niveau je best begint. Weet je iets niet? Klik dan op <b>Ik weet het (nog) niet</b>. Dat is beter dan gokken.</p>
-          <div class="rij"><a class="knop" href="#instaptest">Start de instaptest</a><a class="knop stil" href="#niveau-0">Nee, begin gewoon bij niveau 0</a></div>
+          <p>${TEST.length} korte vragen, ongeveer 10 minuten. Daarna weet je bij welk niveau je best begint. Weet je iets niet? Klik dan op <b>Ik weet het (nog) niet</b>. Dat is beter dan gokken.</p>
+          <div class="rij"><a class="knop" href="#instaptest">Start de instaptest</a><a class="knop stil" href="#niveau-${NIV[0].key}">Nee, begin gewoon bij niveau 0</a></div>
         </div>`;
     const st = niveauStat(n);
     $app.innerHTML = `
@@ -1181,7 +1231,7 @@ self.onmessage = function (e) {
         <p class="inleiding">${inline(n.doel)}</p>
         <div class="rij">
           ${volgende ? `<a class="knop" href="#oef-${volgende.id}">${st.gedaan ? "Volgende oefening" : "Start met de oefeningen"}</a>` : ""}
-          <a class="knop tweede" href="#niveau-${n.nr}">Lees eerst de uitleg</a>
+          <a class="knop tweede" href="#niveau-${n.key}">Lees eerst de uitleg</a>
         </div>
       </div>
       <div class="kaart vlak">
@@ -1213,13 +1263,13 @@ self.onmessage = function (e) {
       if (st.klaar) cls.push("klaar");
       if (n.nr === aanbevolen) cls.push("aanbevolen");
       const status = st.klaar ? '<span class="chip goed">klaar</span>' : n.nr === aanbevolen ? '<span class="chip">aanbevolen</span>' : st.gedaan ? '<span class="chip half">bezig</span>' : "";
-      return `<a class="${cls.join(" ")}" href="#niveau-${n.nr}">
+      return `<a class="${cls.join(" ")}" href="#niveau-${n.key}">
         <div class="nr">${n.nr}</div>
         <div class="niveau-info">
           <div class="rij tussen"><h3>${esc(n.titel)}</h3>${status}</div>
           <div class="sub">${esc(n.kort)} · ${n.uitleg.length} uitlegkaarten · ${n.oefeningen.length} oefeningen</div>
           <div class="balkje${st.klaar ? " groen" : ""}"><span style="width:${Math.round((st.ok / st.totaal) * 100)}%"></span></div>
-          <div class="chips">${n.spiek.map((s) => `<span class="chip grijs">${esc(SPIEK_ID[s].naam)}</span>`).join("")}</div>
+          <div class="chips"><span class="chip">cursus hoofdstuk ${esc(n.hoofdstuk)}</span>${n.spiek.map((s) => `<span class="chip grijs">${esc(SPIEK_ID[s].naam)}</span>`).join("")}</div>
         </div>
       </a>`;
     }).join("");
@@ -1228,7 +1278,7 @@ self.onmessage = function (e) {
         <div class="nr">${n.nr}</div>
         <div class="niveau-info">
           <div class="rij tussen"><h3>${esc(n.titel)}</h3><span class="chip grijs">binnenkort</span></div>
-          <div class="sub">${inline(n.inhoud)}</div>
+          <div class="sub">${n.hoofdstuk ? "Cursus hoofdstuk " + esc(n.hoofdstuk) + ". " : ""}${inline(n.inhoud)}</div>
         </div>
       </div>`
     ).join("");
@@ -1236,14 +1286,14 @@ self.onmessage = function (e) {
       <section class="kop">
         <div class="oogje">Leerpad</div>
         <h1>Van nul naar het examen</h1>
-        <p class="inleiding">Elk niveau bouwt verder op het vorige. Je mag overal beginnen, maar de volgorde helpt. Een niveau is <b>klaar</b> als 80% van de oefeningen gelukt is. De grijze vakjes zijn de vakken van je spiekbrief die erbij horen.</p>
+        <p class="inleiding">De niveaus volgen de hoofdstukken van je cursus, <i>De Programmeursleerling</i>. Elk niveau bouwt verder op het vorige. Je mag overal beginnen, maar de volgorde helpt. Een niveau is <b>klaar</b> als 80% van de oefeningen gelukt is. De grijze vakjes zijn de vakken van je spiekbrief die erbij horen.</p>
       </section>
       <div class="pad">${kaarten}${later}</div>`;
   }
 
   let kladblokStart = null;
-  function viewNiveau(nr) {
-    const n = NIV.find((x) => x.nr === nr);
+  function viewNiveau(key) {
+    const n = NIV_KEY[key];
     if (!n) return viewPad();
     zetTab("pad");
     const st = niveauStat(n);
@@ -1253,6 +1303,7 @@ self.onmessage = function (e) {
         (l, k) => `<article class="les" data-k="${k}">
         <h3><span class="hand">${k + 1}</span><span>${esc(l.titel)}</span></h3>
         <div class="tekst">${md(l.tekst)}</div>
+        ${bestandenHTML(l.bestanden)}
         ${
           l.code
             ? `<div class="code-en-uitvoer">
@@ -1274,11 +1325,11 @@ self.onmessage = function (e) {
         return `<a class="oef-tegel" href="#oef-${o.id}"><span class="t">${o.idx + 1}. ${esc(SOORT[o.t])}</span><span class="st"><span class="stip ${b || ""}"></span>${stTekst}${o.uitdaging ? " · uitdaging" : ""}</span></a>`;
       })
       .join("");
-    const vorig = NIV.find((x) => x.nr === nr - 1);
-    const volg = NIV.find((x) => x.nr === nr + 1);
+    const vorig = NIV[n.nr - 1];
+    const volg = NIV[n.nr + 1];
     $app.innerHTML = `
       <section class="kop">
-        <div class="oogje">Niveau ${n.nr}</div>
+        <div class="oogje">Niveau ${n.nr} · cursus hoofdstuk ${esc(n.hoofdstuk)}</div>
         <h1>${esc(n.titel)}</h1>
         <p class="inleiding">${inline(n.doel)}</p>
         <div class="chips">${n.spiek.map((s) => `<a class="chip grijs" href="#spiek-${s}">Spiekbrief: ${esc(SPIEK_ID[s].naam)}</a>`).join("")}</div>
@@ -1286,7 +1337,7 @@ self.onmessage = function (e) {
       <div class="kaart vlak">
         <div class="rij tussen"><b>${st.ok} van ${st.totaal} oefeningen gelukt</b>${st.klaar ? '<span class="chip goed">klaar</span>' : ""}</div>
         <div class="balkje${st.klaar ? " groen" : ""}"><span style="width:${Math.round((st.ok / st.totaal) * 100)}%"></span></div>
-        <div class="rij">${volgende ? `<a class="knop" href="#oef-${volgende.id}">${st.gedaan ? "Ga verder met de oefeningen" : "Start de oefeningen"}</a>` : `<a class="knop" href="#oef-${n.oefeningen[0].id}">Oefeningen opnieuw doen</a>`}<a class="knop stil" href="#oefeningen">Naar de lijst</a></div>
+        <div class="rij">${volgende ? `<a class="knop" href="#oef-${volgende.id}">${st.gedaan ? "Ga verder met de oefeningen" : "Start de oefeningen"}</a>` : `<a class="knop" href="#oef-${n.oefeningen[0].id}">Oefeningen opnieuw doen</a>`}<a class="knop stil" href="#oefeningen">Naar de oefeningen</a></div>
       </div>
       <section class="sectie">
         <h2>Uitleg</h2>
@@ -1297,8 +1348,8 @@ self.onmessage = function (e) {
         <div class="oef-raster">${tegels}</div>
       </section>
       <div class="rij tussen">
-        ${vorig ? `<a class="knop stil" href="#niveau-${vorig.nr}">← Niveau ${vorig.nr}: ${esc(vorig.titel)}</a>` : "<span></span>"}
-        ${volg ? `<a class="knop stil" href="#niveau-${volg.nr}">Niveau ${volg.nr}: ${esc(volg.titel)} →</a>` : ""}
+        ${vorig ? `<a class="knop stil" href="#niveau-${vorig.key}">← Niveau ${vorig.nr}: ${esc(vorig.titel)}</a>` : "<span></span>"}
+        ${volg ? `<a class="knop stil" href="#niveau-${volg.key}">Niveau ${volg.nr}: ${esc(volg.titel)} →</a>` : ""}
       </div>`;
     $app.querySelectorAll("[data-stap]").forEach((b) =>
       b.addEventListener("click", () => {
@@ -1311,7 +1362,7 @@ self.onmessage = function (e) {
     $app.querySelectorAll("[data-klad]").forEach((b) =>
       b.addEventListener("click", () => {
         const l = n.uitleg[+b.dataset.klad];
-        kladblokStart = { code: l.code, inputs: (l.inputs || []).join("\n") };
+        kladblokStart = { code: l.code, inputs: (l.inputs || []).join("\n"), bestanden: l.bestanden || null };
         location.hash = "kladblok";
       })
     );
@@ -1321,8 +1372,8 @@ self.onmessage = function (e) {
     });
   }
 
-  function viewOef(nr, k) {
-    const n = NIV.find((x) => x.nr === nr);
+  function viewOef(key, k) {
+    const n = NIV_KEY[key];
     if (!n || !n.oefeningen[k - 1]) return viewPad();
     zetTab("pad");
     const oef = n.oefeningen[k - 1];
@@ -1335,7 +1386,7 @@ self.onmessage = function (e) {
     $app.innerHTML = `
       <section class="oef-kop">
         <div class="rij tussen">
-          <a class="oogje" href="#niveau-${n.nr}" style="text-decoration:none">← Niveau ${n.nr} · ${esc(n.titel)}</a>
+          <a class="oogje" href="#niveau-${n.key}" style="text-decoration:none">← Niveau ${n.nr} · ${esc(n.titel)}</a>
           <span class="label">oefening ${k} / ${n.oefeningen.length}</span>
         </div>
         <nav class="stippen" aria-label="Oefeningen van dit niveau">${stippen}</nav>
@@ -1356,11 +1407,11 @@ self.onmessage = function (e) {
           return maak(`<a class="knop" href="#oef-${volgendeOefening.id}">Volgende oefening →</a>`);
         }
         const st = niveauStat(n);
-        const volgNiv = NIV.find((x) => x.nr === n.nr + 1);
+        const volgNiv = NIV[n.nr + 1];
         return maak(`<div class="kaart" style="width:100%">
           <div class="notitie groen">Einde van niveau ${n.nr}!</div>
           <p>${st.ok} van de ${st.totaal} oefeningen zijn gelukt${st.meteen ? `, ${st.meteen} meteen juist` : ""}. ${st.klaar ? "Dit niveau is klaar." : "Doe de oefeningen met een rode of lege stip nog eens om het niveau af te werken."}</p>
-          <div class="rij">${volgNiv ? `<a class="knop" href="#niveau-${volgNiv.nr}">Naar niveau ${volgNiv.nr}: ${esc(volgNiv.titel)}</a>` : `<a class="knop" href="#pad">Naar het leerpad</a>`}<a class="knop tweede" href="#niveau-${n.nr}">Terug naar dit niveau</a></div>
+          <div class="rij">${volgNiv ? `<a class="knop" href="#niveau-${volgNiv.key}">Naar niveau ${volgNiv.nr}: ${esc(volgNiv.titel)}</a>` : `<a class="knop" href="#pad">Naar het leerpad</a>`}<a class="knop tweede" href="#niveau-${n.key}">Terug naar dit niveau</a></div>
         </div>`);
       },
     });
@@ -1424,33 +1475,34 @@ self.onmessage = function (e) {
       if (TESTSTAAT.uitslag[v.id]) per[v.n][0]++;
     });
     const score = TEST.filter((v) => TESTSTAAT.uitslag[v.id]).length;
-    let start = NIV.length - 1;
+    const nietGetest = NIV.find((n) => !per[n.key]);
+    let start = nietGetest ? nietGetest.key : NIV[NIV.length - 1].key;
     for (const n of NIV) {
-      if (per[n.nr] && per[n.nr][0] < per[n.nr][1]) {
-        start = n.nr;
+      if (per[n.key] && per[n.key][0] < per[n.key][1]) {
+        start = n.key;
         break;
       }
     }
     S.test = { t: Date.now(), score, totaal: TEST.length, start, per };
     bewaar();
     const rijen = NIV.map((n) => {
-      const p = per[n.nr];
+      const p = per[n.key];
       if (!p) return "";
       const ok = p[0] === p[1];
       return `<div class="vg-rij"><span>${n.nr}. ${esc(n.titel)}</span><div class="balkje${ok ? " groen" : ""}"><span style="width:${(p[0] / p[1]) * 100}%"></span></div><span class="cnt">${p[0]} / ${p[1]}</span></div>`;
     }).join("");
-    const sn = NIV[start];
+    const sn = NIV_KEY[start];
     $app.innerHTML = `
       <section class="kop">
         <div class="oogje">Instaptest: resultaat</div>
         <h1>${score} van de ${TEST.length} juist</h1>
-        <p class="inleiding">${score === TEST.length ? "Knap! De basis zit goed. Begin bij de functies en oefen vooral het schrijven op papier." : "Prima startpunt. Elke fout hier is iets wat je in de app gaat leren."}</p>
+        <p class="inleiding">${score === TEST.length ? "Knap! De basis zit goed. Ga verder met de volgende hoofdstukken en oefen vooral het schrijven op papier." : "Prima startpunt. Elke fout hier is iets wat je in de app gaat leren."}</p>
       </section>
       <div class="kaart">
         <div class="oogje">Begin hier</div>
         <h2>Niveau ${sn.nr}: ${esc(sn.titel)}</h2>
-        <p class="inleiding">${inline(sn.doel)}${start > 0 ? " De niveaus daarvoor mag je overslaan, of snel herhalen als je wil." : ""}</p>
-        <div class="rij"><a class="knop" href="#niveau-${sn.nr}">Naar niveau ${sn.nr}</a><a class="knop stil" href="#pad">Bekijk het leerpad</a></div>
+        <p class="inleiding">${inline(sn.doel)}${sn.nr > 0 ? " De niveaus daarvoor mag je overslaan, of snel herhalen als je wil." : ""}</p>
+        <div class="rij"><a class="knop" href="#niveau-${sn.key}">Naar niveau ${sn.nr}</a><a class="knop stil" href="#pad">Bekijk het leerpad</a></div>
       </div>
       <section class="sectie"><h2>Per onderwerp</h2><div class="sectie" style="gap:10px">${rijen}</div></section>
       <div class="rij"><button type="button" class="knop stil" id="opnieuw-test">Test opnieuw doen</button></div>`;
@@ -1480,7 +1532,7 @@ self.onmessage = function (e) {
           ${v.overslaan.length ? `<div class="blok"><div class="label">Mag je voorlopig overslaan</div><ul class="lijstje weg">${v.overslaan.map((x) => `<li>${inline(x)}</li>`).join("")}</ul></div>` : ""}
         </div>
         ${v.code ? `<div class="code-en-uitvoer"><div class="blok"><div class="label">Voorbeeld</div>${codeHTML(v.code)}</div><div class="blok"><div class="label">Uitvoer</div>${uitvoerHTML(v.uitvoer)}</div></div>` : ""}
-        <div class="rij">${v.niveau != null ? `<a class="knop tweede klein" href="#niveau-${v.niveau}">Oefenen in niveau ${v.niveau}</a>` : '<span class="chip grijs">komt in een later niveau</span>'}${v.code ? `<button type="button" class="knop stil klein" data-klad="${v.id}">Probeer in het kladblok</button>` : ""}</div>
+        <div class="rij">${v.niveau != null ? `<a class="knop tweede klein" href="#niveau-${v.niveau}">Oefenen in niveau ${NIV_KEY[v.niveau].nr}: ${esc(NIV_KEY[v.niveau].titel)}</a>` : '<span class="chip grijs">komt in een later niveau</span>'}${v.code ? `<button type="button" class="knop stil klein" data-klad="${v.id}">Probeer in het kladblok</button>` : ""}</div>
       </article>`
       )
       .join("");
@@ -1544,6 +1596,7 @@ self.onmessage = function (e) {
         <label class="label" for="klad-in">Invoer voor input() (één waarde per regel)</label>
         <textarea id="klad-in" class="antwoordveld" rows="2" style="min-height:3.4em" spellcheck="false">${esc(start.inputs || "")}</textarea>
       </div>
+      ${start.bestanden ? `<div class="papiertip"><div>Je code kan deze bestanden openen: ${Object.keys(start.bestanden).map((x) => "<code>" + esc(x) + "</code>").join(", ")}. Ze bestaan alleen in het geheugen.</div></div>` : ""}
       <div class="rij">
         <button type="button" class="knop" id="klad-run">Voer uit</button>
         <button type="button" class="knop stil" id="klad-leeg">Leegmaken</button>
@@ -1562,7 +1615,7 @@ self.onmessage = function (e) {
     zetSt(PY.staat);
     const opslaan = () => {
       try {
-        localStorage.setItem(KLAD_SLEUTEL, JSON.stringify({ code: ed.waarde(), inputs: $in.value }));
+        localStorage.setItem(KLAD_SLEUTEL, JSON.stringify({ code: ed.waarde(), inputs: $in.value, bestanden: start.bestanden || null }));
       } catch (e) {}
     };
     ed.ta.addEventListener("input", opslaan);
@@ -1573,7 +1626,7 @@ self.onmessage = function (e) {
       $run.textContent = "Bezig…";
       ed.markeerFout(null);
       const inputs = $in.value === "" ? [] : $in.value.replace(/\r/g, "").split("\n");
-      const r = await roepPython({ fn: "run", src: ed.waarde(), inputs }, 5000);
+      const r = await roepPython({ fn: "run", src: ed.waarde(), inputs, bestanden: start.bestanden || {} }, 5000);
       $run.disabled = false;
       $run.textContent = "Voer uit";
       if (r.onbeschikbaar) {
@@ -1581,7 +1634,7 @@ self.onmessage = function (e) {
         return;
       }
       if (r.tijd) {
-        $uit.innerHTML = `<div class="feedback fout"><div class="notitie rood">Je programma stopt niet.</div><p>Na 5 seconden is het afgebroken. Waarschijnlijk een <b>oneindige lus</b>, of het programma wacht op meer invoer.</p></div>`;
+        $uit.innerHTML = `<div class="feedback fout"><div class="notitie rood">Je programma stopt niet.</div><p>Na 5 seconden is het afgebroken. Waarschijnlijk een <b>eindeloze loop</b>, of het programma wacht op meer invoer.</p></div>`;
         return;
       }
       if (r.jsfout) {
@@ -1601,6 +1654,7 @@ self.onmessage = function (e) {
     document.getElementById("klad-leeg").addEventListener("click", () => {
       ed.zet("");
       $in.value = "";
+      start.bestanden = null;
       opslaan();
       $uit.innerHTML = uitvoerHTML("", "Klik op Voer uit (of Ctrl+Enter).");
       ed.ta.focus();
@@ -1612,7 +1666,7 @@ self.onmessage = function (e) {
   function samenvattingTekst() {
     const d = new Date();
     const regels = [`Python op papier: voortgang van Zeb (${d.toLocaleDateString("nl-BE")})`, ""];
-    if (S.test) regels.push(`Instaptest: ${S.test.score}/${S.test.totaal} juist, start bij niveau ${S.test.start}`);
+    if (S.test) regels.push(`Instaptest: ${S.test.score}/${S.test.totaal} juist, start bij ${(NIV_KEY[S.test.start] || NIV[0]).titel}`);
     else regels.push("Instaptest: nog niet gedaan");
     regels.push("");
     NIV.forEach((n) => {
@@ -1664,7 +1718,7 @@ self.onmessage = function (e) {
         <h2>Per niveau</h2>
         <div class="sectie" style="gap:10px">${NIV.map((n) => {
           const st = niveauStat(n);
-          return rij(`<a href="#niveau-${n.nr}">${n.nr}. ${esc(n.titel)}</a>`, st.ok, st.totaal, st.klaar);
+          return rij(`<a href="#niveau-${n.key}">${n.nr}. ${esc(n.titel)}</a>`, st.ok, st.totaal, st.klaar);
         }).join("")}</div>
       </section>
       <section class="sectie">
@@ -1734,12 +1788,12 @@ self.onmessage = function (e) {
       const profielen = (await SYNC.user.profiles(ids)) || {};
       if (!document.body.contains($g)) return;
       $g.hidden = false;
-      $g.innerHTML = `<h2>Iedereen die deze app gebruikt</h2><p class="inleiding">Deze lijst zie jij omdat je eigenaar bent van de app.</p><div class="sectie lijst-gezin" style="gap:10px"></div>`;
-      const $l = $g.querySelector(".lijst-gezin");
+      $g.innerHTML = `<h2>Iedereen die deze app gebruikt</h2><p class="inleiding">Dit overzicht zie jij omdat je eigenaar bent van de app.</p><div class="sectie list-gezin" style="gap:10px"></div>`;
+      const $l = $g.querySelector(".list-gezin");
       docs.forEach((d) => {
         const data = d.data() || {};
         const ex = data.ex || {};
-        const ok = Object.keys(ex).filter((k) => OEF_ID[k] && (ex[k].b === "goed" || ex[k].b === "hulp")).length;
+        const ok = Object.keys(ex).filter((k) => (OEF_ID[k] || OEF_ID[MIGRATIE[k]]) && (ex[k].b === "goed" || ex[k].b === "hulp")).length;
         const laatst = data.bijgewerkt ? new Date(data.bijgewerkt).toLocaleDateString("nl-BE") : "–";
         const r = maak(`<div class="vg-rij"><span class="nm"></span><div class="balkje"><span style="width:${Math.round((ok / ALLE_OEF.length) * 100)}%"></span></div><span class="cnt">${ok} / ${ALLE_OEF.length} · ${esc(laatst)}</span></div>`);
         const p = profielen[d.id];
@@ -1757,8 +1811,8 @@ self.onmessage = function (e) {
     let m;
     if (h === "start") viewStart();
     else if (h === "pad") viewPad();
-    else if ((m = h.match(/^niveau-(\d+)$/))) viewNiveau(+m[1]);
-    else if ((m = h.match(/^oef-(\d+)-(\d+)$/))) viewOef(+m[1], +m[2]);
+    else if ((m = h.match(/^niveau-([a-z-]+)$/))) viewNiveau(m[1]);
+    else if ((m = h.match(/^oef-([a-z-]+)-(\d+)$/))) viewOef(m[1], +m[2]);
     else if (h === "spiekbrief") viewSpiek();
     else if (h.startsWith("spiek-")) viewSpiek(h);
     else if (h === "kladblok") viewKladblok();

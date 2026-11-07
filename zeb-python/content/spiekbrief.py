@@ -1,7 +1,7 @@
 """De spiekbrief (Python 3 Mémento van Laurent Pointal) uitgelegd in gewone taal.
 
 belang: 3 = moet je echt kennen, 2 = handig, 1 = mag je voorlopig overslaan.
-niveau: het niveau in de app waar dit vak aan bod komt (None = komt later).
+niveau: de sleutel van het niveau in de app waar dit vak aan bod komt.
 """
 
 from helpers import c, t
@@ -19,7 +19,7 @@ def vak(id, naam, nl, kant, belang, niveau, uitleg, kennen, overslaan=None, code
 VAKKEN = [
     # ---------------- VOORKANT ----------------
     vak(
-        "base-types", "Base Types", "Basistypes", "voorkant", 3, 0,
+        "base-types", "Base Types", "Basistypes", "voorkant", 3, "start",
         """
         De soorten enkelvoudige waarden. Elke waarde in Python heeft een type.
         """,
@@ -44,7 +44,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "container-types", "Container Types", "Containers: lijsten en co", "voorkant", 2, 6,
+        "container-types", "Container Types", "Containers: lists en co", "voorkant", 2, "lists",
         """
         Waarden die **meerdere** waarden bevatten. Bovenaan staan de *geordende
         reeksen* (met een index), onderaan de *sleutel-containers*.
@@ -53,7 +53,7 @@ VAKKEN = [
             "`list`: `[1, 5, 9]`, kan je aanpassen; `[]` is leeg",
             "`tuple`: `(1, 5, 9)`, kan je **niet** aanpassen",
             "`str` is ook een reeks: van letters",
-            "`dict`: `{\"sleutel\": \"waarde\"}` (komt in niveau 10)",
+            "`dict`: `{\"sleutel\": \"waarde\"}` (cursus hoofdstuk 13)",
         ],
         [
             "`set` en `frozenset`",
@@ -69,7 +69,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "identifiers", "Identifiers", "Namen", "voorkant", 2, 0,
+        "identifiers", "Identifiers", "Namen", "voorkant", 2, "start",
         """
         De regels voor namen van variabelen en functies.
         """,
@@ -82,7 +82,7 @@ VAKKEN = [
         ["accenten (*diacritics*) mogen, maar vermijd ze"],
     ),
     vak(
-        "assignment", "Variables assignment", "Toekennen met =", "voorkant", 3, 0,
+        "assignment", "Variables assignment", "Toekennen met =", "voorkant", 3, "start",
         """
         `=` koppelt een naam aan een waarde. Python rekent **eerst de rechterkant
         uit** en steekt het resultaat daarna in de naam links.
@@ -106,7 +106,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "conversions", "Conversions", "Omzetten", "voorkant", 3, 2,
+        "conversions", "Conversions", "Omzetten", "voorkant", 3, "functies-basis",
         """
         Een waarde omzetten naar een ander type. Nodig na `input`, want dat geeft
         altijd tekst.
@@ -124,8 +124,8 @@ VAKKEN = [
             "`int(\"3f\", 16)` (andere talstelsels)",
             "`bool(x)`, `chr`/`ord`, `repr`, `bytes`",
             "`dict(...)` en `set(...)`",
-            "`split` en `join` komen in niveau 9",
-            "`[int(x) for x in ...]` (list comprehension, later)",
+            "`split` en `join` (die komen bij Strings, hoofdstuk 10)",
+            "`[int(x) for x in ...]` (list comprehension, bij Lists, hoofdstuk 12)",
         ],
         """
         print(int("15") + 1)
@@ -135,9 +135,9 @@ VAKKEN = [
         """,
     ),
     vak(
-        "indexing", "Sequence Containers Indexing", "Index en slices", "voorkant", 3, 6,
+        "indexing", "Sequence Containers Indexing", "Index en slices", "voorkant", 3, "strings",
         """
-        Hoe je één element of een stuk uit een lijst (of tekst) haalt. De tekening
+        Hoe je één element of een stuk uit een list (of tekst) haalt. De tekening
         met `lst = [10, 20, 30, 40, 50]` is het belangrijkste deel van deze kant.
         """,
         [
@@ -162,7 +162,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "boolean-logic", "Boolean Logic", "Waar of onwaar", "voorkant", 3, 3,
+        "boolean-logic", "Boolean Logic", "Waar of onwaar", "voorkant", 3, "condities",
         """
         Vergelijkingen geven `True` of `False`. Met `and`, `or` en `not`
         combineer je ze.
@@ -182,7 +182,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "blocks", "Statements Blocks", "Blokken en inspringen", "voorkant", 3, 3,
+        "blocks", "Statements Blocks", "Blokken en inspringen", "voorkant", 3, "condities",
         """
         Na een regel met `:` (if, for, while, def) komt een **blok** dat
         ingesprongen staat. Alles wat even ver ingesprongen staat, hoort bij dat blok.
@@ -196,7 +196,7 @@ VAKKEN = [
         ["de tip over je editor instellen"],
     ),
     vak(
-        "imports", "Modules/Names Imports", "Importeren", "voorkant", 2, 1,
+        "imports", "Modules/Names Imports", "Importeren", "voorkant", 2, "rekenen",
         """
         Extra functies (zoals `sqrt`) zitten in **modules**. Die moet je eerst
         importeren.
@@ -213,14 +213,14 @@ VAKKEN = [
         """,
     ),
     vak(
-        "conditional", "Conditional Statement", "Als ... dan (if)", "voorkant", 3, 3,
+        "conditional", "Conditional Statement", "Als ... dan (if)", "voorkant", 3, "condities",
         """
-        Een blok wordt alleen uitgevoerd als de voorwaarde waar is. Met `elif` en
+        Een blok wordt alleen uitgevoerd als de conditie waar is. Met `elif` en
         `else` kies je tussen meerdere gevallen: **alleen het eerste ware blok**
         wordt uitgevoerd.
         """,
         [
-            "`if voorwaarde:` + ingesprongen blok",
+            "`if conditie:` + ingesprongen blok",
             "zoveel `elif` als je wil, maximaal één `else` op het einde",
             "het voorbeeld met `age` en `state`",
         ],
@@ -237,7 +237,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "maths", "Maths", "Rekenen", "voorkant", 3, 1,
+        "maths", "Maths", "Rekenen", "voorkant", 3, "rekenen",
         """
         De rekenbewerkingen en de module `math`. Kommagetallen zijn **benaderingen**:
         `0.1 + 0.2` is niet exact `0.3`.
@@ -267,10 +267,10 @@ VAKKEN = [
         """,
     ),
     vak(
-        "exceptions", "Exceptions on Errors", "Fouten opvangen", "voorkant", 1, None,
+        "exceptions", "Exceptions on Errors", "Fouten opvangen", "voorkant", 2, "exceptions",
         """
         Een fout (*exception*) stopt normaal je programma. Met `try` / `except`
-        vang je ze op. Dat komt in niveau 11.
+        vang je ze op. Dat staat in hoofdstuk 17 van je cursus.
         """,
         [
             "weten hoe een foutmelding eruitziet: `NameError`, `TypeError`, `IndexError`, ...",
@@ -285,16 +285,16 @@ VAKKEN = [
     ),
     # ---------------- ACHTERKANT ----------------
     vak(
-        "while", "Conditional Loop Statement", "Herhalen met while", "achterkant", 3, 4,
+        "while", "Conditional Loop Statement", "Herhalen met while", "achterkant", 3, "while",
         """
-        Het blok wordt herhaald **zolang** de voorwaarde waar is. Het voorbeeld
+        Het blok wordt herhaald **zolang** de conditie waar is. Het voorbeeld
         berekent de som van i² voor i van 1 tot 100.
         """,
         [
-            "beginwaarde vóór de lus (`s = 0`, `i = 1`)",
-            "voorwaarde (`while i <= 100:`)",
-            "de variabele verandert in de lus (`i = i + 1`)",
-            "*beware of infinite loops*: verandert er niets, dan stopt de lus nooit",
+            "beginwaarde vóór de loop (`s = 0`, `i = 1`)",
+            "conditie (`while i <= 100:`)",
+            "de variabele verandert in de loop (`i = i + 1`)",
+            "*beware of infinite loops*: verandert er niets, dan stopt de loop nooit",
         ],
         ["het sommatieteken Σ is gewoon de wiskundige uitleg"],
         """
@@ -307,7 +307,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "for", "Iterative Loop Statement", "Herhalen met for", "achterkant", 3, 5,
+        "for", "Iterative Loop Statement", "Herhalen met for", "achterkant", 3, "for",
         """
         Het blok wordt uitgevoerd **voor elk element** van een reeks. Er staan twee
         manieren: over de **waarden** lopen en over de **indexen** lopen.
@@ -315,11 +315,11 @@ VAKKEN = [
         [
             "`for c in s:`: over de waarden (voorbeeld: e's tellen)",
             "`for idx in range(len(lst)):`: over de indexen, als je `lst[idx]` wil aanpassen",
-            "*good habit*: verander de lusvariabele niet zelf",
+            "*good habit*: verander de loop-variabele niet zelf",
         ],
         [
-            "`enumerate` (handig, komt in niveau 8)",
-            "lussen over een dict of set",
+            "`enumerate` (handig, maar niet nodig)",
+            "loops over een dict of set",
         ],
         """
         lst = [11, 18, 9, 12, 23, 4, 17]
@@ -333,15 +333,15 @@ VAKKEN = [
         """,
     ),
     vak(
-        "loop-control", "Loop Control", "break en continue", "achterkant", 2, 5,
+        "loop-control", "Loop Control", "break en continue", "achterkant", 2, "for",
         """
-        Een lus vroeger stoppen of een ronde overslaan.
+        Een loop vroeger stoppen of een ronde overslaan.
         """,
         [
-            "`break`: stop de lus meteen",
+            "`break`: stop de loop meteen",
             "`continue`: sla de rest van deze ronde over",
         ],
-        ["`else` na een lus"],
+        ["`else` na een loop"],
         """
         for i in range(10):
             if i == 2:
@@ -352,7 +352,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "display", "Display", "print", "achterkant", 3, 0,
+        "display", "Display", "print", "achterkant", 3, "start",
         """
         `print` toont waarden, variabelen en uitkomsten van berekeningen.
         """,
@@ -371,7 +371,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "input", "Input", "input", "achterkant", 3, 2,
+        "input", "Input", "input", "achterkant", 3, "functies-basis",
         """
         `input` vraagt iets aan de gebruiker. Het geeft **altijd tekst** terug.
         """,
@@ -381,19 +381,19 @@ VAKKEN = [
         ],
     ),
     vak(
-        "generic-ops", "Generic Operations on Containers", "Functies voor lijsten en co", "achterkant", 3, 6,
+        "generic-ops", "Generic Operations on Containers", "Functies voor lists en co", "achterkant", 3, "lists",
         """
-        Functies die werken op lijsten, tuples, tekst, ... Een paar zie je heel vaak.
+        Functies die werken op lists, tuples, tekst, ... Een paar zie je heel vaak.
         """,
         [
             "`len(c)`, `min(c)`, `max(c)`, `sum(c)`",
-            "`sorted(c)`: een **nieuwe** gesorteerde lijst",
+            "`sorted(c)`: een **nieuwe** gesorteerde list",
             "`x in c` en `x not in c`",
             "`c + c2` aan elkaar plakken, `c * 5` herhalen",
             "`c.index(x)` positie, `c.count(x)` aantal keer",
         ],
         [
-            "`enumerate` en `zip` (later)",
+            "`enumerate` en `zip` (handig, maar niet nodig)",
             "`all`, `any`, `reversed`",
             "`copy` en `deepcopy`",
         ],
@@ -405,7 +405,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "range", "Integer Sequences", "range", "achterkant", 3, 5,
+        "range", "Integer Sequences", "range", "achterkant", 3, "for",
         """
         `range(start, einde, stap)` maakt een reeks gehele getallen. **Het einde
         zit er nooit in.**
@@ -426,16 +426,16 @@ VAKKEN = [
         """,
     ),
     vak(
-        "list-ops", "Operations on Lists", "Lijsten aanpassen", "achterkant", 3, 6,
+        "list-ops", "Operations on Lists", "Lists aanpassen", "achterkant", 3, "lists",
         """
-        Methodes die de lijst **zelf** veranderen.
+        Methodes die de list **zelf** veranderen.
         """,
         [
             "`lst.append(x)`: achteraan toevoegen",
             "`lst.insert(i, x)`: invoegen op index i",
             "`lst.remove(x)`: eerste x verwijderen",
             "`lst.pop()`: laatste verwijderen en teruggeven",
-            "`lst.sort()`: de lijst zelf sorteren",
+            "`lst.sort()`: de list zelf sorteren",
         ],
         ["`extend`, `reverse`"],
         """
@@ -449,7 +449,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "def", "Function Definition", "Een functie maken", "achterkant", 3, 7,
+        "def", "Function Definition", "Een functie maken", "achterkant", 3, "functies",
         """
         Met `def` maak je een functie: een **zwarte doos** met invoer
         (parameters) en uitvoer (`return`).
@@ -463,7 +463,7 @@ VAKKEN = [
         [
             "de documentatie tussen `\"\"\"`: mag, moet niet",
             "*Advanced*: `*args`, `**kwargs`",
-            "standaardwaarden zoals `a=3` (handig, maar later)",
+            "*Advanced*: standaardwaarden zoals `a=3` staan wel in je cursus (8.2.4)",
         ],
         """
         def fct(x, y, z):
@@ -475,7 +475,7 @@ VAKKEN = [
         """,
     ),
     vak(
-        "call", "Function Call", "Een functie aanroepen", "achterkant", 3, 7,
+        "call", "Function Call", "Een functie aanroepen", "achterkant", 3, "functies",
         """
         Een functie doet pas iets als je ze **aanroept**: naam plus haakjes.
         """,
@@ -495,10 +495,10 @@ VAKKEN = [
         """,
     ),
     vak(
-        "dict-ops", "Operations on Dictionaries", "Woordenboeken", "achterkant", 2, None,
+        "dict-ops", "Operations on Dictionaries", "Woordenboeken", "achterkant", 2, "dictionaries",
         """
         Een dict koppelt **sleutels** aan **waarden**, zoals een woordenboek.
-        Komt in niveau 10.
+        In je cursus is dat hoofdstuk 13.
         """,
         [
             "`d[sleutel] = waarde`: toevoegen of aanpassen",
@@ -516,13 +516,19 @@ VAKKEN = [
         """,
     ),
     vak(
-        "set-ops", "Operations on Sets", "Verzamelingen", "achterkant", 1, None,
+        "set-ops", "Operations on Sets", "Verzamelingen", "achterkant", 2, "sets",
         """
         Een set is een verzameling zonder dubbels en zonder volgorde. Met de
         bewerkingen van de wiskunde: unie `|`, doorsnede `&`, verschil `-`.
         """,
-        ["dat een set geen dubbels bevat"],
-        ["al de rest, tot je prof er een oefening over geeft"],
+        [
+            "een set heeft geen dubbels en geen vaste volgorde",
+            "`s.add(x)`, `s.remove(x)`, `s.discard(x)`",
+            "`a | b` of `a.union(b)`: vereniging",
+            "`a & b` of `a.intersection(b)`: doorsnede",
+            "`a - b` of `a.difference(b)`: verschil",
+        ],
+        ["`^` (symmetrisch verschil)", "`frozenset`", "inclusie met `<` en `<=`"],
         """
         a = {1, 2, 3}
         b = {2, 3, 4}
@@ -530,16 +536,16 @@ VAKKEN = [
         """,
     ),
     vak(
-        "string-ops", "Operations on Strings", "Tekst bewerken", "achterkant", 2, None,
+        "string-ops", "Operations on Strings", "Tekst bewerken", "achterkant", 2, "strings",
         """
         Methodes voor tekst. Ze geven altijd een **nieuwe** tekst terug; de
-        oorspronkelijke tekst verandert niet. Komt in niveau 9.
+        oorspronkelijke tekst verandert niet (cursus hoofdstuk 10).
         """,
         [
             "`s.upper()`, `s.lower()`",
             "`s.strip()`: spaties vooraan en achteraan weg",
-            "`s.split(\",\")`: opsplitsen in een lijst",
-            "`\",\".join(lijst)`: lijst samenvoegen tot tekst",
+            "`s.split(\",\")`: opsplitsen in een list",
+            "`\",\".join(list)`: list samenvoegen tot tekst",
             "`s.count(\"e\")`, `s.find(\"e\")`, `s.startswith(\"a\")`",
         ],
         ["`partition`, `casefold`, `center`, `ljust`, `rjust`, `zfill`, `encode`, `swapcase`"],
@@ -552,19 +558,21 @@ VAKKEN = [
         """,
     ),
     vak(
-        "files", "Files", "Bestanden", "achterkant", 1, None,
+        "files", "Files", "Bestanden", "achterkant", 2, "bestanden",
         """
-        Tekst opslaan in een bestand en terug inlezen. Komt in niveau 11.
+        Tekst opslaan in een bestand en terug inlezen (cursus hoofdstuk 16).
         """,
         [
-            "`with open(\"file.txt\", \"r\", encoding=\"utf8\") as f:` (onderaan rechts)",
+            "`fp = open(\"pc_rose.txt\")` en op het einde `fp.close()`",
+            "`fp.read()` (alles), `fp.readline()` (één regel), `fp.readlines()` (list van regels)",
+            "`with open(\"file.txt\") as fp:` sluit het bestand vanzelf (onderaan rechts)",
             "`for line in f:` leest regel per regel",
             "modes: `\"r\"` lezen, `\"w\"` schrijven, `\"a\"` toevoegen",
         ],
         ["`seek`, `tell`, `flush`, `truncate`", "binaire modus `b`"],
     ),
     vak(
-        "formatting", "Formatting", "Opmaak", "achterkant", 1, None,
+        "formatting", "Formatting", "Opmaak", "achterkant", 2, "functies-basis",
         """
         Getallen netjes in tekst zetten, bijvoorbeeld met 2 cijfers na de komma.
         """,

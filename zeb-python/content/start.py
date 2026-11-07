@@ -1,9 +1,10 @@
 from helpers import les, voorspel, keuze, fout, aanvullen, schrijf
 
 NIVEAU = {
-    "nr": 0,
-    "titel": "Eerste stappen",
-    "kort": "Variabelen en print",
+    "key": "start",
+    "titel": "Expressies en variabelen",
+    "kort": "print, data types, variabelen",
+    "hoofdstuk": "3 en 4",
     "spiek": ["base-types", "assignment", "display", "identifiers"],
     "doel": "Je weet wat een variabele is, wat `=` doet en wat `print` op het scherm zet.",
     "uitleg": [
@@ -106,6 +107,28 @@ NIVEAU = {
             b = 8
             a, b = b, a
             print(a, b)
+            """,
+        ),
+
+        les(
+            "Commentaar",
+            """
+            Alles na een `#` op een regel is **commentaar**: Python slaat het over.
+            Je schrijft het voor mensen, om uit te leggen wat je code doet
+            (cursus 4.6).
+
+            Op papier mag je ook commentaar schrijven. Een korte zin boven een
+            moeilijk stuk helpt de prof (en jezelf) om je bedoeling te volgen.
+
+            Namen van **constanten**, waarden die nooit veranderen, schrijf je
+            volgens de gewoonte in hoofdletters: `PI = 3.14159` (cursus 4.2.3).
+            """,
+            """
+            # Oppervlakte van een cirkel
+            PI = 3.14159
+            straal = 2
+            opp = PI * straal * straal   # straal keer straal keer pi
+            print(opp)
             """,
         ),
     ],
@@ -242,6 +265,59 @@ NIVEAU = {
             """,
             "Door `prijs * aantal` te schrijven in plaats van 36 werkt je programma ook als de prijs verandert.",
             ptests=[([], "Totaal: 36")],
+        ),
+
+        voorspel(
+            """
+            print(1,000,000,000)
+            """,
+            """
+            Python leest dit niet als één miljard, maar als **vier getallen**
+            gescheiden door komma's: 1, 000, 000 en 000. Dus `print` toont 1 0 0 0.
+            Daarom schrijf je grote getallen zonder scheidingstekens: `1000000000`.
+            """,
+            boek="Opgave in 3.2.2",
+        ),
+        keuze(
+            "Wat toont dit programma?",
+            ["Hallo", "Niets, maar ook geen foutmelding", "Een foutmelding", "# Hallo"],
+            1,
+            "De regel begint met `#`: het is commentaar. Python slaat hem over.",
+            code="""
+            # print("Hallo")
+            """,
+            draai=False,
+        ),
+        schrijf(
+            """
+            Schrijf een programma dat het aantal **seconden in een week** berekent
+            en in een variabele `seconden` steekt. Toon daarna die variabele.
+            Laat Python rekenen: typ niet zelf de uitkomst.
+            """,
+            """
+            seconden = 7 * 24 * 60 * 60
+            print(seconden)
+            """,
+            "7 dagen × 24 uur × 60 minuten × 60 seconden.",
+            ptests=[([], "604800")],
+            boek="Opgave in 3.3.2 en 4.1",
+        ),
+        schrijf(
+            """
+            Gebruik een variabele `straal` met waarde 5 en een variabele `pi`
+            met waarde 3.14159. Bereken de oppervlakte van de cirkel
+            (straal keer straal keer pi) en toon:
+            `De oppervlakte van een cirkel met straal 5 is 78.53975`
+            """,
+            """
+            straal = 5
+            pi = 3.14159
+            opp = straal * straal * pi
+            print("De oppervlakte van een cirkel met straal", straal, "is", opp)
+            """,
+            "Met komma's in `print` komen de spaties vanzelf.",
+            ptests=[([], "De oppervlakte van een cirkel met straal 5 is 78.53975")],
+            boek="Opgave 4.2",
         ),
     ],
 }

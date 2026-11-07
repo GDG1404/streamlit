@@ -1,19 +1,20 @@
 from helpers import les, voorspel, keuze, fout, aanvullen, schrijf
 
 NIVEAU = {
-    "nr": 4,
-    "titel": "Herhalen met while",
-    "kort": "while-lus, teller en som",
+    "key": "while",
+    "titel": "while loop",
+    "kort": "herhalen zolang iets waar is",
+    "hoofdstuk": "7.1 en 7.5",
     "spiek": ["while", "loop-control"],
-    "doel": "Je kan een while-lus ronde per ronde volgen met een variabelentabel.",
+    "doel": "Je kan een while loop ronde per ronde volgen met een variabelentabel.",
     "uitleg": [
         les(
             "while: herhaal zolang het waar is",
             """
-            `while voorwaarde:` voert het ingesprongen blok uit **zolang** de
-            voorwaarde waar is. Na elke ronde gaat Python terug naar boven en
-            controleert de voorwaarde opnieuw. Is ze onwaar, dan gaat het programma
-            verder na de lus.
+            `while conditie:` voert het ingesprongen blok uit **zolang** de
+            conditie waar is. Na elke ronde gaat Python terug naar boven en
+            controleert de conditie opnieuw. Is ze onwaar, dan gaat het programma
+            verder na de loop.
             """,
             """
             i = 1
@@ -24,15 +25,15 @@ NIVEAU = {
             """,
         ),
         les(
-            "De drie onderdelen van een lus",
+            "De drie onderdelen van een loop",
             """
-            Bijna elke while-lus heeft drie stukken. Je spiekbrief toont ze bij
+            Bijna elke while loop heeft drie stukken. Je spiekbrief toont ze bij
             *Conditional Loop Statement*:
-            - een **beginwaarde** vóór de lus (`i = 1`)
-            - een **voorwaarde** (`i <= 100`)
-            - iets in de lus dat de variabele **verandert** (`i = i + 1`)
+            - een **beginwaarde** vóór de loop (`i = 1`)
+            - een **conditie** (`i <= 100`)
+            - iets in de loop dat de variabele **verandert** (`i = i + 1`)
 
-            Vergeet je dat laatste, dan stopt de lus nooit: een **oneindige lus**.
+            Vergeet je dat laatste, dan stopt de loop nooit: een **eindeloze loop**.
             Je spiekbrief waarschuwt: *beware of infinite loops!*
             """,
             """
@@ -46,12 +47,12 @@ NIVEAU = {
             papier="Dit is exact het voorbeeld van je spiekbrief: de som van de kwadraten van 1 tot 100.",
         ),
         les(
-            "Patroon: optellen in een lus",
+            "Patroon: optellen in een loop",
             """
-            Wil je iets optellen of tellen in een lus, dan:
-            1. zet je **vóór** de lus een variabele op 0 (`som = 0` of `aantal = 0`)
-            2. tel je er **in** de lus telkens iets bij
-            3. gebruik je het resultaat **na** de lus
+            Wil je iets optellen of tellen in een loop, dan:
+            1. zet je **vóór** de loop een variabele op 0 (`som = 0` of `aantal = 0`)
+            2. tel je er **in** de loop telkens iets bij
+            3. gebruik je het resultaat **na** de loop
 
             Dat patroon komt op elk examen terug.
             """,
@@ -67,7 +68,7 @@ NIVEAU = {
         les(
             "Tot de gebruiker stopt",
             """
-            Een while-lus is ideaal als je **niet op voorhand weet** hoe vaak je moet
+            Een while loop is ideaal als je **niet op voorhand weet** hoe vaak je moet
             herhalen, bijvoorbeeld tot de gebruiker 0 intypt.
             """,
             """
@@ -82,9 +83,9 @@ NIVEAU = {
             papier="Hier typte de gebruiker 5, 3 en dan 0.",
         ),
         les(
-            "break: de lus meteen verlaten",
+            "break: de loop meteen verlaten",
             """
-            `break` stopt de lus onmiddellijk, ook als de voorwaarde nog waar is
+            `break` stopt de loop onmiddellijk, ook als de conditie nog waar is
             (spiekbrief: *Loop Control*). Handig om te stoppen zodra je gevonden
             hebt wat je zocht.
             """,
@@ -96,7 +97,26 @@ NIVEAU = {
                 n = n + 1
             print(n)
             """,
-            papier="`while True` lijkt oneindig, maar `break` stopt de lus zodra n² groter is dan 50.",
+            papier="`while True` lijkt oneindig, maar `break` stopt de loop zodra n² groter is dan 50.",
+        ),
+
+        les(
+            "De loop-en-een-half",
+            """
+            Soms moet je eerst iets doen (een getal vragen) en pas **daarna** kan
+            je beslissen of de loop stopt. Je cursus noemt dat de
+            **loop-en-een-half** (7.5): een `while True` met een `break` in het midden.
+            """,
+            """
+            while True:
+                getal = int(input("Positief getal: "))
+                if getal > 0:
+                    break
+                print("Dat mag niet, probeer opnieuw.")
+            print("Bedankt voor", getal)
+            """,
+            inputs=["-4", "0", "7"],
+            papier="Hier typte de gebruiker -4, 0 en dan 7.",
         ),
     ],
     "oefeningen": [
@@ -127,7 +147,7 @@ NIVEAU = {
                 i = i + 1
             print(s)
             """,
-            "s wordt 0+1=1, 1+2=3, 3+3=6, 6+4=10. De print staat na de lus, dus één keer: 10.",
+            "s wordt 0+1=1, 1+2=3, 3+3=6, 6+4=10. De print staat na de loop, dus één keer: 10.",
             tip="Maak een tabel met kolommen i en s, één rij per ronde.",
         ),
         keuze(
@@ -151,7 +171,7 @@ NIVEAU = {
                 "Het stopt nooit: het toont oneindig vaak 1",
             ],
             3,
-            "i verandert nooit in de lus. `1 < 5` blijft altijd waar: een **oneindige lus**.",
+            "i verandert nooit in de loop. `1 < 5` blijft altijd waar: een **eindeloze loop**.",
             code="""
             i = 1
             while i < 5:
@@ -172,7 +192,7 @@ NIVEAU = {
             """
             x = 5
             while x > 5:
-                print("in de lus")
+                print("in de loop")
             print("klaar")
             """,
             "`5 > 5` is meteen onwaar. Het blok wordt **nul keer** uitgevoerd.",
@@ -192,7 +212,7 @@ NIVEAU = {
                 print(i)
                 i = i + 1
             """,
-            "Met `i < 5` stopt de lus al na 4. Je hebt `i <= 5` (of `i < 6`) nodig.",
+            "Met `i < 5` stopt de loop al na 4. Je hebt `i <= 5` (of `i < 6`) nodig.",
         ),
         aanvullen(
             "Vul aan zodat het programma aftelt: 5, 4, 3, 2, 1.",
@@ -245,7 +265,7 @@ NIVEAU = {
             print(a)
             """,
             """
-            Rondes: (48, 18) → (18, 12) → (12, 6) → (6, 0). Dan stopt de lus en is a = 6.
+            Rondes: (48, 18) → (18, 12) → (12, 6) → (6, 0). Dan stopt de loop en is a = 6.
             Dit is het algoritme van Euclides voor de **grootste gemene deler**.
             """,
             tip="Maak een tabel met kolommen a, b en a % b.",
@@ -253,7 +273,7 @@ NIVEAU = {
         schrijf(
             """
             Vraag een geheel getal n en toon de som 1 + 2 + ... + n.
-            Gebruik een **while-lus**. Bij 4 verschijnt `10`.
+            Gebruik een **while loop**. Bij 4 verschijnt `10`.
             """,
             """
             n = int(input("n: "))
@@ -264,7 +284,7 @@ NIVEAU = {
                 i = i + 1
             print(som)
             """,
-            "Het patroon: beginwaarde vóór de lus, optellen in de lus, tonen na de lus.",
+            "Het patroon: beginwaarde vóór de loop, optellen in de loop, tonen na de loop.",
             ptests=[(["4"], "10"), (["1"], "1"), (["100"], "5050")],
         ),
         schrijf(
@@ -282,11 +302,85 @@ NIVEAU = {
             print(som)
             """,
             """
-            Vraag het eerste getal **vóór** de lus en het volgende getal **op het einde** van de lus.
+            Vraag het eerste getal **vóór** de loop en het volgende getal **op het einde** van de loop.
             Zo wordt de 0 nooit meegeteld.
             """,
             ptests=[(["3", "5", "2", "0"], "10"), (["0"], "0"), (["-4", "4", "7", "0"], "7")],
             uitdaging=True,
+        ),
+
+        schrijf(
+            """
+            Schrijf code die aftelt van 10 tot 1, elk getal op een eigen regel.
+            Daarna toont het programma `Start!` (de 0 wordt niet getoond).
+            Gebruik een **while loop**.
+            """,
+            """
+            teller = 10
+            while teller > 0:
+                print(teller)
+                teller -= 1
+            print("Start!")
+            """,
+            "`Start!` staat **na** de loop, niet erin.",
+            ptests=[([], "\n".join(str(i) for i in range(10, 0, -1)) + "\nStart!")],
+            boek="Opgave in 7.1.5",
+        ),
+        schrijf(
+            """
+            Vraag een positief geheel getal n en toon n! (de faculteit:
+            n · (n-1) · ... · 1). Gebruik een **while loop**. Bij 5 verschijnt `120`.
+            """,
+            """
+            n = int(input("n: "))
+            resultaat = 1
+            while n > 1:
+                resultaat *= n
+                n -= 1
+            print(resultaat)
+            """,
+            "Bij vermenigvuldigen begin je bij 1, niet bij 0.",
+            ptests=[(["5"], "120"), (["1"], "1"), (["10"], "3628800")],
+            boek="Opgave in 7.1.5",
+        ),
+        schrijf(
+            """
+            De Fibonacci-reeks begint met 1 en 1. Elk volgend getal is de som van de
+            twee vorige: 1, 1, 2, 3, 5, 8, 13, ... Toon alle Fibonacci-getallen die
+            **kleiner zijn dan 1000**, elk op een eigen regel.
+            """,
+            """
+            a = 1
+            b = 1
+            while a < 1000:
+                print(a)
+                a, b = b, a + b
+            """,
+            """
+            Je hebt twee variabelen nodig: het huidige en het volgende getal.
+            `a, b = b, a + b` schuift ze allebei één plaats op.
+            """,
+            ptests=[([], "1\n1\n2\n3\n5\n8\n13\n21\n34\n55\n89\n144\n233\n377\n610\n987")],
+            tip="Maak eerst op papier een tabel met a en b voor de eerste 5 rondes.",
+            boek="Opgave 7.5",
+        ),
+        schrijf(
+            """
+            Vraag een positief geheel getal. Zolang de gebruiker 0 of een negatief getal
+            intypt, toon je `Dat mag niet` en vraag je opnieuw. Toon daarna het
+            **kwadraat** van het getal. Gebruik een loop-en-een-half.
+            """,
+            """
+            while True:
+                getal = int(input("Getal: "))
+                if getal > 0:
+                    break
+                print("Dat mag niet")
+            print(getal * getal)
+            """,
+            "`while True` met een `break` zodra het getal goed is.",
+            ptests=[(["-3", "0", "5"], "Dat mag niet\nDat mag niet\n25"), (["4"], "16")],
+            boek="Opgave in 7.5",
         ),
     ],
 }

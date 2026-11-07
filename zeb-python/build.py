@@ -2,7 +2,8 @@
 """Bouwt 'Python op papier' tot één HTML-bestand.
 
 Wat dit script doet:
-1. Laadt de inhoud uit content/ (niveaus, spiekbrief, instaptest).
+1. Laadt de inhoud uit content/ (niveaus in de volgorde van het cursusboek,
+   spiekbrief, instaptest).
 2. Voert ALLE code uit met echte Python en noteert de uitvoer en elke stap
    (welke regel, welke variabelen). Zo klopt elk antwoord in de app gegarandeerd.
 3. Controleert dat elke modeloplossing slaagt voor zijn tests, dat 'vul aan'
@@ -15,8 +16,8 @@ Gebruik:  python3 build.py
 
 from __future__ import annotations
 
-import builtins
 import contextlib
+import hashlib
 import importlib
 import io
 import json
@@ -29,8 +30,32 @@ from pathlib import Path
 HIER = Path(__file__).resolve().parent
 sys.path.insert(0, str(HIER / "content"))
 
-MAX_STAPPEN = 400
+# Volgorde van de niveaus = volgorde van het cursusboek. (sleutel, module)
+VOLGORDE = [
+    ("start", "start"),
+    ("rekenen", "rekenen"),
+    ("functies-basis", "functies_basis"),
+    ("condities", "condities"),
+    ("while", "lus_while"),
+    ("for", "lus_for"),
+    ("functies", "functies"),
+    ("recursie", "recursie"),
+    ("strings", "strings"),
+    ("tuples", "tuples"),
+    ("lists", "lists"),
+    ("dictionaries", "dictionaries"),
+    ("sets", "sets"),
+    ("bestanden", "bestanden"),
+    ("exceptions", "exceptions"),
+]
+
+MAX_STAPPEN = 600
 FOUTEN: list[str] = []
+
+# De nepbestanden (open() in het geheugen) delen we met de browser-runner.
+NEP_SRC = (HIER / "template" / "nepbestanden.py").read_text(encoding="utf-8")
+NEP: dict = {}
+exec(compile(NEP_SRC, "nepbestanden.py", "exec"), NEP)
 
 
 # --------------------------------------------------------------------------- #
@@ -47,16 +72,20 @@ def fmt(v) -> str:
 
 def is_zichtbaar(v) -> bool:
     return not isinstance(
-        v, (types.FunctionType, types.ModuleType, type, types.BuiltinFunctionType)
+        v,
+        (types.FunctionType, types.ModuleType, type, types.BuiltinFunctionType,
+         types.MethodType, NEP["NepBestand"]),
     )
 
 
-def voer_uit(code: str, inputs=(), trace=True):
-    """Voer code uit. Geeft (uitvoer, fout, stappen) terug.
+def run(code: str, inputs=(), trace=True, bestanden=None):
+    """Voer code uit. Geeft (uitvoer, fout, stappen, globals) terug.
 
     stappen: lijst van {"l": regel die nu aan de beurt is, "fr": frames,
-    "o": aantal tekens uitvoer tot nu}. Een stap met "ret" is een return uit
-    een functie. De laatste stap heeft "end": True.
+    "o": aantal tekens uitvoer tot nu}. Elk frame is {"f": functienaam
+    ("" = hoofdprogramma), "l": huidige regel van dat frame, "v": variabelen}.
+    Een stap met "ret" is een return uit een functie. De laatste stap heeft
+    "end": True.
     """
     out = io.StringIO()
     voeding = list(inputs)
@@ -66,7 +95,9 @@ def voer_uit(code: str, inputs=(), trace=True):
             raise EOFError("geen invoer meer")
         return voeding.pop(0)
 
-    g = {"__name__": "__main__", "input": nep_input}
+    fs = dict(bestanden or {})
+    g = {"__name__": "__main__", "input": nep_input, "open": NEP["maak_open"](fs),
+         "geeft_fout": NEP["geeft_fout"]}
     basis = set(g) | {"__builtins__"}
     stappen: list[dict] = []
 
@@ -82,23 +113,20 @@ def voer_uit(code: str, inputs=(), trace=True):
         f = frame
         while f is not None:
             naam = f.f_code.co_name
-            if f.f_code.co_filename == "<zeb>" and (
-                naam == "<module>" or not naam.startswith("<")
-            ):
+            if f.f_code.co_filename == "<zeb>" and (naam == "<module>" or not naam.startswith("<")):
                 stapel.append(f)
             f = f.f_back
         stapel.reverse()
         frames = []
         for fr in stapel:
             if fr.f_code.co_name == "<module>":
-                frames.append({"f": "", "v": globale_vars(fr.f_globals)})
+                frames.append({"f": "", "l": fr.f_lineno, "v": globale_vars(fr.f_globals)})
             else:
-                frames.append(
-                    {
-                        "f": fr.f_code.co_name,
-                        "v": [[k, fmt(v)] for k, v in fr.f_locals.items() if is_zichtbaar(v)],
-                    }
-                )
+                frames.append({
+                    "f": fr.f_code.co_name,
+                    "l": fr.f_lineno,
+                    "v": [[k, fmt(v)] for k, v in fr.f_locals.items() if is_zichtbaar(v)],
+                })
         st = {"l": frame.f_lineno, "fr": frames, "o": len(out.getvalue())}
         if soort == "return":
             st["ret"] = [frame.f_code.co_name, fmt(extra)]
@@ -118,12 +146,12 @@ def voer_uit(code: str, inputs=(), trace=True):
             momentopname(frame, "return", arg)
         return tracer
 
-    fout = None
     try:
         co = compile(code, "<zeb>", "exec")
     except SyntaxError as e:
-        return "", [type(e).__name__, e.msg, e.lineno], []
+        return "", [type(e).__name__, e.msg, e.lineno], [], g
 
+    fout = None
     oud = sys.gettrace()
     with contextlib.redirect_stdout(out):
         if trace:
@@ -141,17 +169,9 @@ def voer_uit(code: str, inputs=(), trace=True):
         finally:
             sys.settrace(oud)
     if trace:
-        stappen.append(
-            {"l": None, "fr": [{"f": "", "v": globale_vars(g)}], "o": len(out.getvalue()), "end": True}
-        )
+        stappen.append({"l": None, "fr": [{"f": "", "l": None, "v": globale_vars(g)}],
+                        "o": len(out.getvalue()), "end": True})
     return out.getvalue(), fout, (stappen if trace else []), g
-
-
-def run(code, inputs=(), trace=True):
-    r = voer_uit(code, inputs, trace)
-    if len(r) == 3:  # syntaxfout
-        return r[0], r[1], r[2], {}
-    return r
 
 
 def norm(s: str) -> str:
@@ -167,24 +187,39 @@ def fout_melding(waar: str, wat: str):
     FOUTEN.append(f"{waar}: {wat}")
 
 
+def gebruikt(src: str, woord: str) -> bool:
+    """Komt `woord` voor in de code, als los woord? ("max(" telt niet in "min_max(")."""
+    if woord[:1].isalnum() or woord[:1] == "_":
+        return re.search(r"(?<!\w)" + re.escape(woord), src) is not None
+    return woord in src
+
+
+def vingerafdruk(o: dict) -> str:
+    """Herkent een oefening los van haar plaats (voor het overzetten van voortgang)."""
+    delen = [o["t"], o.get("code", ""), o.get("oplossing", ""), "||".join(o.get("opties", [])),
+             o.get("vraag", "") if o["t"] in ("keuze", "lees") and not o.get("code") else ""]
+    return hashlib.sha1("|".join(delen).encode()).hexdigest()[:12]
+
+
 # --------------------------------------------------------------------------- #
 # Inhoud verwerken
 # --------------------------------------------------------------------------- #
 def verwerk_les(les: dict, waar: str):
     if "code" in les:
-        uit, fout, _, _ = run(les["code"], les.get("inputs", []), trace=False)
+        bst = les.get("bestanden")
+        uit, fout, stappen, _ = run(les["code"], les.get("inputs", []), trace=True, bestanden=bst)
         if fout:
             fout_melding(waar, f"uitlegcode geeft fout {fout}")
         les["uitvoer"] = uit
-        # Ook stap-voor-stap voor uitlegcode (handig in de app).
-        _, _, stappen, _ = run(les["code"], les.get("inputs", []), trace=True)
         les["stappen"] = stappen
 
 
 def verwerk_oefening(oef: dict, waar: str):
     t = oef["t"]
+    bst = oef.get("bestanden")
+    inputs = oef.get("inputs", [])
     if t == "voorspel":
-        uit, fout, stappen, _ = run(oef["code"], oef.get("inputs", []))
+        uit, fout, stappen, _ = run(oef["code"], inputs, bestanden=bst)
         if fout:
             fout_melding(waar, f"voorspel-code geeft fout {fout}")
         if not uit.strip():
@@ -196,32 +231,28 @@ def verwerk_oefening(oef: dict, waar: str):
         if not (0 <= oef["juist"] < len(oef["opties"])):
             fout_melding(waar, "juist-index buiten bereik")
         if "code" in oef and oef.get("draai", True):
-            uit, fout, stappen, _ = run(oef["code"], oef.get("inputs", []))
+            uit, fout, stappen, _ = run(oef["code"], inputs, bestanden=bst)
             oef["uitvoer"] = uit
             oef["stappen"] = stappen
             if fout:
                 oef["fout"] = fout
             if oef.get("controleer_uitvoer"):
                 if norm(uit) != norm(oef["opties"][oef["juist"]]):
-                    fout_melding(
-                        waar,
-                        f"juiste optie {oef['opties'][oef['juist']]!r} != uitvoer {uit!r}",
-                    )
+                    fout_melding(waar, f"juiste optie {oef['opties'][oef['juist']]!r} != uitvoer {uit!r}")
 
     elif t == "fout":
-        uit, fout, stappen, _ = run(oef["code"], oef.get("inputs", []))
+        uit, fout, stappen, _ = run(oef["code"], inputs, bestanden=bst)
         oef["uitvoer"] = uit
         oef["stappen"] = stappen
         if fout:
             oef["fout"] = fout
-        uit2, fout2, stappen2, _ = run(oef["verbeterd"], oef.get("inputs", []))
+        uit2, fout2, _, _ = run(oef["verbeterd"], inputs, trace=False, bestanden=bst)
         if fout2:
             fout_melding(waar, f"verbeterde code geeft fout {fout2}")
         if norm(uit2) == norm(uit) and not fout:
             fout_melding(waar, "verbeterde code geeft dezelfde uitvoer als de foute code")
         oef["uitvoer_verbeterd"] = uit2
-        n_regels = len(oef["code"].split("\n"))
-        if not (1 <= oef["regel"] <= n_regels):
+        if not (1 <= oef["regel"] <= len(oef["code"].split("\n"))):
             fout_melding(waar, "foutregel buiten bereik")
 
     elif t == "aanvullen":
@@ -231,7 +262,7 @@ def verwerk_oefening(oef: dict, waar: str):
         code = oef["code"]
         for opties in oef["antwoorden"]:
             code = code.replace("___", opties[0], 1)
-        uit, fout, stappen, _ = run(code, oef.get("inputs", []))
+        uit, fout, stappen, _ = run(code, inputs, bestanden=bst)
         if fout:
             fout_melding(waar, f"ingevulde code geeft fout {fout}")
         oef["ingevuld"] = code
@@ -241,7 +272,7 @@ def verwerk_oefening(oef: dict, waar: str):
     elif t == "schrijf":
         sol = oef["oplossing"]
         if "tests" in oef:
-            uit, fout, _, g = run(sol, [], trace=False)
+            _, fout, _, g = run(sol, [], trace=False, bestanden=bst)
             if fout:
                 fout_melding(waar, f"oplossing geeft fout {fout}")
             for expr, verwacht in oef["tests"]:
@@ -253,16 +284,16 @@ def verwerk_oefening(oef: dict, waar: str):
                 if waarde != eval(verwacht):  # noqa: S307
                     fout_melding(waar, f"test {expr}: {waarde!r} != {verwacht}")
         if "ptests" in oef:
-            for inputs, verwacht in oef["ptests"]:
-                uit, fout, _, _ = run(sol, inputs, trace=False)
+            for invoer, verwacht in oef["ptests"]:
+                uit, fout, _, _ = run(sol, invoer, trace=False, bestanden=bst)
                 if fout:
-                    fout_melding(waar, f"oplossing met invoer {inputs} geeft fout {fout}")
+                    fout_melding(waar, f"oplossing met invoer {invoer} geeft fout {fout}")
                 if norm(uit) != norm(verwacht):
-                    fout_melding(waar, f"invoer {inputs}: uitvoer {uit!r} != {verwacht!r}")
+                    fout_melding(waar, f"invoer {invoer}: uitvoer {uit!r} != {verwacht!r}")
         if "tests" not in oef and "ptests" not in oef:
             fout_melding(waar, "schrijfopdracht zonder tests")
         for v in oef.get("verboden", []):
-            if v in sol:
+            if gebruikt(sol, v):
                 fout_melding(waar, f"oplossing gebruikt verboden {v!r}")
     else:
         fout_melding(waar, f"onbekend type {t}")
@@ -270,21 +301,29 @@ def verwerk_oefening(oef: dict, waar: str):
 
 def laad():
     niveaus = []
-    for i in range(8):
-        mod = importlib.import_module(f"n{i}")
-        niv = mod.NIVEAU
-        assert niv["nr"] == i, f"n{i}.py heeft nr {niv['nr']}"
+    sleutels = set()
+    for nr, (key, modnaam) in enumerate(VOLGORDE):
+        niv = importlib.import_module(modnaam).NIVEAU
+        if niv["key"] != key:
+            fout_melding(modnaam, f"sleutel {niv['key']!r} verwacht {key!r}")
+        sleutels.add(key)
+        niv["nr"] = nr
         for j, les in enumerate(niv["uitleg"]):
-            verwerk_les(les, f"niveau {i} uitleg {j + 1}")
+            verwerk_les(les, f"{key} uitleg {j + 1}")
         for j, oef in enumerate(niv["oefeningen"]):
-            oef["id"] = f"{i}-{j + 1}"
-            verwerk_oefening(oef, f"niveau {i} oefening {j + 1}")
+            oef["id"] = f"{key}-{j + 1}"
+            verwerk_oefening(oef, f"{key} oefening {j + 1}")
         niveaus.append(niv)
 
     later = importlib.import_module("later").LATER
+    for j, niv in enumerate(later):
+        niv["nr"] = len(niveaus) + j
+
     vakken = importlib.import_module("spiekbrief").VAKKEN
     ids = {v["id"] for v in vakken}
     for v in vakken:
+        if v["niveau"] not in sleutels:
+            fout_melding(f"spiekbrief {v['id']}", f"onbekend niveau {v['niveau']!r}")
         if "code" in v:
             uit, fout, _, _ = run(v["code"], [], trace=False)
             if fout and v["id"] != "exceptions":
@@ -293,14 +332,26 @@ def laad():
     for niv in niveaus + later:
         for s in niv["spiek"]:
             if s not in ids:
-                fout_melding(f"niveau {niv['nr']}", f"onbekend spiekbrief-vak {s}")
+                fout_melding(f"niveau {niv['key']}", f"onbekend spiekbrief-vak {s}")
 
     vragen = importlib.import_module("instaptest").VRAGEN
     for j, v in enumerate(vragen):
         v["id"] = f"test-{j + 1}"
+        if v["n"] not in sleutels:
+            fout_melding(f"instaptest vraag {j + 1}", f"onbekend niveau {v['n']!r}")
         verwerk_oefening(v, f"instaptest vraag {j + 1}")
 
-    return {"niveaus": niveaus, "later": later, "spiekbrief": vakken, "instaptest": vragen}
+    # Voortgang van de eerste versie (ids "0-1" ... "7-15") overzetten.
+    migratie = {}
+    oud_pad = HIER / "content" / "oude_ids.json"
+    if oud_pad.exists():
+        nieuw_per_fp = {vingerafdruk(o): o["id"] for n in niveaus for o in n["oefeningen"]}
+        for oud_id, fp in json.loads(oud_pad.read_text(encoding="utf-8")).items():
+            if fp in nieuw_per_fp:
+                migratie[oud_id] = nieuw_per_fp[fp]
+
+    return {"niveaus": niveaus, "later": later, "spiekbrief": vakken, "instaptest": vragen,
+            "migratie": migratie}
 
 
 # --------------------------------------------------------------------------- #
@@ -310,7 +361,7 @@ def bouw_html(data: dict) -> str:
     tpl = (HIER / "template" / "app.html").read_text(encoding="utf-8")
     css = (HIER / "template" / "app.css").read_text(encoding="utf-8")
     js = (HIER / "template" / "app.js").read_text(encoding="utf-8")
-    runner = (HIER / "template" / "runner.py").read_text(encoding="utf-8")
+    runner = NEP_SRC + "\n\n" + (HIER / "template" / "runner.py").read_text(encoding="utf-8")
     data_json = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     data_json = data_json.replace("</", "<\\/")
     runner_json = json.dumps(runner, ensure_ascii=False).replace("</", "<\\/")
@@ -331,7 +382,8 @@ def main():
     n_oef = sum(len(n["oefeningen"]) for n in data["niveaus"])
     n_les = sum(len(n["uitleg"]) for n in data["niveaus"])
     print(f"OK: {len(data['niveaus'])} niveaus, {n_les} uitlegkaarten, {n_oef} oefeningen, "
-          f"{len(data['spiekbrief'])} spiekbrief-vakken, {len(data['instaptest'])} testvragen")
+          f"{len(data['spiekbrief'])} spiekbrief-vakken, {len(data['instaptest'])} testvragen, "
+          f"{len(data['migratie'])} oude oefeningen herkend")
 
     html = bouw_html(data)
     dist = HIER / "dist"

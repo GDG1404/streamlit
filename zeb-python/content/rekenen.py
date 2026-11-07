@@ -1,10 +1,11 @@
 from helpers import les, voorspel, keuze, fout, aanvullen, schrijf
 
 NIVEAU = {
-    "nr": 1,
+    "key": "rekenen",
     "titel": "Rekenen",
     "kort": "+ - * / // % ** en math",
-    "spiek": ["maths", "assignment", "base-types"],
+    "hoofdstuk": "3, 4 en 5",
+    "spiek": ["maths", "assignment", "imports"],
     "doel": "Je kan elke rekenbewerking uitrekenen zoals Python het doet, ook `//` en `%`.",
     "uitleg": [
         les(
@@ -101,6 +102,23 @@ NIVEAU = {
             print(round(pi, 2))
             import math
             print(math.floor(12.5), math.ceil(12.5))
+            """,
+        ),
+
+        les(
+            "Kommagetallen zijn niet altijd exact",
+            """
+            Een float wordt in de computer **benaderd** opgeslagen. Daardoor geeft
+            `(431 / 100) * 100` niet 431 maar `430.99999999999994` (cursus 3.2.3).
+            Weet je dat de uitkomst een geheel getal moet zijn, rond dan af met `round()`.
+
+            En onthoud: zodra er een `/` in een berekening staat, is de uitkomst een
+            float, ook als er geen decimalen zijn.
+            """,
+            """
+            print((431 / 100) * 100)
+            print(round((431 / 100) * 100))
+            print(5 * 2 - 3 + 4 / 2)
             """,
         ),
     ],
@@ -252,6 +270,72 @@ NIVEAU = {
             "`//` geeft het aantal volle uren, `%` de minuten die overblijven.",
             ptests=[([], "16 u 40 min")],
             start="totaal = 1000",
+        ),
+
+        voorspel(
+            """
+            print(5 * 2 - 3 + 4 / 2)
+            print((5 * 2) - (3 + 4) / 2)
+            """,
+            """
+            Eerst `5 * 2` = 10 en `4 / 2` = 2.0, dan 10 - 3 + 2.0 = 9.0 (een float, door de `/`).
+            Spaties veranderen niets aan de volgorde. Met haakjes: 10 - 7 / 2 = 10 - 3.5 = 6.5.
+            """,
+            boek="Voorbeeld in 3.3.2",
+        ),
+        voorspel(
+            """
+            aantal_bananen = 100
+            aantal_bananen += 12
+            aantal_bananen -= 13
+            aantal_bananen *= 19
+            aantal_bananen /= aantal_bananen
+            print(aantal_bananen)
+            """,
+            """
+            100 → 112 → 99 → 1881. Daarna delen door zichzelf: 1881 / 1881 = 1.0.
+            Het is een float omdat `/=` een gewone deling is.
+            """,
+            boek="Opgave in 4.5",
+        ),
+        keuze(
+            "`print((431 / 100) * 100)` toont `430.99999999999994`. Waarom?",
+            [
+                "Python rekent fout met haakjes",
+                "Kommagetallen (floats) worden in de computer benaderd opgeslagen",
+                "Omdat 431 een priemgetal is",
+                "`/` rondt altijd naar beneden af",
+            ],
+            1,
+            "Floats zijn benaderingen. Gebruik `round()` als je een geheel getal verwacht.",
+        ),
+        schrijf(
+            """
+            Gegeven `bedrag = 287` (in centen). Druk het bedrag uit in zo weinig mogelijk
+            muntjes: dollars (100 ct), kwartjes (25 ct), dubbeltjes (10 ct), stuivers (5 ct)
+            en centen (1 ct). Toon de vijf aantallen op één regel, in die volgorde.
+            Voor 287 is dat `2 3 1 0 2`.
+            """,
+            """
+            bedrag = 287
+            dollars = bedrag // 100
+            bedrag = bedrag % 100
+            kwartjes = bedrag // 25
+            bedrag = bedrag % 25
+            dubbeltjes = bedrag // 10
+            bedrag = bedrag % 10
+            stuivers = bedrag // 5
+            centen = bedrag % 5
+            print(dollars, kwartjes, dubbeltjes, stuivers, centen)
+            """,
+            """
+            Telkens hetzelfde patroon: `//` geeft hoeveel muntjes er passen, `%` geeft
+            wat er overblijft voor de volgende, kleinere munt.
+            """,
+            ptests=[([], "2 3 1 0 2")],
+            start="bedrag = 287",
+            boek="Opgave 4.3",
+            uitdaging=True,
         ),
     ],
 }

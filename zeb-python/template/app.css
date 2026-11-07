@@ -626,3 +626,5 @@ a.niveau-kaart:hover { border-color: var(--bic); }
 }
 .verborgen-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .papierlabel { font-family: var(--f-hand); font-weight: 700; font-size: 1.3rem; line-height: 1.1; color: var(--bic); white-space: nowrap; flex: none; }
+.label code { text-transform: none; letter-spacing: 0; font-family: var(--f-code); font-weight: 600; font-size: 0.95em; }
+pre.uitvoer { margin: 0; }

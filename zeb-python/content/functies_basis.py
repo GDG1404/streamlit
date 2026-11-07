@@ -1,11 +1,12 @@
 from helpers import les, voorspel, keuze, fout, aanvullen, schrijf
 
 NIVEAU = {
-    "nr": 2,
-    "titel": "Tekst en invoer",
-    "kort": "str, input en omzetten",
-    "spiek": ["base-types", "input", "conversions", "display"],
-    "doel": "Je kent het verschil tussen `\"5\"` en `5`, en je kan invoer vragen en omzetten naar een getal.",
+    "key": "functies-basis",
+    "titel": "Eenvoudige functies",
+    "kort": "type casting, input, len, max, format",
+    "hoofdstuk": "5",
+    "spiek": ["input", "conversions", "display", "formatting"],
+    "doel": "Je kent het verschil tussen `\"5\"` en `5`, je kan invoer vragen en omzetten (type casting), en je gebruikt functies zoals `len`, `max`, `round` en `format`.",
     "uitleg": [
         les(
             "Tekst is een str",
@@ -88,6 +89,72 @@ NIVEAU = {
             print("a", "b", "c", sep="-")
             print("x", end="")
             print("y")
+            """,
+        ),
+
+        les(
+            "Een functie aanroepen",
+            """
+            Een functie (cursus hoofdstuk 5) heeft:
+            - een **naam**, zoals `len` of `max`
+            - **parameters** tussen haakjes: wat je meegeeft
+            - een **retourwaarde**: wat eruit komt
+
+            Je hoeft niet te weten hoe de functie vanbinnen werkt: het is een
+            **zwarte doos**. Je moet wel weten wat erin gaat en wat eruit komt.
+            """,
+            """
+            lengte = len("mango")
+            print(lengte)
+            print(max(3, 8, 1), min(3, 8, 1))
+            print(abs(-4), pow(2, 5), round(3.14159, 2))
+            """,
+        ),
+        les(
+            "Mooie uitvoer met format()",
+            """
+            Met `format()` maak je een string waarin waarden op de plaats van `{}`
+            komen (cursus 5.2.6). `format()` is eigenlijk een **methode**: je roept
+            hem aan op een string, met een punt ertussen.
+
+            - `{}` wordt vervangen door de volgende waarde
+            - `{:.2f}` toont een getal met **2 cijfers na de komma**
+            - `{:5}` gebruikt minstens 5 posities (handig om uit te lijnen)
+            """,
+            """
+            print("{} kost {} euro".format("appel", 2))
+            print("{:.3f}".format(7 / 11))
+            print("{:.2f} gedeeld door {:.2f} is {:.2f}".format(1, 2, 1 / 2))
+            """,
+        ),
+        les(
+            "Toevalsgetallen met random",
+            """
+            De module `random` maakt (pseudo-)toevalsgetallen (cursus 5.3.2):
+            - `random()` geeft een float van 0.0 tot (niet met) 1.0
+            - `randint(a, b)` geeft een geheel getal van a **tot en met** b
+
+            Let op: bij `randint` zit het einde **wel** in, bij `range` niet!
+            """,
+            """
+            from random import randint, seed
+            seed(1)
+            print(randint(1, 6))
+            print(randint(1, 6))
+            """,
+            papier="Door `seed(1)` krijg je elke keer dezelfde 'toevalsgetallen'. Handig om te testen.",
+        ),
+        les(
+            "pcinput: getInteger() en getFloat()",
+            """
+            In je cursus gebruikt het boek vaak de module **pcinput** (bijlage C):
+            - `getInteger("Geef een getal: ")` vraagt een geheel getal
+            - `getFloat("Geef een getal: ")` vraagt een kommagetal
+            - `getString(...)` vraagt een tekst (zonder spaties vooraan en achteraan)
+
+            Ze werken zoals `int(input(...))` en `float(input(...))`, maar vragen
+            opnieuw als de gebruiker iets verkeerds intypt. In deze app gebruiken
+            we gewoon `int(input(...))`: dat werkt altijd, ook zonder pcinput.
             """,
         ),
     ],
@@ -216,6 +283,88 @@ NIVEAU = {
             """,
             "Vergeet `int(...)` niet rond `input`, anders kan je niet rekenen.",
             ptests=[(["135"], "2 u 15 min"), (["59"], "0 u 59 min"), (["60"], "1 u 0 min")],
+        ),
+
+        voorspel(
+            """
+            print(len("man"))
+            print(len("mango"))
+            print(len(""))
+            """,
+            "`len` telt de tekens. Een lege string `\"\"` heeft lengte 0.",
+            boek="Opgave in 5.2.3",
+        ),
+        voorspel(
+            """
+            print(max(3, 8, 1), min(3, 8, 1))
+            print(abs(-7.5), round(2.675, 1))
+            print(pow(2, 3) + len("abc"))
+            """,
+            "max 8, min 1. `abs(-7.5)` is 7.5. `round(2.675, 1)` is 2.7. Dan 8 + 3 = 11.",
+        ),
+        keuze(
+            "Wat gebeurt er bij `print(10 * int(\"100,000,000\"))`?",
+            [
+                "Het toont 1000000000",
+                "Het toont 100,000,0000",
+                "Een runtime error (ValueError): \"100,000,000\" is geen geheel getal",
+                "Het toont 100000000",
+            ],
+            2,
+            """
+            `int()` kan alleen tekst omzetten die er echt uitziet als een geheel getal.
+            Komma's mogen niet. Haal je de twee komma's weg, dan werkt het: 1000000000.
+            """,
+            boek="Opgave in 5.2.1",
+        ),
+        voorspel(
+            """
+            print("{} kost {} euro".format("appel", 2))
+            print("{:.2f}".format(2 / 3))
+            print("{:.1f} en {}".format(3.14159, 7))
+            """,
+            "`{}` vult de volgende waarde in. `{:.2f}` rondt af op 2 cijfers na de komma: 0.67.",
+        ),
+        keuze(
+            "Welke getallen kan `randint(1, 6)` teruggeven?",
+            ["1, 2, 3, 4, 5", "1, 2, 3, 4, 5, 6", "0, 1, 2, 3, 4, 5", "0 tot 6, ook kommagetallen"],
+            1,
+            "Bij `randint` zit het einde **wel** in, net als bij een dobbelsteen. Bij `range` niet.",
+        ),
+        schrijf(
+            """
+            Vraag drie gehele getallen. Toon daarna, elk op een eigen regel: het **grootste**,
+            het **kleinste** en het **gemiddelde** afgerond op twee decimalen.
+            Bij 3, 8 en 2 verschijnt: `8`, `2` en `4.33`.
+            """,
+            """
+            a = int(input("Getal 1: "))
+            b = int(input("Getal 2: "))
+            c = int(input("Getal 3: "))
+            print(max(a, b, c))
+            print(min(a, b, c))
+            print(round((a + b + c) / 3, 2))
+            """,
+            "Met `max`, `min` en `round` heb je geen if nodig.",
+            ptests=[(["3", "8", "2"], "8\n2\n4.33"), (["5", "5", "5"], "5\n5\n5.0")],
+            boek="Opgave 5.3",
+        ),
+        schrijf(
+            """
+            Vraag de lengtes van de twee rechte zijden van een rechthoekige driehoek
+            (kommagetallen). Bereken met Pythagoras de schuine zijde en toon die.
+            Bij 3 en 4 verschijnt `5.0`.
+            """,
+            """
+            from math import sqrt
+            a = float(input("Zijde a: "))
+            b = float(input("Zijde b: "))
+            c = sqrt(a * a + b * b)
+            print(c)
+            """,
+            "`sqrt` komt uit de module `math`. Vergeet de import niet.",
+            ptests=[(["3", "4"], "5.0"), (["5", "12"], "13.0")],
+            boek="Opgave 5.2",
         ),
     ],
 }

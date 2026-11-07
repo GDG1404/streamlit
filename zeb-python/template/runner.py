@@ -1,5 +1,6 @@
 # Draait in de browser (Brython, in een Web Worker).
 # Voert code van de leerling uit en test ze. Geeft altijd JSON-tekst terug.
+# build.py zet nepbestanden.py (maak_open, geeft_fout) vóór deze code.
 import sys
 import json
 import traceback
@@ -31,7 +32,7 @@ def _foutinfo(e):
     return [type(e).__name__, msg, ln]
 
 
-def _voer_uit(src, inputs, echo):
+def _voer_uit(src, inputs, echo, bestanden):
     uit = Uit()
     voeding = list(inputs)
 
@@ -45,7 +46,8 @@ def _voer_uit(src, inputs, echo):
             uit.write(v + "\n")
         return v
 
-    g = {"__name__": "__main__", "input": nep_input}
+    g = {"__name__": "__main__", "input": nep_input, "open": maak_open(dict(bestanden)),
+         "geeft_fout": geeft_fout}
     oud = sys.stdout
     sys.stdout = uit
     fout = None
@@ -65,18 +67,19 @@ def _norm(s):
     return "\n".join(lijnen)
 
 
-def zeb_run(src, inputs_json):
-    _, uit, fout = _voer_uit(src, json.loads(inputs_json), True)
+def zeb_run(src, inputs_json, bestanden_json):
+    _, uit, fout = _voer_uit(src, json.loads(inputs_json), True, json.loads(bestanden_json))
     return json.dumps({"uit": uit, "fout": fout})
 
 
-def zeb_test(src, tests_json, ptests_json):
+def zeb_test(src, tests_json, ptests_json, bestanden_json):
     tests = json.loads(tests_json)
     ptests = json.loads(ptests_json)
+    bestanden = json.loads(bestanden_json)
     resultaten = []
     algemene_fout = None
     if tests:
-        g, uit, fout = _voer_uit(src, [], False)
+        g, uit, fout = _voer_uit(src, [], False, bestanden)
         if fout:
             algemene_fout = fout
         else:
@@ -91,7 +94,7 @@ def zeb_test(src, tests_json, ptests_json):
                     r["ok"] = False
                 resultaten.append(r)
     for inputs, verwacht in ptests:
-        _, uit, fout = _voer_uit(src, inputs, False)
+        _, uit, fout = _voer_uit(src, inputs, False, bestanden)
         r = {"invoer": inputs, "verwacht": verwacht, "kreeg": uit}
         if fout:
             r["fout"] = fout

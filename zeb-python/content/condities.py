@@ -1,11 +1,12 @@
 from helpers import les, voorspel, keuze, fout, aanvullen, schrijf
 
 NIVEAU = {
-    "nr": 3,
-    "titel": "Beslissen",
-    "kort": "if, elif, else, and, or",
+    "key": "condities",
+    "titel": "Condities",
+    "kort": "if, elif, else, and, or, in",
+    "hoofdstuk": "6",
     "spiek": ["boolean-logic", "conditional", "blocks"],
-    "doel": "Je kan voorspellen welk blok van een if/elif/else wordt uitgevoerd en zelf voorwaarden schrijven.",
+    "doel": "Je kan voorspellen welk blok van een if/elif/else wordt uitgevoerd en zelf condities schrijven.",
     "uitleg": [
         les(
             "Vergelijken geeft True of False",
@@ -27,8 +28,8 @@ NIVEAU = {
         les(
             "if: alleen als het waar is",
             """
-            `if voorwaarde:` voert het **ingesprongen blok** eronder uit, maar
-            alleen als de voorwaarde waar is. Daarna gaat het programma gewoon verder.
+            `if conditie:` voert het **ingesprongen blok** eronder uit, maar
+            alleen als de conditie waar is. Daarna gaat het programma gewoon verder.
 
             Twee dingen die je op papier niet mag vergeten:
             - de **dubbele punt** `:` op het einde van de if-regel
@@ -45,7 +46,7 @@ NIVEAU = {
         les(
             "if ... else",
             """
-            Met `else:` geef je aan wat er moet gebeuren als de voorwaarde **niet**
+            Met `else:` geef je aan wat er moet gebeuren als de conditie **niet**
             waar is. Precies één van de twee blokken wordt uitgevoerd.
             """,
             """
@@ -59,8 +60,8 @@ NIVEAU = {
         les(
             "if ... elif ... else",
             """
-            Met `elif` (kort voor *else if*) test je meerdere voorwaarden na elkaar.
-            Python neemt **het eerste blok waarvan de voorwaarde waar is** en
+            Met `elif` (kort voor *else if*) test je meerdere condities na elkaar.
+            Python neemt **het eerste blok waarvan de conditie waar is** en
             slaat de rest over. Zo staat het ook op je spiekbrief:
             *Only the block of first true condition is executed.*
             """,
@@ -78,7 +79,7 @@ NIVEAU = {
         les(
             "and, or, not",
             """
-            Voorwaarden combineren (spiekbrief: *Boolean Logic*):
+            Condities combineren (spiekbrief: *Boolean Logic*):
             - `a and b` is waar als **allebei** waar zijn
             - `a or b` is waar als **minstens één** waar is
             - `not a` draait om: waar wordt onwaar en omgekeerd
@@ -109,6 +110,58 @@ NIVEAU = {
             print("klaar")
             """,
             papier="x is niet groter dan 5, dus beide ingesprongen regels worden overgeslagen.",
+        ),
+
+        les(
+            "De in-operator",
+            """
+            Met `in` test je of een string **in** een andere string voorkomt
+            (cursus 6.1.3). Het resultaat is `True` of `False`. Met `not in`
+            test je het omgekeerde.
+            """,
+            """
+            naam = "Zeb Degrave"
+            print("e" in naam)
+            print("Deg" in naam)
+            print("x" not in naam)
+            """,
+        ),
+        les(
+            "Strings vergelijken",
+            """
+            Je kan ook strings vergelijken met `<` en `>`. Python vergelijkt dan
+            **teken per teken**, zoals in een woordenboek. Daarom is `"3" < "13"`
+            `False`: het eerste teken `"3"` komt na `"1"`.
+
+            Getallen vergelijk je dus als getallen, niet als tekst!
+            """,
+            """
+            print(3 < 13)
+            print("3" < "13")
+            print("appel" < "banaan")
+            """,
+        ),
+        les(
+            "Geneste condities",
+            """
+            Een if mag in een ander if-blok staan (cursus 6.2.6). Het binnenste
+            blok springt dan **twee keer** in. Vaak kan je het ook met `and` of
+            met `elif` schrijven; kies wat het duidelijkst is.
+
+            In je cursus zie je zulke beslissingen ook als **stroomdiagram**
+            (6.2.4): een ruit is een conditie met een ja- en een nee-pijl,
+            een rechthoek is een opdracht.
+            """,
+            """
+            x = 41
+            if x % 7 == 0:
+                print("deelbaar door 7")
+            else:
+                if x % 11 == 0:
+                    print("deelbaar door 11")
+                else:
+                    print("deelbaar door 7 noch 11")
+            """,
         ),
     ],
     "oefeningen": [
@@ -147,7 +200,7 @@ NIVEAU = {
             else:
                 print("klein")
             """,
-            "De voorwaarde is onwaar, dus het else-blok wordt uitgevoerd.",
+            "De conditie is onwaar, dus het else-blok wordt uitgevoerd.",
         ),
         voorspel(
             """
@@ -218,7 +271,7 @@ NIVEAU = {
             if x > 0:
                 print("positief")
             """,
-            "De dubbele punt na de voorwaarde ontbreekt. Op papier vergeet je die snel!",
+            "De dubbele punt na de conditie ontbreekt. Op papier vergeet je die snel!",
         ),
         aanvullen(
             "Vul aan zodat het programma `warm` toont als het 20 graden of meer is, en anders `fris`.",
@@ -306,13 +359,108 @@ NIVEAU = {
                 print("geen schrikkeljaar")
             """,
             """
-            Begin met het **strengste** geval (400), dan 100, dan 4. Het kan ook in één voorwaarde:
+            Begin met het **strengste** geval (400), dan 100, dan 4. Het kan ook in één conditie:
             `if jaar % 4 == 0 and (jaar % 100 != 0 or jaar % 400 == 0):`
             """,
             ptests=[(["2024"], "schrikkeljaar"), (["2023"], "geen schrikkeljaar"),
                     (["1900"], "geen schrikkeljaar"), (["2000"], "schrikkeljaar")],
             tip="Test je oplossing op papier met 2024, 2023, 1900 en 2000.",
             uitdaging=True,
+        ),
+
+        voorspel(
+            """
+            print(3 < 13)
+            print("3" < "13")
+            print("a" in "banaan", "ban" in "banaan", "x" in "banaan")
+            """,
+            """
+            Getallen: 3 is kleiner dan 13. Strings: Python vergelijkt teken per teken,
+            en `"3"` komt na `"1"`, dus False. `in` zoekt een stukje tekst.
+            """,
+            boek="Opgave in 6.1.2",
+        ),
+        voorspel(
+            """
+            x = 12
+            if x > 10:
+                if x % 2 == 0:
+                    print("groot en even")
+                else:
+                    print("groot en oneven")
+            else:
+                print("klein")
+            """,
+            "x > 10 is waar, dus naar het binnenste if. 12 is even: `groot en even`.",
+        ),
+        fout(
+            "Dit programma moet bij een score van 98 de letter `A` geven. Het toont `D`. Welke regel is de oorzaak?",
+            """
+            score = 98
+            if score >= 60:
+                oordeel = "D"
+            elif score >= 70:
+                oordeel = "C"
+            elif score >= 80:
+                oordeel = "B"
+            elif score >= 90:
+                oordeel = "A"
+            else:
+                oordeel = "F"
+            print(oordeel)
+            """,
+            2,
+            """
+            score = 98
+            if score >= 90:
+                oordeel = "A"
+            elif score >= 80:
+                oordeel = "B"
+            elif score >= 70:
+                oordeel = "C"
+            elif score >= 60:
+                oordeel = "D"
+            else:
+                oordeel = "F"
+            print(oordeel)
+            """,
+            """
+            98 is groter dan 60, dus de **eerste** conditie is al waar en de rest wordt
+            overgeslagen. Bij een elif-ketting test je de **strengste** conditie eerst.
+            """,
+            boek="Opgave 6.2",
+        ),
+        schrijf(
+            """
+            Een cijfer ligt tussen 0 en 10 (afgerond op halve punten). Vraag een cijfer
+            (een float) en toon de letter:
+            - 8.5 tot en met 10: `A`
+            - 7.5 en 8: `B`
+            - 6.5 en 7: `C`
+            - 5.5 en 6: `D`
+            - 5 en lager: `F`
+
+            Ligt het cijfer niet tussen 0 en 10, toon dan `Ongeldig cijfer`.
+            """,
+            """
+            cijfer = float(input("Cijfer: "))
+            if cijfer < 0 or cijfer > 10:
+                print("Ongeldig cijfer")
+            elif cijfer >= 8.5:
+                print("A")
+            elif cijfer >= 7.5:
+                print("B")
+            elif cijfer >= 6.5:
+                print("C")
+            elif cijfer >= 5.5:
+                print("D")
+            else:
+                print("F")
+            """,
+            "Eerst de ongeldige cijfers wegfilteren, dan van hoog naar laag.",
+            ptests=[(["9"], "A"), (["8"], "B"), (["6.5"], "C"), (["5.5"], "D"), (["3"], "F"),
+                    (["11"], "Ongeldig cijfer"), (["-1"], "Ongeldig cijfer")],
+            boek="Opgave 6.1",
         ),
     ],
 }
