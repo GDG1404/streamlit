@@ -1103,6 +1103,7 @@ class Dashboard:
         self.v_max = 0.0             # fastest descent (m/s)
         self.climb_max = 0.0         # fastest climb (m/s)
         self.v_desc = []             # descent rate of every DESCENT row
+        self.v_steady = []           # ... of the rows in the steady descent
         self.cd_vals = []            # Cd of each steady descent row (median)
         self.freq_hist = []          # (t, peak frequency) of strong rows
         self.segments = []           # [phase, t_start, t_end] timeline
@@ -1633,6 +1634,8 @@ class Dashboard:
             usual = float(np.median(self.v_desc))
             steady = (len(self.v_desc) >= 5 and
                       abs(v_now - usual) <= STEADY_BAND * usual)
+        if steady:
+            self.v_steady.append(v_now)
         if not (steady and is_number(cd)):
             cd = float("nan")
         else:
@@ -1778,11 +1781,13 @@ class Dashboard:
         else:
             v_txt = "0.0"
         v_sub, v_sub_color = "", C["muted"]
-        if self.v_desc:
-            usual = float(np.median(self.v_desc))
+        if self.v_steady:            # the usual descent rate, once it is steady
+            usual = float(np.median(self.v_steady))
             lo, hi = K.DESCENT_RATE_MS
             v_sub = f"descent: {usual:.1f} m/s · ESA {lo:g}–{hi:g}"
             v_sub_color = C["green"] if lo <= usual <= hi else C["amber"]
+        elif self.v_desc and det == "LANDED":
+            v_sub = f"descent: {np.median(self.v_desc):.1f} m/s (never steady)"
         elif self.climb_max > 0:
             v_sub = f"fastest climb: {self.climb_max:.0f} m/s"
         # vibration: all bands together, and the pattern of this moment
