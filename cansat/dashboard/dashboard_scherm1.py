@@ -10,12 +10,26 @@ The simulator produces rows in EXACTLY the same column order as the
 Teensy firmware (see initSD() in Cansat2027_teensy.ino), so the real
 CSV/serial parser plugs in 1-to-1 later.
 
+Layout: on the left the flight over time (altitude, flight phases and
+vibration history on one time axis), on the right the forces of this
+moment, below the parachute, the gyroscope or the radio signal, and sound.
+
 Panels:
-  - KPI bar with sub-values (apogee, max descent rate, median Cd)
-  - Altitude vs time with apogee marker. A ground test (never higher than
+  - Header: the dot is green while data come in. Live only: after
+    LINK_WARN_S without new data it turns amber ("No data for 4 s"), after
+    LINK_LOST_S red, with a warning in the altitude chart ("NO SIGNAL")
+  - KPI bar with sub-values: altitude (apogee), vertical speed (up in the
+    climb, down under the parachute, with the descent rate ESA asks for),
+    temperature, pressure, vibration (all bands together and the pattern of
+    this moment: quiet, slow, medium, fast or a shock, the same rules as in
+    tools/flight_report.py) and Cd (median)
+  - Altitude vs time with an apogee marker (once the climb is over) and a
+    landing marker with the flight time. A ground test (never higher than
     GROUND_TEST_M above the start) zooms in, so a staircase shows; in
     flight the axis is 0–1100 m
-  - Gyroscope (sliding window)
+  - Flight phases & vibration history: the phases as a bar, and under it
+    one row per frequency band with one cell per measurement, brighter =
+    stronger (log scale). A lost radio packet leaves a hole.
   - Acceleration XYZ plus the PEAK acceleration per log interval
     (LSM6DSO, ±16 g), so short shocks (ejection, parachute) are not
     missed between two log lines; the largest shock is marked
@@ -24,16 +38,24 @@ Panels:
     same FFT (Parseval, window-corrected), with the highest value of the
     flight per band, the strongest frequency and the TOP-5 most frequent
     strong frequencies. Only measured values are shown.
+  - Cd & descent rate on a twin axis. Cd only in the steady descent (speed
+    within STEADY_BAND of the usual descent rate): the formula says
+    drag = weight, which is not so while the parachute opens or the can lands
+  - Gyroscope (sliding window). For radio data: the signal strength (RSSI)
+    of every packet over the flight, the lost packets and how many arrived
+    in the last minute
   - Audio RMS with a CHUTE marker at parachute opening
-  - FLIGHT PHASE TIMELINE: horizontal bar showing the phases over time
-  - Cd & descent rate on a twin axis
 
 Radio data (Pico receiver, see pico/main.py): the radio packet has 19
 values (13 measurements + the FFT: peak strength and the 5 vibration
-bands), plus RSSI and SNR. Panels whose data is not in the packet
-(gyroscope, peak g) say "not in radio packet".
+bands), plus RSSI and SNR. The gyroscope and the peak g are not in the
+packet: the radio signal panel takes the place of the gyroscope, and the
+acceleration panel says "peak g: not in radio packet".
 Text and markers scale with the window, so the layout stays the same on a
 small laptop screen.
+
+Keys (replay and simulator): SPACE = pause, R = play the replay again,
+F = full screen. A replay stays on its last picture at the end.
 
 Requirements:  pip install numpy matplotlib
 Run:           python dashboard_scherm1.py                      (settings below)
@@ -56,6 +78,7 @@ import matplotlib
 
 matplotlib.use("TkAgg")  # default on Windows; change if needed
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap, LogNorm
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 from matplotlib.patches import Rectangle
@@ -77,6 +100,8 @@ DESIGN_SIZE = (15.0, 8.5)   # window size (inches) the layout was drawn for
 AUDIO_MIN_TOP = 0.01  # audio chart: smallest top of the y-axis
 WINDOW_S  = 30       # time window for the small charts (s)
 F_NYQUIST = 208      # LSM6DSO: 416 Hz ODR → usable spectrum 0–208 Hz
+LINK_WARN_S = 3      # live: no new data for this long → amber "last data ... ago"
+LINK_LOST_S = 10     # live: no new data for this long → red "NO DATA"
 
 # ── Data source mode ─────────────────────────────────────────
 # "live"   : follow a GROWING csv that the ground receiver appends to
@@ -121,7 +146,15 @@ PHASE_COLORS = {
     "ASCENT": "#1f6feb",
     "APOGEE": "#9e6a03",
     "DESCENT": "#bc4c00",
-    "LANDED": "#21262d",
+    "LANDED": "#238636",
+}
+# the phase in the header: text and border in the colour of the phase
+PHASE_BADGE = {
+    "PRELAUNCH": "#8b949e",
+    "ASCENT": "#58a6ff",
+    "APOGEE": "#e3b341",
+    "DESCENT": "#ff6b35",
+    "LANDED": "#3fb950",
 }
 
 # Column order — identical to firmware cansat27.csv
@@ -149,6 +182,20 @@ BAND_LABELS = [f"{a}–{b}" for a, b in zip(BAND_EDGES_HZ, BAND_EDGES_HZ[1:])]
 
 FFT_STRONG_G = 0.05  # fft_peak_amp (g) above which a vibration counts as
                      # "strong": a phone vibrating against the can is enough
+# The vibration pattern of one row, from the five bands only: the same
+# rules and names as in the flight report (tools/flight_report.py) and in
+# our FFT lab tests.
+QUIET_G = 0.01       # all bands together below this: quiet
+ALL_BANDS_G = 0.02   # every band at least this, at the same time: a shock
+PATTERNS = ("quiet", "slow · 0–10 Hz", "medium · 10–60 Hz", "fast · 60–208 Hz",
+            "all bands at once: a shock")
+# vibration history (the strip under the altitude chart): colour scale
+VIB_MIN_G, VIB_MAX_G = 0.001, 1.0    # darkest and brightest (log scale)
+STRIP_MAX_BINS = 600                 # at most this many time steps in the strip
+SHOCK_MIN_G = 1.5    # a peak below this is no shock: at rest the sensor reads 1 g
+STEADY_BAND = 0.20   # Cd only in the steady descent: speed within 20 % of the
+                     # usual descent rate (as tools/krachten_analyse.py)
+RSSI_WEAK_DBM, RSSI_BAD_DBM, RSSI_LIMIT_DBM = -100, -110, -120
 ACC_PEAK_MAX_G = 16  # LSM6DSO range in the firmware (±16 g)
 GROUND_TEST_M = 50   # never higher than this above the start: a ground
                      # test. The altitude chart then zooms in, so a
@@ -243,6 +290,25 @@ def time_axis(ax, ref):
     ax.xaxis.set_major_locator(FromRefLocator(ref))
     ax.xaxis.set_major_formatter(
         FuncFormatter(lambda v, _pos: f"{int(round(v - ref()))}"))
+
+
+def duration_text(seconds):
+    """'12 s', and from one minute on '3 min 05 s'."""
+    s = int(max(0.0, seconds))
+    return f"{s} s" if s < 60 else f"{s // 60} min {s % 60:02d} s"
+
+
+def vibration_pattern(bands):
+    """The vibration pattern of one row, from the five bands only: an index
+    in PATTERNS, or None when a band is missing."""
+    if len(bands) == 0 or any(not is_number(b) for b in bands):
+        return None
+    if math.sqrt(sum(b * b for b in bands)) < QUIET_G:
+        return 0                                   # quiet
+    if min(bands) >= ALL_BANDS_G:
+        return 4                                   # all bands at once: a shock
+    j = max(range(len(bands)), key=lambda i: bands[i])
+    return 1 if j == 0 else (2 if j <= 2 else 3)   # slow, medium or fast
 
 
 def from_radio(row):
@@ -590,11 +656,15 @@ class CsvReplay:
     MASS = TelemetrySimulator.MASS
     A_PARA = TelemetrySimulator.A_PARA
     G = TelemetrySimulator.G
+    loop = True       # at the end: start again. False: stay on the last row
+                      # (finished becomes True) until restart() is called.
 
     def __init__(self, path):
         self.rows = []
         with open(path, newline="", encoding="utf-8") as f:
             for r in csv.DictReader(f):
+                if r.get("millis") == "millis":      # header again: the can
+                    continue                         # restarted, not a row
                 row = {}
                 for k, val in r.items():
                     if k == "time_utc":
@@ -636,19 +706,36 @@ class CsvReplay:
         self.label = ("REPLAY: radio data (LoRa)" if from_radio(self.rows[0])
                       else "REPLAY: real flight data")
 
-        self.t = 0.0
+        # The replay clock starts at the first row: the Teensy may have
+        # been on for a long time before the logger started (millis counts
+        # from power-on), and the replay must not wait that long.
+        self.t = self.rows[0]["millis"] / 1000.0
         self.i = 0
         self.v = 0.0          # vertical speed, + = descending (sim convention)
         self.phase = None     # replay has no ground truth
         self._started = False
+        self.finished = False
+
+    def restart(self):
+        """Play the recording again from its first row."""
+        self.t, self.i, self.v = self.rows[0]["millis"] / 1000.0, 0, 0.0
+        self._started = self.finished = False
 
     def fetch(self, dt):
         """Advance the replay clock; returns the rows passed in dt."""
+        if self.finished:
+            return []
         self.t += dt
         target_ms = self.t * 1000.0
         out = []
-        while (self.i + 1 < len(self.rows) and
-               self.rows[self.i + 1]["millis"] <= target_ms):
+        while self.i + 1 < len(self.rows):
+            if self.rows[self.i + 1]["millis"] < self.rows[self.i]["millis"]:
+                # the can restarted in this file: millis starts again, so
+                # the replay clock continues from the new start
+                self.t = self.rows[self.i + 1]["millis"] / 1000.0
+                target_ms, self.v = self.t * 1000.0, 0.0
+            if self.rows[self.i + 1]["millis"] > target_ms:
+                break
             prev, cur = self.rows[self.i], self.rows[self.i + 1]
             dtr = (cur["millis"] - prev["millis"]) / 1000.0
             if dtr > 0:
@@ -657,12 +744,16 @@ class CsvReplay:
             cur[V_KEY] = self.v
             self.i += 1
             out.append(cur)
-        # end of recording → loop (dashboards detect t jumping back)
+        # end of recording → loop (dashboards detect t jumping back), or
+        # stay on the last row
+        if self.i >= len(self.rows) - 1 and not self.loop:
+            self.finished = True
+            return out
         if (self.i >= len(self.rows) - 1 and
                 target_ms > self.rows[-1]["millis"] + 5000):
-            self.t, self.i, self.v = 0.0, 0, 0.0
+            self.t, self.i, self.v = self.rows[0]["millis"] / 1000.0, 0, 0.0
             self.rows[0][V_KEY] = 0.0
-            return [self.rows[0]]
+            return out + [self.rows[0]]
         # first frame: show something immediately
         if not out and not self._started:
             self._started = True
@@ -857,6 +948,7 @@ class PhaseDetector:
     def __init__(self):
         self.phase = "PRELAUNCH"
         self.samples = deque(maxlen=400)     # (t, alt)
+        self.peaks = deque(maxlen=400)       # (t, peak g): the landing shock
         self.ground_alt = None
         self._since = {}                     # condition name -> start time
         self.t_launch = None                 # liftoff (s, Teensy time)
@@ -868,6 +960,24 @@ class PhaseDetector:
             if a - self.ground_alt < 2.0:
                 return ts
         return t
+
+    def _touchdown(self, t):
+        """The landing: the first moment on the ground after the fall, or
+        the landing shock right there when the peak acceleration is known
+        (the same moment as in the flight report). The can is only called
+        LANDED after it has been still for a while."""
+        alt_now = self.samples[-1][1]
+        down, later = None, t
+        for ts, a in reversed(self.samples):
+            if a - alt_now > 2.0:          # here it was still in the air
+                down = later
+                break
+            later = ts
+        if down is None:
+            return self._since.get("still", t)
+        near = [(g, ts) for ts, g in self.peaks
+                if down - 3.0 <= ts <= down + 1.5 and g > K.IMPACT_G]
+        return max(near)[1] if near else down
 
     def _sustained(self, name, cond, t, dur):
         """True once `cond` has been continuously true for `dur` s."""
@@ -893,6 +1003,9 @@ class PhaseDetector:
         """Feed one telemetry row; returns the current phase."""
         alt = row["alt_m"]
         self.samples.append((t, alt))
+        peak = row.get("acc_peak_g")
+        if is_number(peak):
+            self.peaks.append((t, peak))
 
         # ground reference: slow follower while on the ground
         if self.ground_alt is None:
@@ -926,13 +1039,20 @@ class PhaseDetector:
                     "still", abs(rate) < self.LAND_RATE,
                     t, self.LAND_SUSTAIN):
                 self.phase = "LANDED"
-                self.t_landed = self._since.get("still", t)
+                self.t_landed = self._touchdown(t)
         return self.phase
 
 
 # ═════════════════════════════════════════════════════════════
 #  DASHBOARD
 # ═════════════════════════════════════════════════════════════
+N_BANDS = len(BAND_COLUMNS)
+# vibration history: from the panel colour (quiet) to bright (strong)
+VIB_CMAP = LinearSegmentedColormap.from_list(
+    "vib", ["#222b37", "#4a3a10", "#a37a17", "#e3b341", "#fff1b8"])
+VIB_CMAP.set_bad(C["bg"])              # no data: a lost packet, an old file
+
+
 class Dashboard:
     N_FREQ_BINS = 52     # histogram bins for the top-5 frequencies
     N_TOP = 5            # number of marked dominant frequencies
@@ -941,28 +1061,57 @@ class Dashboard:
 
     def __init__(self):
         self.sim = make_source()
-        self.detector = PhaseDetector()
+        self.live = isinstance(self.sim, CsvLive)
+        self.replay = isinstance(self.sim, CsvReplay)
+        if self.replay:
+            self.sim.loop = False       # stay on the last picture (R = again)
         self.hist = {k: deque(maxlen=4000) for k in
                      ("t", "alt", "ax", "ay", "az", "gx", "gy", "gz",
-                      "audio", "cd", "v", "apk")}
-        self.band_max = np.zeros(len(BAND_COLUMNS))  # highest per band
+                      "audio", "cd", "v", "apk", "rssi", "bands")}
+        self.seg_artists = []
+        self.paused = False
+        self._wall = None        # wall-clock pacing for real-time replay
+        self._changed = False    # new data since the last frame?
+        self._rx_wall = None     # wall-clock time of the last new data
+        self._t_open = time.monotonic()
+        self._link_shown = None  # what the header says about the data link
+        self._rssi_text, self._rssi_color = "", C["green"]
+        self._radio_panel = False
+        self._reset_run()
+        if self.live:            # an old file: say at once how old the data are
+            try:
+                age = max(0.0, time.time() - os.path.getmtime(self.sim.path))
+                self._rx_wall = self._t_open - age
+            except OSError:
+                pass
+        self._build_figure()
+        for ax in (self.ax_alt, self.ax_acc, self.ax_gyro, self.ax_radio,
+                   self.ax_aud, self.ax_phase, self.ax_cd):
+            time_axis(ax, self.time_ref)
+        self.fig.canvas.mpl_connect("key_press_event", self._on_key)
+
+    def _reset_run(self):
+        """Everything that belongs to one run of the can (cleared when it
+        restarts, when a replay starts again and in the demo loop)."""
+        for d in self.hist.values():
+            d.clear()
+        self.detector = PhaseDetector()
+        self.band_max = np.zeros(N_BANDS)       # highest per band
         self.shock_g, self.t_shock = 0.0, 0.0   # largest peak this flight
         self.apogee = 0.0
         self.t_apogee = 0.0
-        self.v_max = 0.0
-        self.cd_vals = []    # Cd of each descent row (median on screen)
+        self.v_max = 0.0             # fastest descent (m/s)
+        self.climb_max = 0.0         # fastest climb (m/s)
+        self.v_desc = []             # descent rate of every DESCENT row
+        self.cd_vals = []            # Cd of each steady descent row (median)
         self.freq_hist = []          # (t, peak frequency) of strong rows
         self.segments = []           # [phase, t_start, t_end] timeline
-        self.seg_artists = []
         self.t_chute = None
         self.pkt_rx = 0
-        self.t_first = None      # time of the first row (Teensy time, s)
-        self._wall = None        # wall-clock pacing for real-time replay
-        self._changed = False    # new data since the last frame?
-        self._build_figure()
-        for ax in (self.ax_alt, self.ax_acc, self.ax_gyro, self.ax_aud,
-                   self.ax_phase, self.ax_cd):
-            time_axis(ax, self.time_ref)
+        self.pkt_lost = 0            # estimated from gaps in the stream
+        self.lost_t = deque(maxlen=2000)   # when (for the radio chart)
+        self._dts = []               # the last row intervals
+        self.t_first = None          # time of the first row (Teensy time, s)
 
     # ── time on screen ──
     def time_ref(self):
@@ -992,12 +1141,31 @@ class Dashboard:
         for s in ax.spines.values():
             s.set_color(C["border"])
             s.set_linewidth(0.8)
-        ax.tick_params(colors=C["dim"], labelsize=7)
+        ax.tick_params(colors=C["dim"], labelsize=7.5, labelcolor=C["muted"])
         ax.grid(True, color=C["grid"], linewidth=0.5)
         if title:
-            ax.set_title(title, loc="left", fontsize=8,
+            ax.set_title(title, loc="left", fontsize=9,
                          color=title_color or C["muted"],
                          fontfamily="monospace", pad=4)
+
+    def _note(self, ax, x, y, **kw):
+        """Text inside a panel on a dark plate, so no line runs through it."""
+        kw.setdefault("fontsize", 7.5)
+        kw.setdefault("color", C["text"])
+        return ax.text(x, y, "", transform=ax.transAxes, zorder=6,
+                       bbox=dict(boxstyle="round,pad=0.25", fc=C["panel"],
+                                 ec="none", alpha=0.9), **kw)
+
+    def _title_text(self):
+        s = self.sim.label
+        if not self.live:
+            if self.paused:
+                s += " · paused"
+            elif getattr(self.sim, "finished", False):
+                s += " · ended"
+            elif SIM_SPEED != 1:
+                s += f" · ×{SIM_SPEED:g}"
+        return f"Screen 1 — Flight Data & Sensors ({s})"
 
     def _build_figure(self):
         plt.rcParams.update({
@@ -1005,69 +1173,98 @@ class Dashboard:
             "text.color": C["text"],
             "axes.labelcolor": C["muted"],
         })
-        self.fig = plt.figure(figsize=(15, 8.5), facecolor=C["bg"])
+        # matplotlib's own shortcuts would change a chart by accident (L:
+        # log scale, G: grid) or close the window (Q). F (full screen) and
+        # S (save a picture) stay.
+        for key in plt.rcParams:
+            if key.startswith("keymap.") and key not in (
+                    "keymap.fullscreen", "keymap.save", "keymap.copy"):
+                plt.rcParams[key] = []
+        self.fig = plt.figure(figsize=DESIGN_SIZE, facecolor=C["bg"])
         self.fig.canvas.manager.set_window_title(
             "CanSat 2027 — Screen 1 · Flight Data & Sensors")
 
         # ── header ──
-        self.fig.text(0.02, 0.965, "CanSat 2027", fontsize=14,
+        self.fig.text(0.02, 0.962, "CanSat 2027", fontsize=14,
                       fontweight="bold", color=C["text"])
-        self.fig.text(0.115, 0.965, "● ", fontsize=10, color=C["green"])
-        self.txt_title = self.fig.text(
-            0.13, 0.965, f"Screen 1 — Flight Data & Sensors ({self.sim.label})",
-            fontsize=9, color=C["muted"])
-        self.txt_rssi = self.fig.text(0.66, 0.965, "RSSI —", fontsize=9,
+        # the dot: green = data come in, amber/red = not any more
+        self.txt_dot = self.fig.text(0.117, 0.962, "●", fontsize=11,
+                                     color=C["dim"])
+        self.txt_title = self.fig.text(0.132, 0.962, self._title_text(),
+                                       fontsize=9.5, color=C["muted"])
+        self.txt_rssi = self.fig.text(0.705, 0.962, "", fontsize=9.5,
                                       color=C["green"], ha="right")
-        self.txt_pkt = self.fig.text(0.79, 0.965, "packet #0", fontsize=8,
+        self.txt_pkt = self.fig.text(0.80, 0.962, "packet #0", fontsize=8.5,
                                      color=C["muted"], ha="right")
-        self.txt_phase = self.fig.text(0.86, 0.965, "PRELAUNCH", fontsize=10,
-                                       color=C["amber"], ha="right",
+        self.txt_phase = self.fig.text(0.887, 0.962, "PRELAUNCH", fontsize=10.5,
+                                       color=PHASE_BADGE["PRELAUNCH"], ha="right",
                                        bbox=dict(boxstyle="round,pad=0.3",
-                                                 fc="none", ec=C["amber"]))
-        self.txt_clock = self.fig.text(0.97, 0.965, "00:00", fontsize=12,
+                                                 fc="none",
+                                                 ec=PHASE_BADGE["PRELAUNCH"]))
+        self.txt_clock = self.fig.text(0.98, 0.962, "00:00", fontsize=13,
                                        color=C["cyan"], ha="right")
         # detected phase vs simulator ground truth (transition latency
         # of the detector shows up here as a brief mismatch)
-        self.txt_truth = self.fig.text(0.86, 0.945, "", fontsize=7,
+        self.txt_truth = self.fig.text(0.887, 0.938, "", fontsize=7,
                                        color=C["dim"], ha="right")
+        if not self.live:
+            self.fig.text(0.02, 0.008, "SPACE = pause" + (
+                " · R = play again" if self.replay else "")
+                + " · F = full screen", fontsize=7, color=C["dim"])
 
         # ── KPI bar (value + sub-value) ──
         kpis = [("ALTITUDE", "m", C["cyan"]),
-                ("TEMPERATURE", "°C", C["amber"]),
+                ("VERTICAL SPEED", "m/s", C["blue"]),
+                ("TEMPERATURE", "°C", C["text"]),
                 ("PRESSURE", "hPa", C["text"]),
-                ("DESCENT RATE", "m/s", C["blue"]),
+                ("VIBRATION", "g", C["amber"]),
                 ("CD DRAG COEFFICIENT", "", C["green"])]     # no unit
         self.txt_kpi, self.txt_kpi_sub = [], []
         for i, (label, unit, col) in enumerate(kpis):
-            x = 0.02 + i * 0.196
-            self.fig.text(x, 0.928, label, fontsize=7, color=C["dim"])
-            v = self.fig.text(x, 0.888, "—", fontsize=18, fontweight="bold",
+            x = 0.02 + i * 0.162
+            self.fig.text(x, 0.922, label, fontsize=8, color=C["muted"])
+            v = self.fig.text(x, 0.881, "—", fontsize=20, fontweight="bold",
                               color=col)
-            add_unit(self.fig, v, unit, C["muted"])
-            sub = self.fig.text(x, 0.866, "", fontsize=7, color=C["dim"])
+            add_unit(self.fig, v, unit, C["muted"], size=9)
+            sub = self.fig.text(x, 0.858, "", fontsize=7.5, color=C["muted"])
             self.txt_kpi.append(v)
             self.txt_kpi_sub.append(sub)
 
-        # ── panel grid (extra thin row for the phase timeline) ──
-        gs = GridSpec(4, 6, figure=self.fig,
-                      left=0.05, right=0.985, top=0.845, bottom=0.05,
-                      hspace=0.55, wspace=0.45,
-                      height_ratios=[32, 24, 7, 19])
+        # ── panels: on the left the flight over time (altitude, phases and
+        #    vibration history on one time axis), on the right the forces
+        #    of this moment, below the parachute, the gyroscope or the
+        #    radio signal, and the sound ──
+        gs = GridSpec(3, 6, figure=self.fig,
+                      left=0.055, right=0.962, top=0.822, bottom=0.07,
+                      hspace=0.36, wspace=0.62,
+                      height_ratios=[36, 25, 23])
 
         # Row 1: altitude (wide) + acceleration
         self.ax_alt = self.fig.add_subplot(gs[0, :4])
-        self._style_axes(self.ax_alt, "● ALTITUDE VS TIME  [LIVE]", C["cyan"])
+        self._style_axes(self.ax_alt, "● ALTITUDE VS TIME (m above the start)",
+                         C["cyan"])
         self.ln_alt, = self.ax_alt.plot([], [], color=C["cyan"], lw=2)
         self.fill_alt = None
         self.ln_apogee = self.ax_alt.axvline(np.nan, color=C["amber"], lw=1,
                                              ls="--", alpha=0.6)
-        self.txt_apogee = self.ax_alt.text(0, 0, "", fontsize=7,
+        self.txt_apogee = self.ax_alt.text(0, 0, "", fontsize=8,
                                            color=C["amber"], visible=False)
+        self.ln_landed = self.ax_alt.axvline(np.nan, color=C["green"], lw=1,
+                                             ls="--", alpha=0.7)
+        self.txt_landed = self.ax_alt.text(
+            0, 0.92, "", fontsize=8, color=C["green"], ha="right",
+            transform=self.ax_alt.get_xaxis_transform())
         self.ax_alt.set_ylim(0, self.sim.h_max * 1.12)
-        self.ax_alt.set_ylabel("m", fontsize=7)
         # says why the axis is small during a ground test
         self.txt_alt_zoom = self.ax_alt.set_title(
-            "", loc="right", fontsize=7, color=C["dim"], pad=4)
+            "", loc="right", fontsize=7.5, color=C["muted"], pad=4)
+        # live: the data stopped coming in
+        self.txt_warn = self.ax_alt.text(
+            0.5, 0.86, "", fontsize=13, fontweight="bold", color=C["red"],
+            ha="center", va="top", linespacing=1.5, zorder=7,
+            transform=self.ax_alt.transAxes,
+            bbox=dict(boxstyle="round,pad=0.5", fc="#2d1215", ec=C["red"]))
+        self.txt_warn.set_visible(False)
 
         self.ax_acc = self.fig.add_subplot(gs[0, 4:])
         self._style_axes(self.ax_acc, "● ACCELERATION (m/s²)", C["blue"])
@@ -1078,113 +1275,196 @@ class Dashboard:
         # peak |a| per log interval (LSM6DSO, incl. gravity: rest = 1 g)
         self.ax_pk = self.ax_acc.twinx()
         self.ax_pk.set_ylim(0, ACC_PEAK_MAX_G)
-        self.ax_pk.tick_params(colors=C["text"], labelsize=7)
+        self.ax_pk.tick_params(colors=C["text"], labelsize=7.5)
         for sp in self.ax_pk.spines.values():
             sp.set_color(C["border"])
-        self.ax_pk.set_ylabel("peak g", fontsize=7, color=C["text"])
+        self.ax_pk.set_ylabel("peak g", fontsize=7.5, color=C["text"],
+                              labelpad=2)
         self.ln_pk, = self.ax_pk.plot([], [], color=C["text"], lw=1.2,
                                       ls="--", label="peak (g)")
-        self.txt_shock = self.ax_acc.text(0.02, 0.88, "", fontsize=7,
-                                          color=C["text"],
-                                          transform=self.ax_acc.transAxes)
+        self.txt_shock = self._note(self.ax_pk, 0.02, 0.89)
         lines = [self.ln_ax, self.ln_ay, self.ln_az, self.ln_pk]
-        self.ax_acc.legend(lines, [l.get_label() for l in lines],
-                           loc="upper right", fontsize=6, frameon=False,
-                           labelcolor=C["muted"], ncol=2)
+        leg = self.ax_pk.legend(lines, [l.get_label() for l in lines],
+                                loc="upper right", fontsize=7, ncol=2,
+                                labelcolor=C["muted"], facecolor=C["panel"],
+                                edgecolor="none", framealpha=0.85,
+                                borderpad=0.3, columnspacing=1.0)
+        leg.set_zorder(6)
 
-        # Row 2: gyro + FFT + audio
-        self.ax_gyro = self.fig.add_subplot(gs[1, :2])
-        self._style_axes(self.ax_gyro, "● GYROSCOPE (°/s)", C["purple"])
-        self.ln_gx, = self.ax_gyro.plot([], [], color=C["purple"], lw=1.2, label="X")
-        self.ln_gy, = self.ax_gyro.plot([], [], color=C["blue"], lw=1.2, label="Y")
-        self.ln_gz, = self.ax_gyro.plot([], [], color=C["green"], lw=1.2, label="Z")
-        self.ax_gyro.set_ylim(-50, 150)
-        self.ax_gyro.legend(loc="upper right", fontsize=6, frameon=False,
-                            labelcolor=C["muted"])
-        # shown when there is nothing to draw (radio: not in the packet)
-        self.txt_gyro_note = self.ax_gyro.text(
-            0.5, 0.5, "", fontsize=8, color=C["muted"], ha="center",
-            va="center", transform=self.ax_gyro.transAxes)
+        # Row 2: flight phases + vibration history (the same time axis as
+        # the altitude chart above it) + the vibration of this moment
+        self.ax_phase = self.fig.add_subplot(gs[1, :4])
+        self._style_axes(
+            self.ax_phase,
+            "● FLIGHT PHASES & VIBRATION HISTORY  "
+            "(g RMS per band · brighter = stronger)", C["amber"])
+        self.mesh_vib = None         # drawn in _draw_strip
+        self.vib_norm = LogNorm(VIB_MIN_G, VIB_MAX_G, clip=True)
+        self.ax_phase.set_autoscale_on(False)
+        self.ax_phase.grid(False)
+        self.ax_phase.set_ylim(0, N_BANDS + 1.3)
+        self.ax_phase.set_yticks([i + 0.5 for i in range(N_BANDS)]
+                                 + [N_BANDS + 0.72])
+        self.ax_phase.set_yticklabels(BAND_LABELS + ["phase"], fontsize=7)
+        self.ax_phase.tick_params(axis="y", length=0)
+        self.ax_phase.set_ylabel("band (Hz)", fontsize=7.5, labelpad=2)
+        for i in range(1, N_BANDS + 1):          # a thin line between the rows
+            self.ax_phase.axhline(i, color=C["bg"], lw=1, zorder=2)
+        self.ln_phase_now = self.ax_phase.axvline(0, color=C["text"], lw=1.2,
+                                                  zorder=5)
+        # shown when the bands are missing (old radio packet, old file)
+        self.txt_strip_note = self.ax_phase.text(
+            0.5, 0.5 * N_BANDS / (N_BANDS + 1.3), "", fontsize=8,
+            color=C["muted"], ha="center", va="center",
+            transform=self.ax_phase.transAxes, zorder=6)
 
-        self.ax_fft = self.fig.add_subplot(gs[1, 2:4])
-        self._style_axes(self.ax_fft,
-                         "● VIBRATION PER BAND (measured · g RMS)",
+        self.ax_fft = self.fig.add_subplot(gs[1, 4:])
+        self._style_axes(self.ax_fft, "● VIBRATION PER BAND (g RMS)",
                          C["amber"])
         # one bar per frequency band = latest measurement; the grey tick
         # is the highest value of this flight. Log scale: from sensor
-        # noise (~0.001 g) up to strong vibration (several g).
-        xb = np.arange(len(BAND_COLUMNS))
-        self.band_bars = self.ax_fft.bar(xb, np.full(len(xb), 1e-4),
-                                         width=0.65, color=C["amber"])
+        # noise (~0.001 g) up to strong vibration (several g). The top of
+        # the axis is kept free for the text.
+        xb = np.arange(N_BANDS)
+        self.band_bars = self.ax_fft.bar(xb, np.full(len(xb), 1e-5),
+                                         width=0.65, color=C["amber"],
+                                         zorder=3)
         self.band_max_marks, = self.ax_fft.plot(
-            xb, np.full(len(xb), np.nan), "_", color=C["muted"], ms=18, mew=2)
-        self.band_texts = [self.ax_fft.text(x, 1e-4, "", fontsize=6,
+            xb, np.full(len(xb), np.nan), "_", color=C["muted"], ms=20, mew=2,
+            zorder=4)
+        self.band_texts = [self.ax_fft.text(x, 1e-4, "", fontsize=7,
                                             color=C["text"], ha="center",
-                                            va="bottom") for x in xb]
+                                            va="bottom", zorder=5) for x in xb]
         self.ax_fft.set_yscale("log")
-        self.ax_fft.set_ylim(5e-4, 5)
+        self.ax_fft.set_ylim(1e-4, 30)
+        self.ax_fft.set_yticks([0.001, 0.01, 0.1, 1, 10])
+        self.ax_fft.set_yticklabels(["0.001", "0.01", "0.1", "1", "10"])
+        self.ax_fft.minorticks_off()
+        self.ax_fft.grid(axis="x", visible=False)
         self.ax_fft.set_xticks(xb)
-        self.ax_fft.set_xticklabels(BAND_LABELS, fontsize=6)
-        self.ax_fft.set_xlabel("frequency band (Hz)", fontsize=7)
-        self.ax_fft.set_ylabel("g RMS", fontsize=7)
-        self.txt_fftpeak = self.ax_fft.text(0.98, 0.90, "", fontsize=7,
-                                            color=C["amber"], ha="right",
-                                            transform=self.ax_fft.transAxes)
+        self.ax_fft.set_xticklabels(BAND_LABELS, fontsize=7.5)
+        self.ax_fft.set_xlabel("frequency band (Hz)", fontsize=7.5, labelpad=2)
+        # top right: the strongest vibration of this moment
+        self.txt_fftpeak = self.ax_fft.set_title(
+            "", loc="right", fontsize=8, color=C["amber"], pad=4)
         # top-5 most frequent strong frequencies of this flight
-        self.txt_top = self.ax_fft.text(0.98, 0.79, "", fontsize=6,
+        self.txt_top = self.ax_fft.text(0.985, 0.90, "", fontsize=7,
                                         color=C["blue"], ha="right",
-                                        transform=self.ax_fft.transAxes)
+                                        transform=self.ax_fft.transAxes,
+                                        zorder=6)
+        # shown when the bands are missing (old radio packet, old file)
+        self.txt_band_note = self.ax_fft.text(
+            0.5, 0.5, "", fontsize=8, color=C["muted"], ha="center",
+            va="center", transform=self.ax_fft.transAxes)
 
-        self.ax_aud = self.fig.add_subplot(gs[1, 4:])
-        self._style_axes(self.ax_aud, "● AUDIO RMS", C["orange"])
-        self.ln_aud, = self.ax_aud.plot([], [], color=C["orange"], lw=1.5)
-        # y-axis scales with the sound (real values are small: ~0.003
-        # in a quiet room, a clap averaged over 1 s maybe 0.02)
-        self.ax_aud.set_ylim(0, AUDIO_MIN_TOP)
-        self.txt_aud = self.ax_aud.text(0.5, 0.85, "", fontsize=13,
-                                        fontweight="bold", color=C["orange"],
-                                        ha="center",
-                                        transform=self.ax_aud.transAxes)
-        self.ln_chute = self.ax_aud.axvline(np.nan, color=C["amber"], lw=1,
-                                            ls="--", alpha=0.8)
-        self.txt_chute = self.ax_aud.text(0, 0.9, "", fontsize=6,
-                                          color=C["amber"], rotation=90,
-                                          va="top",
-                                          transform=self.ax_aud.get_xaxis_transform())
-
-        # Row 3: flight phase timeline (the bar nobody else shows)
-        self.ax_phase = self.fig.add_subplot(gs[2, :])
-        self._style_axes(self.ax_phase, "● FLIGHT PHASE TIMELINE", C["amber"])
-        self.ax_phase.set_ylim(0, 1)
-        self.ax_phase.set_yticks([])
-        self.ax_phase.grid(False)
-        self.ln_phase_now = self.ax_phase.axvline(0, color=C["text"], lw=1.5)
-
-        # Row 4: Cd & descent rate (twin y-axis)
-        self.ax_cd = self.fig.add_subplot(gs[3, :])
+        # Row 3: Cd & descent rate + gyroscope / radio signal + audio
+        self.ax_cd = self.fig.add_subplot(gs[2, :2])
         self._style_axes(self.ax_cd,
                          "● DRAG COEFFICIENT CD & DESCENT RATE",
                          C["green"])
         self.ln_cd, = self.ax_cd.plot([], [], color=C["green"], lw=1.8,
                                       label="Cd (−)")
         self.ax_cd.set_ylim(0, 1.5)
-        self.ax_cd.tick_params(axis="y", colors=C["green"])
+        self.ax_cd.tick_params(axis="y", colors=C["green"],
+                               labelcolor=C["green"])
         self.ax_v = self.ax_cd.twinx()
         self.ax_v.set_facecolor("none")
         for s in self.ax_v.spines.values():
             s.set_color(C["border"])
-        self.ax_v.tick_params(colors=C["blue"], labelsize=7)
+        self.ax_v.tick_params(colors=C["blue"], labelsize=7.5)
         self.ln_v, = self.ax_v.plot([], [], color=C["blue"], lw=1.5,
                                     ls="--", label="v (m/s)")
         self.ax_v.set_ylim(0, 40)
-        self.ax_cd.set_xlabel("time since start (s)", fontsize=7)
+        # the descent rate ESA asks for
+        lo, hi = K.DESCENT_RATE_MS
+        self.ax_v.axhspan(lo, hi, color=C["blue"], alpha=0.10, lw=0)
+        self.ax_v.text(0.015, (lo + hi) / 2, f"ESA {lo:g}–{hi:g} m/s",
+                       fontsize=7, color=C["blue"], va="center",
+                       transform=self.ax_v.get_yaxis_transform())
+        self.txt_cd_note = self.ax_cd.text(
+            0.5, 0.56, "", fontsize=8, color=C["muted"], ha="center",
+            va="center", linespacing=1.5, transform=self.ax_cd.transAxes)
         lines = [self.ln_cd, self.ln_v]
-        self.ax_cd.legend(lines, [l.get_label() for l in lines],
-                          loc="upper right", fontsize=7, frameon=False,
-                          labelcolor=C["muted"])
+        self.ax_v.legend(lines, [l.get_label() for l in lines],
+                         loc="upper right", fontsize=7, frameon=False,
+                         labelcolor=C["muted"])
+
+        self.ax_gyro = self.fig.add_subplot(gs[2, 2:4])
+        self._style_axes(self.ax_gyro, "● GYROSCOPE (°/s)", C["purple"])
+        self.ln_gx, = self.ax_gyro.plot([], [], color=C["purple"], lw=1.2, label="X")
+        self.ln_gy, = self.ax_gyro.plot([], [], color=C["blue"], lw=1.2, label="Y")
+        self.ln_gz, = self.ax_gyro.plot([], [], color=C["green"], lw=1.2, label="Z")
+        self.ax_gyro.set_ylim(-50, 150)
+        self.ax_gyro.legend(loc="upper right", fontsize=7, frameon=False,
+                            labelcolor=C["muted"], ncol=3, columnspacing=1.0)
+        # shown when there is nothing to draw
+        self.txt_gyro_note = self.ax_gyro.text(
+            0.5, 0.5, "", fontsize=8, color=C["muted"], ha="center",
+            va="center", transform=self.ax_gyro.transAxes)
+
+        # The same place, for radio data: the gyroscope is not in the radio
+        # packet, the signal strength is. One dot per packet.
+        self.ax_radio = self.fig.add_subplot(gs[2, 2:4])
+        self._style_axes(self.ax_radio, "● RADIO SIGNAL (RSSI, dBm)",
+                         C["green"])
+        self.ln_rssi, = self.ax_radio.plot([], [], color=C["green"], lw=1.2,
+                                           marker="o", ms=2.5)
+        self.ln_lost, = self.ax_radio.plot([], [], "|", color=C["red"],
+                                           ms=7, mew=1.2)
+        self.ax_radio.set_ylim(-132, -20)
+        self.ax_radio.set_yticks([-120, -100, -80, -60, -40])
+        self.ax_radio.axhline(RSSI_LIMIT_DBM, color=C["red"], lw=1,
+                              ls="--", alpha=0.7)
+        self.ax_radio.text(0.985, RSSI_LIMIT_DBM + 2, "limit of the radio",
+                           fontsize=7, color=C["red"], ha="right", va="bottom",
+                           transform=self.ax_radio.get_yaxis_transform())
+        self.txt_link = self._note(self.ax_radio, 0.02, 0.89)
+        self.ax_radio.set_visible(False)
+
+        self.ax_aud = self.fig.add_subplot(gs[2, 4:])
+        self._style_axes(self.ax_aud, "● AUDIO RMS", C["orange"])
+        self.ln_aud, = self.ax_aud.plot([], [], color=C["orange"], lw=1.5)
+        # y-axis scales with the sound (real values are small: ~0.003
+        # in a quiet room, a clap averaged over 1 s maybe 0.02)
+        self.ax_aud.set_ylim(0, AUDIO_MIN_TOP)
+        self.txt_aud = self.ax_aud.text(0.5, 0.84, "", fontsize=13,
+                                        fontweight="bold", color=C["orange"],
+                                        ha="center",
+                                        transform=self.ax_aud.transAxes)
+        self.ln_chute = self.ax_aud.axvline(np.nan, color=C["amber"], lw=1,
+                                            ls="--", alpha=0.8)
+        # clip_on: outside the time window the label must not show up on
+        # top of another panel
+        self.txt_chute = self.ax_aud.text(0, 0.9, "", fontsize=7,
+                                          color=C["amber"], rotation=90,
+                                          va="top", clip_on=True,
+                                          transform=self.ax_aud.get_xaxis_transform())
+        self.time_labels = [ax.xaxis.label for ax in
+                            (self.ax_cd, self.ax_gyro, self.ax_radio,
+                             self.ax_aud)]
+        for lab in self.time_labels:
+            lab.set_fontsize(7.5)
+            lab.set_text("time since start (s)")
+        for ax in (self.ax_cd, self.ax_gyro, self.ax_radio, self.ax_aud):
+            ax.xaxis.labelpad = 2
 
         # text and markers scale with the window (13-inch laptop, ...)
         self.fit = WindowFit(self.fig)
+
+    # ── keys: pause a replay, play it again ──
+    def _on_key(self, event):
+        key = (event.key or "").lower()
+        if self.live:
+            return
+        if key in (" ", "space"):
+            self.paused = not self.paused
+        elif key == "r" and self.replay:
+            self.sim.restart()
+            self.paused = False
+        else:
+            return
+        self.txt_title.set_text(self._title_text())
+        self.fig.canvas.draw_idle()
 
     # ── phase timeline ──
     def _track_phase(self, t, ph):
@@ -1199,21 +1479,74 @@ class Dashboard:
         for art in self.seg_artists:
             art.remove()
         self.seg_artists = []
-        xspan = x1 - x0
-        for ph, t0, t1 in self.segments:
-            rect = Rectangle((t0, 0.18), max(t1 - t0, 0.1), 0.64,
+        y0, height = N_BANDS + 0.22, 1.0
+        for k, (ph, t0, t1) in enumerate(self.segments):
+            # up to the start of the next phase: no holes in the bar
+            if k + 1 < len(self.segments):
+                t1 = self.segments[k + 1][1]
+            rect = Rectangle((t0, y0), max(t1 - t0, 0.1), height,
                              facecolor=PHASE_COLORS.get(ph, C["dim"]),
-                             edgecolor="none")
+                             edgecolor="none", zorder=3)
             self.ax_phase.add_patch(rect)
             self.seg_artists.append(rect)
-            if (t1 - t0) / xspan > 0.07:        # label only if wide enough
-                tx = self.ax_phase.text(0.5 * (t0 + t1), 0.5, ph,
-                                        fontsize=6.5 * self.fit.f,
-                                        color=C["text"],
-                                        ha="center", va="center")
+            a, b = max(t0, x0), min(t1, x1)      # the part that is in view
+            # the label only where it fits (~1 % of the width per letter)
+            if b > a and (b - a) / (x1 - x0) > 0.0105 * (len(ph) + 2):
+                tx = self.ax_phase.text(0.5 * (a + b), y0 + height / 2, ph,
+                                        fontsize=7.5 * self.fit.f,
+                                        color=C["text"], ha="center",
+                                        va="center", zorder=4)
                 self.seg_artists.append(tx)
         self.ax_phase.set_xlim(x0, x1)
         self.ln_phase_now.set_xdata([t_end, t_end])
+
+    def _draw_strip(self, x0, x1):
+        """Vibration history: one row per band, one cell per measurement.
+        A lost packet leaves a hole. A long recording gets wider cells,
+        each with the highest value in it, so a short shock stays visible."""
+        if self.mesh_vib is not None:
+            self.mesh_vib.remove()
+            self.mesh_vib = None
+        ts = np.array(self.hist["t"])
+        if len(ts) == 0:
+            return
+        vals = np.array(self.hist["bands"], dtype=float)       # rows × bands
+        nominal = float(np.median(self._dts)) if self._dts else 1.0
+        nominal = nominal if nominal > 0 else 1.0
+        keep = (ts >= x0 - nominal) & (ts <= x1 + nominal)
+        ts, vals = ts[keep], vals[keep]
+        if len(ts) == 0 or not np.isfinite(vals).any():
+            self.txt_strip_note.set_text(
+                "" if len(ts) == 0 else "no band data: " + (
+                    "not in this radio packet" if is_number(self.hist["rssi"][-1])
+                    else "not in this file"))
+            return
+        self.txt_strip_note.set_text("")
+        k = int(math.ceil(len(ts) / STRIP_MAX_BINS))            # rows per cell
+        if k > 1:
+            pad = -len(ts) % k
+            ts = np.concatenate([ts, np.full(pad, ts[-1])])
+            vals = np.concatenate([vals, np.full((pad, N_BANDS), np.nan)])
+            first, last = ts[::k], ts[k - 1::k]
+            vals = np.fmax.reduce(vals.reshape(-1, k, N_BANDS), axis=1)
+        else:
+            first = last = ts
+        half = nominal / 2
+        edges, cols = [first[0] - half], []
+        hole = np.full(N_BANDS, np.nan)
+        for i in range(len(first)):
+            cols.append(vals[i])
+            if i + 1 == len(first):
+                edges.append(last[i] + half)
+            elif first[i + 1] - last[i] <= 1.5 * nominal:      # the next row
+                edges.append((last[i] + first[i + 1]) / 2)
+            else:                                              # rows are missing
+                edges += [last[i] + half, first[i + 1] - half]
+                cols.append(hole)
+        grid = np.ma.masked_invalid(np.array(cols).T)          # bands × cells
+        self.mesh_vib = self.ax_phase.pcolormesh(
+            np.array(edges), np.arange(N_BANDS + 1), grid, cmap=VIB_CMAP,
+            norm=self.vib_norm, shading="flat", zorder=1)
 
     # ── top-5 dominant frequencies ──
     def _update_top_freqs(self):
@@ -1248,24 +1581,26 @@ class Dashboard:
         cd = self.sim.drag_coefficient(row)
         t = row["millis"] / 1000.0
 
-        # restart detection (demo loop / can reboot)
+        # restart detection (demo loop / can reboot / replay again)
         if self.hist["t"] and t < self.hist["t"][-1]:
-            for d in self.hist.values():
-                d.clear()
-            self.apogee = self.v_max = 0.0
-            self.cd_vals = []
-            self.freq_hist.clear()
-            self.shock_g, self.t_shock = 0.0, 0.0
-            self.band_max[:] = 0.0
-            self.segments.clear()
-            self.t_chute = None
-            self.pkt_rx = 0
+            self._reset_run()
             self.ln_chute.set_xdata([np.nan, np.nan])
             self.txt_chute.set_text("")
-            self.detector = PhaseDetector()
-            self.t_first = None
         if self.t_first is None:
             self.t_first = t
+
+        # lost rows, estimated from gaps in the stream relative to the
+        # normal row interval (as screen 2 does)
+        if self.hist["t"]:
+            gap = t - self.hist["t"][-1]
+            if self._dts:
+                nominal = float(np.median(self._dts))
+                if nominal > 0 and gap > 1.5 * nominal:
+                    n_lost = max(0, round(gap / nominal) - 1)
+                    self.pkt_lost += n_lost
+                    for k in range(1, min(n_lost, 300) + 1):
+                        self.lost_t.append(self.hist["t"][-1] + k * nominal)
+            self._dts = (self._dts + [gap])[-20:]
 
         # phase from the DATA (not from the simulator) — this is the
         # logic that runs unchanged on real telemetry
@@ -1279,20 +1614,33 @@ class Dashboard:
         h["gx"].append(row["gyro_x"]); h["gy"].append(row["gyro_y"])
         h["gz"].append(row["gyro_z"])
         h["audio"].append(row["audio_rms"])
-        h["cd"].append(cd)
-        v_now = row_speed(self.sim, row) if det == "DESCENT" else float("nan")
+        h["rssi"].append(row.get("rssi", float("nan")))
+        v_row = row_speed(self.sim, row)             # + = descending
+        v_now = v_row if det == "DESCENT" else float("nan")
         h["v"].append(v_now)
         if row["alt_m"] > self.apogee:
             self.apogee = row["alt_m"]
             self.t_apogee = t
+        if det == "ASCENT" and is_number(v_row):
+            self.climb_max = max(self.climb_max, -v_row)
+        # Cd only in the steady descent: the formula says drag = weight, and
+        # that is not so while the parachute opens or the can lands. Steady
+        # = within STEADY_BAND of the usual descent rate (the median).
+        steady = False
         if not math.isnan(v_now):
             self.v_max = max(self.v_max, v_now)
-        # median over the descent: the first seconds after the parachute
-        # opens (speed still changing) do not pull it away
-        if not math.isnan(cd) and det == "DESCENT":
+            self.v_desc.append(v_now)
+            usual = float(np.median(self.v_desc))
+            steady = (len(self.v_desc) >= 5 and
+                      abs(v_now - usual) <= STEADY_BAND * usual)
+        if not (steady and is_number(cd)):
+            cd = float("nan")
+        else:
             self.cd_vals.append(cd)
-        bands = np.array([row.get(c, np.nan) for c in BAND_COLUMNS])
-        if not np.isnan(bands).any():
+        h["cd"].append(cd)
+        bands = tuple(row.get(c, float("nan")) for c in BAND_COLUMNS)
+        h["bands"].append(bands)
+        if all(is_number(b) for b in bands):
             self.band_max = np.maximum(self.band_max, bands)
         apk = row.get("acc_peak_g", float("nan"))    # nan: older file
         h["apk"].append(apk)
@@ -1304,6 +1652,36 @@ class Dashboard:
         self._track_phase(t, det)
         return cd, det, t
 
+    # ── the data link (live only): are the data still coming in? ──
+    def _refresh_link(self, now=None):
+        """Header dot, link text and the warning in the altitude chart.
+        Returns True when something on screen changed."""
+        now = time.monotonic() if now is None else now
+        dot, text, color, warn = C["green"], self._rssi_text, self._rssi_color, ""
+        if self.live:
+            since = self._rx_wall if self._rx_wall is not None else self._t_open
+            age = now - since
+            if not self.hist["t"] and age < LINK_LOST_S:   # no row yet
+                dot, text, color = C["amber"], "waiting for data…", C["amber"]
+            elif age >= LINK_LOST_S:
+                dot = color = C["red"]
+                text = f"No signal for {duration_text(age)}"
+                warn = (f"NO SIGNAL for {duration_text(age)}\n"
+                        "check the receiver and the logger window")
+            elif age >= LINK_WARN_S:
+                dot = color = C["amber"]
+                text = f"No data for {age:.0f} s"
+        shown = (dot, text, color, warn)
+        if shown == self._link_shown:
+            return False
+        self._link_shown = shown
+        self.txt_dot.set_color(dot)
+        self.txt_rssi.set_text(text)
+        self.txt_rssi.set_color(color)
+        self.txt_warn.set_text(warn)
+        self.txt_warn.set_visible(bool(warn))
+        return True
+
     # ── per-frame update ──
     def update(self, _frame):
         # advance data time by the REAL elapsed wall-clock time, so the
@@ -1314,13 +1692,21 @@ class Dashboard:
         else:
             dt = min(2.0, now - self._wall) * SIM_SPEED
         self._wall = now
+        if self.paused:
+            self._changed = False
+            return []
 
         # fetch all new rows (a live catch-up can deliver hundreds at
         # once); ingest each of them, render once from the last
         rows = self.sim.fetch(dt)
         self._changed = bool(rows)
         if not rows:
+            title = self._title_text()              # a replay that ended
+            if self.txt_title.get_text() != title:
+                self.txt_title.set_text(title)
+                self._changed = True
             return []
+        self._rx_wall = now
         for r in rows[:-1]:
             self._ingest(r)
         row = rows[-1]
@@ -1331,22 +1717,31 @@ class Dashboard:
         ts = np.array(h["t"])
 
         # ── header ──
-        title = f"Screen 1 — Flight Data & Sensors ({self.sim.label})"
+        title = self._title_text()
         if self.txt_title.get_text() != title:      # LIVE: USB or radio
             self.txt_title.set_text(title)
         # real RSSI/SNR when the data came in via the radio; only the
         # simulator shows a simulated value, explicitly labelled
         rssi, snr = row.get("rssi"), row.get("snr")
+        self._rssi_color = C["green"]
         if is_number(rssi):
-            self.txt_rssi.set_text(f"RSSI {rssi:.0f} dBm" + (
-                f" · SNR {snr:+.1f} dB" if is_number(snr) else ""))
+            self._rssi_text = f"RSSI {rssi:.0f} dBm" + (
+                f" · SNR {snr:+.1f} dB" if is_number(snr) else "")
+            if rssi < RSSI_BAD_DBM:
+                self._rssi_color = C["red"]
+            elif rssi < RSSI_WEAK_DBM:
+                self._rssi_color = C["amber"]
         elif isinstance(self.sim, TelemetrySimulator):
             rssi_sim = -70 - 0.045 * row["alt_m"] + random.gauss(0, 1.5)
-            self.txt_rssi.set_text(f"RSSI {rssi_sim:.0f} dBm (sim)")
+            self._rssi_text = f"RSSI {rssi_sim:.0f} dBm (sim)"
         else:
-            self.txt_rssi.set_text("RSSI —")
+            self._rssi_text = ""                    # USB or SD card: no radio
+        self._refresh_link(now)
         self.txt_pkt.set_text(f"packet #{self.pkt_rx}")
         self.txt_phase.set_text(det)
+        badge = PHASE_BADGE.get(det, C["amber"])
+        self.txt_phase.set_color(badge)
+        self.txt_phase.get_bbox_patch().set_edgecolor(badge)
         self.txt_clock.set_text(clock_text(self.detector, self.t_first, t))
         if self.sim.phase is not None:          # simulator: ground truth
             truth = PHASE_EN.get(self.sim.phase, self.sim.phase)
@@ -1354,13 +1749,14 @@ class Dashboard:
             self.txt_truth.set_text(f"sim truth: {truth} "
                                     f"{'✓' if ok else '✗'}")
             self.txt_truth.set_color(C["green"] if ok else C["red"])
-        else:                                   # replay: no ground truth
-            self.txt_truth.set_text("phase detected from data")
-            self.txt_truth.set_color(C["dim"])
+        else:                                   # real data: no ground truth
+            self.txt_truth.set_text("")
 
         # ── KPIs ──
         alt = row["alt_m"]
         flight = self.apogee > GROUND_TEST_M      # else: a ground test
+        # the highest point so far is the apogee once the climb is over
+        topped = det in ("APOGEE", "DESCENT", "LANDED")
         if not is_number(alt):
             alt_txt = "—"
         elif flight:
@@ -1368,32 +1764,66 @@ class Dashboard:
         else:                       # ground test: decimetres count here
             alt_txt = f"{round(alt, 1) or 0.0:.1f}"       # no "-0.0"
         if flight:
-            alt_sub = f"apogee: {self.apogee:.0f} m"
+            alt_sub = (f"apogee: {self.apogee:.0f} m" if topped
+                       else f"highest: {self.apogee:.0f} m")
         else:
             alt_sub = (f"highest: {self.apogee:.1f} m"
                        if self.apogee >= 1.0 else "")
+        # vertical speed: up in the climb, down under the parachute
+        v_row = row_speed(self.sim, row)
+        if det in ("ASCENT", "APOGEE", "DESCENT") and is_number(v_row):
+            arrow = "↓" if v_row > 0.05 else ("↑" if v_row < -0.05 else "")
+            v_txt = arrow + (f"{abs(v_row):.0f}" if abs(v_row) >= 20
+                             else f"{abs(v_row):.1f}")
+        else:
+            v_txt = "0.0"
+        v_sub, v_sub_color = "", C["muted"]
+        if self.v_desc:
+            usual = float(np.median(self.v_desc))
+            lo, hi = K.DESCENT_RATE_MS
+            v_sub = f"descent: {usual:.1f} m/s · ESA {lo:g}–{hi:g}"
+            v_sub_color = C["green"] if lo <= usual <= hi else C["amber"]
+        elif self.climb_max > 0:
+            v_sub = f"fastest climb: {self.climb_max:.0f} m/s"
+        # vibration: all bands together, and the pattern of this moment
+        bands = h["bands"][-1]
+        pattern = vibration_pattern(bands)
+        if pattern is None:
+            vib_txt = "—"
+            vib_sub = ("not in radio packet" if radio else "no band data")
+        else:
+            total = math.sqrt(sum(b * b for b in bands))
+            vib_txt = f"{total:.3f}" if total < 0.1 else f"{total:.2f}"
+            vib_sub = PATTERNS[pattern]
         vals = (alt_txt,
+                v_txt,
                 fmt(row["temp_C"], ".1f"),
                 # 0.01 hPa ≈ 8 cm: on a ground test every step shows. The
                 # radio sends the pressure with 1 decimal only.
                 fmt(row["press_hPa"], ".1f" if radio else ".2f"),
-                fmt(row_speed(self.sim, row), ".1f") if det == "DESCENT" else "0.0",
+                vib_txt,
                 fmt(cd, ".2f"))
         # real data: where the start lies, and the sea-level pressure used
         asl = getattr(self.sim, "ground_asl", None)
         real = not isinstance(self.sim, TelemetrySimulator)
         if real and is_number(asl):
             alt_sub = (alt_sub + " · " if alt_sub else "") + f"start {asl:.0f} m ASL"
+        if self.cd_vals:
+            cd_sub = f"median: {np.median(self.cd_vals):.2f}"
+        else:
+            cd_sub = "descent not steady yet" if det == "DESCENT" else ""
         subs = (alt_sub,
+                v_sub,
                 "",
                 (f"sea level {SEA_LEVEL_HPA:g} hPa" +
-                 (" · 1 decimal via radio" if radio else "")) if real else "",
-                f"max: {self.v_max:.1f} m/s" if self.v_max > 0 else "",
-                f"median: {np.median(self.cd_vals):.2f}" if self.cd_vals else "")
+                 (" · radio: 0.1 hPa" if radio else "")) if real else "",
+                vib_sub,
+                cd_sub)
         for txt, v in zip(self.txt_kpi, vals):
             txt.set_text(v)
         for txt, v in zip(self.txt_kpi_sub, subs):
             txt.set_text(v)
+        self.txt_kpi_sub[1].set_color(v_sub_color)
 
         # ── altitude: in flight 0–1100 m (grows along with a higher
         #    apogee); a ground test zooms in (GROUND_TEST_M) ──
@@ -1413,15 +1843,24 @@ class Dashboard:
             ts, 0, np.array(h["alt"]), color=C["cyan"], alpha=0.12)
         x0, x1 = self.flight_window(t)
         self.ax_alt.set_xlim(x0, x1)
-        if flight:
+        if flight and topped:
             self.ln_apogee.set_xdata([self.t_apogee, self.t_apogee])
-            self.txt_apogee.set_position((self.t_apogee + 1,
+            self.txt_apogee.set_position((self.t_apogee + 0.008 * (x1 - x0),
                                           self.sim.h_max * 1.03))
-            self.txt_apogee.set_text(f"APOGEE {self.apogee:.0f}m")
+            self.txt_apogee.set_text(f"APOGEE {self.apogee:.0f} m")
             self.txt_apogee.set_visible(True)
         else:
             self.ln_apogee.set_xdata([np.nan, np.nan])
             self.txt_apogee.set_visible(False)
+        t_landed, t_launch = self.detector.t_landed, self.detector.t_launch
+        if t_landed is not None and t_launch is not None:
+            self.ln_landed.set_xdata([t_landed, t_landed])
+            self.txt_landed.set_position((t_landed - 0.008 * (x1 - x0), 0.92))
+            self.txt_landed.set_text(
+                f"LANDED · flight time {mmss(t_landed - t_launch)}")
+        else:
+            self.ln_landed.set_xdata([np.nan, np.nan])
+            self.txt_landed.set_text("")
 
         # ── sliding window for the small charts ──
         t0 = max(0, t - WINDOW_S)
@@ -1431,20 +1870,39 @@ class Dashboard:
         self.ln_ay.set_data(ts, h["ay"])
         self.ln_az.set_data(ts, h["az"])
         self.ln_pk.set_data(ts, h["apk"])
-        if self.shock_g > 0:
+        if self.shock_g >= SHOCK_MIN_G:
+            more = "≥" if self.shock_g >= K.SENSOR_MAX_G - 0.1 else ""
             self.txt_shock.set_text(
-                f"largest shock {self.shock_g:.1f} g at "
+                f"largest shock {more}{self.shock_g:.1f} g at "
                 f"{clock_text(self.detector, self.t_first, self.t_shock)}")
+        elif self.shock_g > 0:
+            self.txt_shock.set_text("largest shock: none yet (at rest: 1 g)")
         elif radio:
             self.txt_shock.set_text("peak g: not in radio packet")
-        self.ln_gx.set_data(ts, h["gx"])
-        self.ln_gy.set_data(ts, h["gy"])
-        self.ln_gz.set_data(ts, h["gz"])
-        if any(is_number(g) for g in list(h["gz"])[-50:]):
-            self.txt_gyro_note.set_text("")
         else:
-            self.txt_gyro_note.set_text("not in radio packet" if radio
-                                        else "no gyroscope data")
+            self.txt_shock.set_text("")
+
+        # ── gyroscope, or for radio data the signal strength ──
+        if radio != self._radio_panel:
+            self._radio_panel = radio
+            self.ax_radio.set_visible(radio)
+            self.ax_gyro.set_visible(not radio)
+        if radio:
+            self._draw_radio(ts, t, x0, x1)
+        else:
+            self.ln_gx.set_data(ts, h["gx"])
+            self.ln_gy.set_data(ts, h["gy"])
+            self.ln_gz.set_data(ts, h["gz"])
+            seen = [g for tt, g3 in zip(ts, zip(h["gx"], h["gy"], h["gz"]))
+                    if tt >= t0 for g in g3 if is_number(g)]
+            if seen:
+                self.txt_gyro_note.set_text("")
+                # the usual range, wider when the can spins faster
+                self.ax_gyro.set_ylim(min(-50, 1.15 * min(seen)),
+                                      max(150, 1.15 * max(seen)))
+            else:
+                self.txt_gyro_note.set_text("no gyroscope data")
+
         self.ln_aud.set_data(ts, h["audio"])
         vis = [a for tt, a in zip(ts, h["audio"]) if tt >= t0 and a == a]
         self.ax_aud.set_ylim(0, max([AUDIO_MIN_TOP] + vis) * 1.25)
@@ -1455,23 +1913,28 @@ class Dashboard:
             self.txt_chute.set_text("CHUTE")
 
         # ── vibration bands: measured values only ──
-        bands = np.array([row.get(c, np.nan) for c in BAND_COLUMNS])
-        if np.isnan(bands).any():               # radio packet or older file
+        bands = np.array(bands, dtype=float)
+        if np.isnan(bands).any():               # old radio packet or older file
             for bar, tx in zip(self.band_bars, self.band_texts):
-                bar.set_height(1e-4)
+                bar.set_height(1e-5)
                 tx.set_text("")
             self.band_max_marks.set_ydata(np.full(len(bands), np.nan))
-            band_note = ("bands not in radio packet · " if radio
-                         else "no band data in this file · ")
+            self.txt_band_note.set_text("bands not in radio packet" if radio
+                                        else "no band data in this file")
         else:
-            for bar, tx, v in zip(self.band_bars, self.band_texts, bands):
-                bar.set_height(max(v, 1e-4))
-                tx.set_position((bar.get_x() + bar.get_width() / 2,
-                                 max(v, 6e-4) * 1.15))
+            for bar, tx, v, top in zip(self.band_bars, self.band_texts,
+                                       bands, self.band_max):
+                bar.set_height(max(v, 1e-5))
+                # the value above the bar, or above the grey tick (the
+                # highest so far) when that sits just above the bar
+                y = max(v, 1.2e-4) * 1.22
+                if v <= top < 6 * v:
+                    y = top * 1.5
+                tx.set_position((bar.get_x() + bar.get_width() / 2, y))
                 tx.set_text(f"{v:.2g}")
             self.band_max_marks.set_ydata(
                 np.where(self.band_max > 0, self.band_max, np.nan))
-            band_note = ""
+            self.txt_band_note.set_text("")
         peak_hz, peak_amp = row["fft_peak_hz"], row["fft_peak_amp"]
         if not is_number(peak_amp):     # radio: frequency yes, strength no
             peak = (f"strongest {peak_hz:.0f} Hz" if is_number(peak_hz)
@@ -1480,26 +1943,57 @@ class Dashboard:
             peak = f"strongest {peak_hz:.0f} Hz · {peak_amp:.2f} g"
         else:
             peak = "no strong vibration"
-        self.txt_fftpeak.set_text(band_note + peak)
+        self.txt_fftpeak.set_text(peak)
         self._update_top_freqs()
 
-        # ── flight phase timeline ──
+        # ── flight phases + vibration history ──
+        self._draw_strip(x0, x1)
         self._draw_timeline(t, x0, x1)
 
         # ── Cd & descent rate ──
         self.ln_cd.set_data(ts, h["cd"])
         self.ln_v.set_data(ts, h["v"])
         self.ax_cd.set_xlim(x0, x1)
-        self.ax_cd.xaxis.label.set_text(
-            "time since launch (s)" if self.detector.t_launch is not None
-            else "time since start (s)")
+        self.ax_v.set_ylim(0, max(40.0, 1.15 * self.v_max))
+        if self.v_desc:
+            self.txt_cd_note.set_text("")
+        else:
+            self.txt_cd_note.set_text("starts in the descent,\nunder the parachute")
+        label = ("time since launch (s)" if self.detector.t_launch is not None
+                 else "time since start (s)")
+        if self.time_labels[0].get_text() != label:
+            for lab in self.time_labels:
+                lab.set_text(label)
 
         return []
+
+    def _draw_radio(self, ts, t, x0, x1):
+        """Signal strength of every packet over the flight, the packets
+        that did not arrive, and how many arrived in the last minute."""
+        rssi = np.array(self.hist["rssi"], dtype=float)
+        nominal = float(np.median(self._dts)) if self._dts else 1.0
+        if len(ts) > 1 and nominal > 0:          # no line across lost packets
+            cut = np.where(np.diff(ts) > 1.5 * nominal)[0] + 1
+            ts_l, rssi_l = np.insert(ts, cut, np.nan), np.insert(rssi, cut, np.nan)
+        else:
+            ts_l, rssi_l = ts, rssi
+        self.ln_rssi.set_data(ts_l, rssi_l)
+        lost = np.array(self.lost_t, dtype=float)
+        self.ln_lost.set_data(lost, np.full(len(lost), -127.0))
+        self.ax_radio.set_xlim(x0, x1)
+        got = int(np.sum(ts > t - 60.0))
+        span = min(60.0, t - (self.t_first if self.t_first is not None else t))
+        expected = max(int(round(span / nominal)) + 1 if nominal > 0 else got, got)
+        text = f"last minute {got}/{expected} ({100 * got / expected:.0f} %)"
+        if self.pkt_lost:
+            text += f" · lost {self.pkt_lost} (red marks)"
+        self.txt_link.set_text(text)
 
     def run(self):
         # A timer instead of FuncAnimation: FuncAnimation redraws the whole
         # figure on every tick, also without new data (heavy on a laptop
-        # that also runs screen 2). Now: redraw only when a row came in.
+        # that also runs screen 2). Now: redraw only when a row came in, or
+        # when the header must say that no data come in any more.
         self.fit.fit_screen()
         self.timer = self.fig.canvas.new_timer(interval=UPDATE_MS)
         self.timer.add_callback(self._tick)
@@ -1508,7 +2002,7 @@ class Dashboard:
 
     def _tick(self):
         self.update(0)
-        if self._changed:
+        if self._refresh_link() or self._changed:
             self.fig.canvas.draw_idle()
 
 
