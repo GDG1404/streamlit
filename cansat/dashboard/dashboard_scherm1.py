@@ -1470,7 +1470,17 @@ class Dashboard:
     # ── phase timeline ──
     def _track_phase(self, t, ph):
         if not self.segments or self.segments[-1][0] != ph:
-            self.segments.append([ph, t, t])
+            # The detector needs a moment to be sure. The bar starts the
+            # climb at the liftoff and the landing at the touchdown, the
+            # same moments as the clock and the landing marker.
+            start = t
+            if ph == "ASCENT" and self.detector.t_launch is not None:
+                start = self.detector.t_launch
+            elif ph == "LANDED" and self.detector.t_landed is not None:
+                start = self.detector.t_landed
+            if self.segments:
+                start = max(start, self.segments[-1][1])
+            self.segments.append([ph, start, t])
             if ph == "DESCENT" and self.t_chute is None:
                 self.t_chute = t
         else:
