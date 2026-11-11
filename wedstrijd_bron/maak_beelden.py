@@ -7,9 +7,15 @@ Schrijft in wedstrijd/beelden/:
   overzicht.png          de opstelling: drie ontvangers, drie laptops
   vluchtverloop.png      de hoogte tijdens de vlucht, en wanneer de buzzer piept
   aansluiten_pico.png    RFM95W op de Raspberry Pi Pico    (zoals de antennetest)
-  dashboard1_radio.png   scherm 1 met radiogegevens        (zoals de antennetest)
-  dashboard2_radio.png   scherm 2 met radiogegevens        (zoals de antennetest)
-  livestream_radio.png   het streamdashboard, oefenvlucht  (zoals de antennetest)
+  dashboard1_radio.png   scherm 1, de oefenvlucht tijdens de daling
+  dashboard2_radio.png   scherm 2, de oefenvlucht tijdens de daling
+  dashboard2_geland.png  scherm 2 na de landing: waar ligt de CanSat?
+  dashboard1_replay.png  scherm 1 aan het einde van een replay (de SD-kaart)
+  livestream_radio.png   het streamdashboard, de oefenvlucht tijdens de daling
+
+De schermen tonen de oefenvlucht via de radio: dezelfde vlucht als wanneer je
+'oefen' typt bij START_METING. De replay toont dezelfde vlucht zoals ze op
+de SD-kaart staat.
 """
 import importlib.util
 import os
@@ -140,11 +146,114 @@ def vluchtverloop():
     U.save(fig, "vluchtverloop.png")
 
 
+# ── 3. De schermen tijdens de oefenvlucht ────────────────────────────
+DALING_S = 150            # "tijdens de daling": anderhalve minuut na de lancering
+
+
+def oefenvlucht():
+    """De oefenvlucht via de radio, zoals START_METING ze maakt als je 'oefen'
+    typt: [(seconde, rij van de logger)]. Verloren pakketten zitten er niet
+    in."""
+    sys.path.insert(0, os.path.join(REPO, "cansat", "tools"))
+    import gen_test_csv as g
+    import serial_logger as sl
+    rng = random.Random(1)                         # dezelfde vlucht als 'oefen'
+    rows = []
+    for t, regel in g.vlucht_regels(rng):
+        rssi, snr, lost = g.vlucht_radio(t, regel, rng)
+        if not lost:
+            parts = g.radio_packet(regel, t, opwarmen=False) + [str(rssi), f"{snr:.1f}"]
+            millis = int(regel.split(",", 1)[0]) - 5212 + 2380
+            rows.append((t, sl.radio_row(parts, millis)))
+    return rows
+
+
+def meting(rows, tot_s):
+    """Het bestand van de logger, met de pakketten tot seconde tot_s."""
+    import serial_logger as sl
+    pad = os.path.join(tempfile.mkdtemp(), "wedstrijd_1.csv")
+    with open(pad, "w", newline="", encoding="utf-8") as fh:
+        fh.write(sl.HEADER + "\r\n")
+        for t, row in rows:
+            if t <= tot_s:
+                fh.write(sl.csv_line(row, sl.COLUMNS) + "\r\n")
+    return pad
+
+
+def schermen(rows):
+    """Scherm 1 en scherm 2 zoals op laptop 1: live, via de radio."""
+    sys.path.insert(0, os.path.join(REPO, "cansat", "dashboard"))
+    import dashboard_scherm1 as d1
+    import dashboard_scherm2 as d2
+    einde = rows[-1][0]
+    for name, cls, tot_s in (("dashboard1_radio.png", d1.Dashboard, DALING_S),
+                             ("dashboard2_radio.png", d2.Dashboard2, DALING_S),
+                             ("dashboard2_geland.png", d2.Dashboard2, einde)):
+        d1.DATA_MODE, d1.LIVE_CSV, d1.REPLAY_CSV = "live", meting(rows, tot_s), None
+        random.seed(4)
+        dash = cls()
+        dash.fig.set_size_inches(13.66, 6.9)    # 13-inch laptop, venster
+        dash.fit.rescale()                      # eerst de grootte, dan tekenen
+        dash._wall = None
+        dash.update(0)
+        path = os.path.join(U.OUT, name)
+        dash.fig.savefig(path, dpi=100, facecolor=dash.fig.get_facecolor())
+        plt.close("all")
+        print("geschreven:", path)
+
+
+def replay_einde():
+    """Scherm 1 aan het einde van een replay van het bestand van de SD-kaart
+    (G3): de hele vlucht in één beeld."""
+    sys.path.insert(0, os.path.join(REPO, "cansat", "dashboard"))
+    import gen_test_csv as g
+    import dashboard_scherm1 as d1
+    pad = os.path.join(tempfile.mkdtemp(), "vlucht.csv")
+    with open(pad, "w", newline="", encoding="utf-8") as fh:
+        fh.write(",".join(g.COLUMNS) + "\r\n")
+        for _t, regel in g.vlucht_regels(random.Random(1)):
+            fh.write(regel + "\r\n")
+    d1.DATA_MODE, d1.LIVE_CSV, d1.REPLAY_CSV = "replay", None, pad
+    snelheid, d1.SIM_SPEED = d1.SIM_SPEED, 1e6      # het hele bestand in één stap
+    dash = d1.Dashboard()
+    dash.fig.set_size_inches(13.66, 6.9)
+    dash.fit.rescale()
+    dash._wall = None
+    dash.update(0)                                  # alle rijen
+    dash.update(0)                                  # het einde: "· ended"
+    d1.SIM_SPEED = snelheid
+    path = os.path.join(U.OUT, "dashboard1_replay.png")
+    dash.fig.savefig(path, dpi=100, facecolor=dash.fig.get_facecolor())
+    plt.close("all")
+    print("geschreven:", path)
+
+
+def livestream(rows):
+    """Het streamdashboard zoals op laptop 2 (keuze 5): het leest mee met de
+    meting."""
+    sys.path.insert(0, os.path.join(REPO, "livestream", "stream"))
+    import serial_logger as sl
+    import stream_dashboard as sd
+    dash = sd.StreamDashboard()
+    for t, row in rows:
+        if t > DALING_S:
+            break
+        cols = {k: row.get(k, "nan") for k in sl.COLUMNS}
+        dash.q.put(("row", cols, float(t)))
+        dash.tick(now=t + 0.2)
+    path = os.path.join(U.OUT, "livestream_radio.png")
+    dash.fig.savefig(path, facecolor=sd.C["page"])
+    plt.close("all")
+    print("geschreven:", path)
+
+
 if __name__ == "__main__":
     tmp = tempfile.mkdtemp()
     os.chdir(tmp)                       # de dashboards schrijven niets in de repo
     overview()
     vluchtverloop()
     U.pico_drawing()
-    U.dashboards()
-    A.livestream()
+    vlucht = oefenvlucht()
+    schermen(vlucht)
+    replay_einde()
+    livestream(vlucht)

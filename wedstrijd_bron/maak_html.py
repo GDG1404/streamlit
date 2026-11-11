@@ -38,7 +38,12 @@ h1 { font-size: 2.1em; margin-bottom: 0.1em; }
 h2 { border-bottom: 2px solid var(--line); padding-bottom: 0.25em; margin-top: 2.2em; }
 h3 { margin-top: 1.6em; }
 a { color: var(--accent); }
-img { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+img { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; cursor: zoom-in; }
+#groot { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10;
+         overflow: auto; background: rgba(0, 0, 0, 0.9); cursor: zoom-out; }
+#groot.open { display: block; }
+#groot img { display: block; max-width: calc(100% - 16px); margin: 8px auto; border: none;
+             border-radius: 0; cursor: zoom-out; }
 table { border-collapse: collapse; width: 100%; margin: 0.8em 0; font-size: 0.95em; }
 th, td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
 th { background: #f0efea; }
@@ -56,7 +61,27 @@ hr { border: none; border-top: 1px solid var(--line); margin: 2em 0; }
   h2 { page-break-before: always; }
   img, table, pre { page-break-inside: avoid; }
   a { color: inherit; text-decoration: none; }
+  #groot { display: none !important; }
 }
+"""
+
+# Een klik op een afbeelding toont ze zo groot als het venster toelaat, tot
+# de ware grootte (de schermen van de dashboards zijn 1366 pixels breed: zo
+# lees je ook de kleine tekst). Nog een klik, of Esc, sluit ze weer.
+ZOOM = """
+<div id="groot"><img alt=""></div>
+<script>
+(function () {
+  var box = document.getElementById("groot"), big = box.firstChild;
+  document.addEventListener("click", function (e) {
+    if (box.className === "open") { box.className = ""; return; }
+    if (e.target.tagName === "IMG") { big.src = e.target.src; box.className = "open"; box.scrollTop = 0; box.scrollLeft = 0; }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { box.className = ""; }
+  });
+})();
+</script>
 """
 
 
@@ -71,7 +96,7 @@ def main():
     html = ("<!doctype html>\n<html lang=\"nl\">\n<head>\n<meta charset=\"utf-8\">\n"
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"
             "<title>CanSat 2027 — De wedstrijd: handleiding</title>\n"
-            f"<style>{CSS}</style>\n</head>\n<body>\n{body}\n</body>\n</html>\n")
+            f"<style>{CSS}</style>\n</head>\n<body>\n{body}\n{ZOOM}</body>\n</html>\n")
     out = os.path.join(ROOT, "HANDLEIDING.html")
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(html)

@@ -16,7 +16,7 @@ import zipfile
 
 REPO = os.path.abspath(sys.argv[1])
 OUT = os.path.join(REPO, "downloads", "CanSat_wedstrijd.zip")
-STAMP = (2026, 11, 3, 12, 0, 0)       # vaste datum: zelfde inhoud = zelfde zip
+STAMP = (2026, 11, 11, 12, 0, 0)      # vaste datum: zelfde inhoud = zelfde zip
 
 # (plaats in de zip, bron in de repository)
 FILES = [

@@ -8,7 +8,7 @@ loopt. Hoe je de CanSat na de landing terugvindt. En wat je daarna met de meting
 
 **Hoe lees je dit?** Iedereen leest deel 0. Doe deel A in de weken vóór de wedstrijd,
 ook de generale repetitie (A8). Op de wedstrijddag volg je deel B tot F. Na de vlucht doe
-je deel G.
+je deel G. Klik op een afbeelding om ze groot te zien.
 
 > **De buzzer zit in de vluchtcode.** Bij het aanzetten geeft hij 3 korte piepjes. Tijdens
 > de vlucht is hij stil. Vanaf 6 minuten na de lancering piept hij om de 10 seconden, tot
@@ -183,6 +183,12 @@ Doe dit op laptop 1, laptop 2 en laptop 3.
 
 > Mag je niets maken op `C:\`? Gebruik dan `Documenten\CanSat`. Alles werkt hetzelfde.
 
+> **Krijg je later een nieuwere zip?** Pak hem op dezelfde manier uit, over de oude map.
+> De metingen en de logo's blijven staan. Maar de programma's worden vervangen. Wat jullie
+> zelf aanpasten, doe je dus opnieuw: de massa en de parachute in `dashboard\krachten.py`
+> (A6), de titel in `stream\stream_dashboard.py` (D2) en de naam van het team in
+> `tools\flight_report.py` (G7). Schrijf die gegevens eerst op.
+
 ### A2. Python en de pakketten (op de drie laptops)
 
 1. **Staat Python erop?** Druk op de Windows-toets, typ `cmd` en druk op Enter. Typ:
@@ -230,9 +236,18 @@ Oefen minstens één keer met de drie laptops samen. Je hebt geen CanSat en geen
 - [ ] Laptop 1 toont scherm 1 en scherm 2. Laptop 2 toont het venster
   **CanSat 2027 — Stream**. Laptop 3 toont geen venster, maar telt wel mee.
 - [ ] De hoogte stijgt tot ongeveer 950 m, en daalt daarna weer.
+- [ ] Rechtsboven op scherm 1 en scherm 2 verandert de fase: PRELAUNCH → ASCENT → APOGEE →
+  DESCENT → LANDED. De klok telt vanaf de lancering, bijvoorbeeld `T+00:42`.
+- [ ] Na de landing staat op scherm 2 een groene balk: `LANDED at …`. Daar ligt de CanSat
+  (F1).
+
+Kijk tijdens de oefenvlucht ook in C4 en D3: daar staat wat je op elk scherm ziet.
 
 Stoppen: wacht tot de vlucht voorbij is, of druk op **Ctrl+C** in het zwarte venster.
 Sluit dan de vensters zelf.
+
+> **Na de oefenvlucht** komt er niets meer binnen. Op scherm 1 en scherm 2 staat dan in het
+> rood **NO SIGNAL**. Het bolletje in de livestream wordt rood. Dat is hier normaal.
 
 > Dit zijn geen echte metingen. Stream de oefenvlucht dus niet publiek. De buzzer zit niet
 > in de oefenvlucht: die zit alleen in de echte CanSat.
@@ -432,8 +447,8 @@ Vraag het aan Team Grondstation en Team Livestream. Op **elke** laptop:
 - [ ] Het zwarte venster telt de pakketten: `… pakketten · RSSI … dBm`.
 - [ ] Laptop 1: bovenaan scherm 1 staat `LIVE: radio (LoRa via Pico)`.
 - [ ] Laptop 2: in de livestream staat een groen bolletje met `Receiving`.
-- [ ] De temperatuur en de luchtdruk zijn normaal. Scherm 2 heeft een GPS-positie (dat
-  kan buiten een paar minuten duren).
+- [ ] De temperatuur en de luchtdruk zijn normaal. Op scherm 2 staat onder LATITUDE
+  `GPS fix` (dat kan buiten een paar minuten duren).
 
 Noteer de RSSI in de tabel van E3.
 
@@ -487,7 +502,9 @@ Doe dit **voor** Team CanSat de CanSat aanzet.
 | 3 · Reserve | Pico 3 | `wedstrijd_3` | **0** (alleen opslaan), of **1** of **2** om mee te kijken | de luchtdruk (C2) |
 
 5. Zolang de CanSat uit staat, toont het zwarte venster `LET OP: al 5 s niets
-   ontvangen`. Dat is normaal. Na het aanzetten (B2) tellen de pakketten.
+   ontvangen`. Op scherm 1 en scherm 2 staat dan in het rood **NO SIGNAL**, en in de
+   livestream `Waiting for data`. Dat is normaal. Na het aanzetten (B2) tellen de
+   pakketten, en verdwijnt de melding vanzelf.
 
 > De meting mag lang lopen, ook uren voor de lancering. Het bestand wordt maar ongeveer
 > 1 MB per uur.
@@ -497,24 +514,73 @@ Doe dit **voor** Team CanSat de CanSat aanzet.
 
 ### C4. Wat zie je?
 
-![Scherm 1 met radiogegevens, op een laptop van 13 inch](beelden/dashboard1_radio.png)
-
 **In het zwarte venster (de logger):** het aantal pakketten, de **RSSI** (hoe sterk het
 signaal is: −50 dBm is sterk, −110 dBm is zwak) en de **SNR** (hoe zuiver: positief is
 goed). `laatste minuut 58/60` wil zeggen: 58 van de 60 pakketten kwamen aan.
 
-**Op scherm 1:** bovenaan `LIVE: radio (LoRa via Pico)`. Daaronder de hoogte, de
-temperatuur en de luchtdruk. De grafieken tonen de hoogte, de versnelling en het geluid.
-VIBRATION PER BAND toont de trillingen (de FFT).
+De twee afbeeldingen hieronder tonen de oefenvlucht (A3), tijdens de daling aan de
+parachute. Klik op een afbeelding om ze groot te zien.
 
-![Scherm 2 met radiogegevens](beelden/dashboard2_radio.png)
+**Scherm 1: de metingen**
 
-**Op scherm 2:** de GPS-positie (LATITUDE en LONGITUDE), de verbinding (RADIO LINK STATUS)
-en de CanSat in 3D. Druk op **M** voor de kaart. De achtergrondkaart heeft internet nodig:
-gebruik de hotspot van een gsm.
+![Scherm 1 tijdens de daling van de oefenvlucht, op een laptop van 13 inch](beelden/dashboard1_radio.png)
+
+| Deel | Wat toont het? |
+|---|---|
+| De regel bovenaan | `LIVE: radio (LoRa via Pico)`, de RSSI en de SNR, het aantal pakketten (`packet #139`), de fase van de vlucht en de klok. Het bolletje is groen zolang er pakketten binnenkomen. |
+| ALTITUDE | de hoogte boven de start. Eronder staat het hoogste punt: tijdens de klim `highest`, daarna `apogee`. |
+| VERTICAL SPEED | hoe snel de CanSat stijgt (↑) of daalt (↓). Tijdens de daling staat eronder de gewone daalsnelheid, en wat ESA vraagt: 8 tot 11 m/s. Groen is goed. Oranje is te snel of te traag. |
+| TEMPERATURE, PRESSURE | de temperatuur en de luchtdruk: de primaire missie. Onder PRESSURE staat de luchtdruk op zeeniveau die jullie intypten (C2). |
+| VIBRATION | alle trillingen samen, in g. Eronder staat welke trillingen het sterkst zijn: `quiet` (rustig), `slow` (traag, 0–10 Hz), `medium` (10–60 Hz), `fast` (snel, 60–208 Hz) of `all bands at once: a shock` (alle banden tegelijk: een schok). |
+| CD DRAG COEFFICIENT | de Cd van de parachute. Je ziet hem alleen tijdens de rustige daling. Eronder staat de mediaan. |
+| ALTITUDE VS TIME | de hoogte in de tijd. Na de klim staat het hoogste punt erbij (`APOGEE 955 m`). Na de landing staat de vliegtijd erbij (`LANDED · flight time 02:06`). |
+| ACCELERATION | de versnelling in X, Y en Z. De grootste schok (`peak g`) zit niet in het radiopakket: die zie je na de vlucht (G3). |
+| FLIGHT PHASES & VIBRATION HISTORY | bovenaan een balk met de fasen van de vlucht. Daaronder de trillingen van de hele vlucht: één rij per band. Hoe feller de kleur, hoe sterker de trilling. Een donker gat is een pakket dat niet aankwam. |
+| VIBRATION PER BAND | de trillingen van dit moment, per band (de FFT). Het grijze streepje is de hoogste waarde tot nu toe. |
+| DRAG COEFFICIENT CD & DESCENT RATE | de Cd (groen) en de daalsnelheid (blauw, gestippeld). De blauwe band is wat ESA vraagt. |
+| RADIO SIGNAL | de sterkte van elk pakket (de RSSI). Een rood streepje onderaan is een pakket dat niet aankwam. `last minute 56/61` wil zeggen: 56 van de 61 pakketten kwamen aan. Onder de rode stippellijn (−120 dBm) hoort de ontvanger niets meer. |
+| AUDIO RMS | het geluid |
+
+**Scherm 2: de plaats en de krachten**
+
+![Scherm 2 tijdens de daling van de oefenvlucht](beelden/dashboard2_radio.png)
+
+| Deel | Wat toont het? |
+|---|---|
+| FLIGHT TIME | de tijd sinds de lancering. Hij stopt bij de landing. |
+| ALTITUDE | de hoogte boven de start |
+| DRIFT (GPS) | hoe snel en in welke richting de CanSat over de grond beweegt (de wind). Via de radio rekent scherm 2 dat uit met de laatste GPS-posities: `from positions`. |
+| DISTANCE | hoe ver de CanSat van de start is, en in welke richting. NE is noordoost, SW is zuidwest. |
+| LATITUDE, LONGITUDE | de GPS-positie, met 5 cijfers na de komma. Blauw: de GPS heeft een fix. Grijs: nog geen fix. Oranje: de fix is weg, en je ziet de laatste positie. |
+| 3D FLIGHT PATH | de baan van de vlucht. De kleur toont de hoogte. De letter N wijst naar het noorden. Druk op **M** voor de kaart, en nog eens op **M** voor de 3D-baan. |
+| ALTITUDE PROFILE | de hoogte als een balk, met het hoogste punt (`▲ apogee`) |
+| 3D ORIENTATION + LOAD PER ZONE | het blik draait mee met de CanSat. De kleur toont hoe zwaar elke zone belast wordt: groen is weinig, rood is de kracht bij 20 g. De blauwe pijl komt uit de bovenkant (`top`), waar de parachute trekt. |
+| De tekst onder het blik | `force now`: de kracht van dit moment, in newton. Daaronder de grootste belasting bij de lancering (`launch`), aan de parachute (`parachute`) en bij de landing (`landing`). |
+| RADIO LINK STATUS | de RSSI, de SNR, het aantal ontvangen pakketten (*Packets*) en het aantal gemiste (*Lost*) |
+
+De achtergrondkaart (toets **M**) heeft internet nodig: gebruik de hotspot van een gsm.
+De toets **F** zet een scherm op volledig scherm, en terug.
+
+> **Wat is "de start"?** De hoogte telt vanaf de eerste 10 pakketten van de meting:
+> meestal is dat de plaats waar de CanSat aanging. DISTANCE telt vanaf de plaats waar de
+> GPS zijn eerste positie kreeg. Meestal is dat bij het grondstation.
 
 > **`not in radio packet`** wil zeggen: die meting zit niet in het radiopakket. Dat is
-> normaal. Ze staat wel op de SD-kaart (I4).
+> normaal. Ze staat wel op de SD-kaart (I4). Daarom komen de krachten op scherm 2 tijdens
+> de vlucht van de BNO055: die meet maar tot ongeveer 4 g. De echte pieken zie je na de
+> vlucht, met het bestand van de SD-kaart (G3 en G4).
+
+**Geen pakketten meer?** Scherm 1 en scherm 2 melden het zelf:
+
+| Wat zie je? | Wat betekent het? |
+|---|---|
+| Het bolletje bovenaan is groen | Er komen pakketten binnen. |
+| Het bolletje is oranje: `No data for 4 s` | Al een paar seconden geen pakket. Wacht even: meestal komt het vanzelf terug. |
+| Het bolletje is rood, en groot in het scherm staat **NO SIGNAL** | Al 10 seconden geen pakket. Staat de CanSat aan? Telt het zwarte venster nog? Kijk de ontvanger en de antenne na (H3). |
+| **NO SIGNAL**, met eronder `the CanSat stops sending 6 minutes after the launch` | Normaal: 6 minuten na de lancering stopt de CanSat met zenden. |
+
+Komt er weer een pakket, dan verdwijnt de melding vanzelf. De RSSI bovenaan wordt oranje
+onder −100 dBm, en rood onder −110 dBm.
 
 ---
 
@@ -558,10 +624,14 @@ Een nieuwe titel of een nieuw logo zie je pas als je het streamdashboard opnieuw
 | Wanneer | Wat zie je? |
 |---|---|
 | De CanSat zendt | **Live telemetry from the CanSat · LoRa radio**. In het midden een groen bolletje: `Receiving · … packets · −47 dBm`. |
-| Het begin | De hoogte is 0 m: de eerste 5 metingen zijn het nulpunt. De fase is ON THE PAD. |
-| 3 s geen pakket | Het bolletje wordt oranje: `No data for … s`. |
+| Het begin | De hoogte is 0 m: de eerste 5 metingen zijn het nulpunt. De fase is ON THE PAD. Rechts boven de grafiek staat `Waiting for launch`. |
+| De CanSat gaat naar de raket | De hoogte verandert even mee. Staat de CanSat daarna 3 à 4 minuten stil, dan wordt die plaats vanzelf het nieuwe nulpunt: de hoogte is weer 0 m. |
+| De lancering | De fase wordt ASCENT. Rechts boven de grafiek start de klok: `T+ 0:07`. De grafiek toont vanaf nu de hele vlucht, met een stippellijn bij `Launch`. |
+| Het hoogste punt | De fase wordt DESCENT. In de grafiek staat het hoogste punt, bijvoorbeeld `Apogee 955 m`. |
+| De landing | De fase wordt LANDED. De klok stopt en toont de vliegtijd: `Flight time 2:06`. |
+| 3 s geen pakket | Het bolletje wordt oranje: `No data for … s`. De klok loopt gewoon door. |
 | 10 s geen pakket | Het bolletje wordt rood: `No signal for … s`. |
-| 6 minuten na de lancering | De CanSat stopt met zenden. Het rode bolletje is dan **normaal**. Schakel over naar de scène **Camera** of **End**. |
+| 6 minuten na de lancering | De CanSat stopt met zenden. Het bolletje wordt grijs: `End of transmission`. Dat is **normaal**. Schakel over naar de scène **Camera** of **End**. |
 
 ### D4. Tips
 
@@ -582,19 +652,25 @@ Een nieuwe titel of een nieuw logo zie je pas als je het streamdashboard opnieuw
 
 | Wanneer | Wat gebeurt er? | Wat zie je op de schermen? |
 |---|---|---|
-| Aanzetten | 3 korte piepjes. De CanSat meet en zendt. | Pakketten komen binnen. |
+| Aanzetten | 3 korte piepjes. De CanSat meet en zendt. | Pakketten komen binnen. De fase is PRELAUNCH (in de livestream: ON THE PAD). |
 | Wachten | De CanSat zit in de raket. De buzzer is stil. | De hoogte blijft rond 0 m. |
-| De lancering | De motor duwt. De CanSat stijgt snel. Hij herkent de lancering: 50 m hoger binnen 5 seconden. | De hoogte schiet omhoog. |
-| Na 10 à 15 s | Het hoogste punt, ongeveer 1 km. De CanSat komt uit de raket en de parachute gaat open. | De grootste hoogte. |
-| Daarna | De CanSat daalt rustig aan de parachute, meestal met 8 tot 11 m/s. | De hoogte daalt gelijkmatig. |
-| Na ongeveer 2 minuten | De landing. | De hoogte is weer ongeveer 0 m. |
+| De lancering | De motor duwt. De CanSat stijgt snel. Hij herkent de lancering: 50 m hoger binnen 5 seconden. | De hoogte schiet omhoog. De fase wordt ASCENT. De klok telt vanaf nu: `T+00:05`. |
+| Na 10 à 15 s | Het hoogste punt, ongeveer 1 km. De CanSat komt uit de raket en de parachute gaat open. | De grootste hoogte: `APOGEE`, met het getal erbij. |
+| Daarna | De CanSat daalt rustig aan de parachute, meestal met 8 tot 11 m/s. | De fase is DESCENT. De hoogte daalt gelijkmatig. Scherm 1 toont de daalsnelheid en de Cd van de parachute. |
+| Na ongeveer 2 minuten | De landing. | De hoogte is weer ongeveer 0 m. De fase wordt LANDED. Op scherm 2 verschijnt een groene balk met de positie (F1). |
 | Tot 6 minuten | De CanSat ligt op de grond. Hij zendt nog altijd, ook zijn GPS-positie. | De positie van de landingsplaats op scherm 2. |
-| 6 minuten na de lancering | De SD-kaart sluit en de radio stopt. De buzzer begint: 3 s aan, 7 s uit. | Geen pakketten meer: het rode bolletje. |
+| 6 minuten na de lancering | De SD-kaart sluit en de radio stopt. De buzzer begint: 3 s aan, 7 s uit. | Geen pakketten meer. Scherm 1 en 2: **NO SIGNAL**. De livestream: `End of transmission`. Dat is normaal. |
 | Tot je hem uitzet | De buzzer blijft piepen. | — |
 
 > **Waarom wacht de buzzer 6 minuten?** Tijdens de vlucht meet de microfoon het geluid. De
 > buzzer zou die meting storen. Na de landing zendt de CanSat eerst nog een paar minuten
 > zijn positie. Daarna helpt de buzzer om hem van dichtbij te vinden.
+
+> **De hoogte voor de lancering is niet overal precies 0 m.** Scherm 1 en scherm 2 tellen
+> vanaf de plaats waar de CanSat aanging. De raket staat misschien wat hoger of lager, en
+> de luchtdruk verandert traag met het weer. Daardoor staat er soms een paar meter, of
+> wat meer. De livestream past zijn nulpunt zelf aan. Dat verschil is normaal. Het
+> vluchtrapport (G7) rekent achteraf alles precies uit.
 
 ### E2. Het draaiboek
 
@@ -619,9 +695,12 @@ Pas de tijden aan aan het schema van de organisatie. T = het uur van de lancerin
 | RSSI bij het afgeven (laptop 1) | |
 | Uur waarop we de CanSat afgaven | |
 | Uur van de lancering | |
-| Grootste hoogte (m) | |
+| Grootste hoogte in m (scherm 1: `apogee`) | |
+| Daalsnelheid in m/s (scherm 1: `descent`) | |
+| Vliegtijd (scherm 2: FLIGHT TIME) | |
 | Uur van de landing | |
-| Laatste GPS-positie (lat, lon) | |
+| GPS-positie van de landing (lat, lon) | |
+| Afstand en richting van de landing (scherm 2: de groene balk) | |
 | Pakketten laptop 1 (de samenvatting, G1) | |
 | Pakketten laptop 2 | |
 | Pakketten laptop 3 | |
@@ -636,15 +715,30 @@ Pas de tijden aan aan het schema van de organisatie. T = het uur van de lancerin
 
 Na de landing zendt de CanSat nog zijn GPS-positie, tot 6 minuten na de lancering.
 
-1. Kijk op scherm 2 (laptop 1). Druk op **M** voor de kaart. Het spoor toont waar de
-   CanSat landde.
-2. Noteer de laatste **LATITUDE** en **LONGITUDE**, bijvoorbeeld `50.85034` en `4.35171`.
+![Scherm 2 na de landing van de oefenvlucht: de groene balk toont waar de CanSat ligt](beelden/dashboard2_geland.png)
+
+1. Kijk op scherm 2 (laptop 1). Ongeveer 10 seconden na de landing verschijnt een groene
+   balk, bijvoorbeeld:
+   ```
+   LANDED at  50.46017, 6.22818   ·   490 m NE (65°) of the start
+   ```
+   De twee getallen zijn de GPS-positie van de CanSat. Daarachter staat hoe ver hij van
+   de start ligt, en in welke richting: hier 490 m naar het noordoosten.
+2. Noteer de twee getallen. Ze staan ook bovenaan, bij **LATITUDE** en **LONGITUDE**.
 3. Bel de terugvinders en geef de twee getallen door.
 4. De terugvinders typen ze in de kaart-app van hun gsm, met een komma ertussen:
-   `50.85034, 4.35171`. Dan zien ze de plaats, en kunnen ze ernaartoe wandelen.
+   `50.46017, 6.22818`. Dan zien ze de plaats, en kunnen ze ernaartoe wandelen.
+5. Druk op **M** voor de kaart. Het spoor toont de weg van de CanSat tot de landing.
 
-> **Geen GPS-positie** (`no GPS fix`)? Kijk dan in welke richting de CanSat viel. Vraag ook
-> aan de camera en aan de organisatie wat zij zagen.
+| Wat zie je? | Wat doe je? |
+|---|---|
+| De groene balk komt niet | Scherm 2 zag de landing niet, bijvoorbeeld omdat de pakketten te vroeg stopten. Neem de getallen bij LATITUDE en LONGITUDE: dat is de laatste positie die binnenkwam. |
+| LATITUDE en LONGITUDE zijn oranje, met `no GPS fix · last 25 s ago` | De GPS is zijn positie kwijt. Je ziet de laatste positie, en hoe oud ze is. Zoek daar. Hing de CanSat toen nog in de lucht? Zoek dan verder in de richting van het spoor (toets **M**). |
+| `LANDED · no GPS position`, of grijze getallen | De GPS had de hele vlucht geen positie. Kijk in welke richting de CanSat viel. Vraag ook aan de camera en aan de organisatie wat zij zagen. |
+
+> **De richtingen:** N is noord, E is oost, S is zuid en W is west. NE is dus noordoost, en
+> SW is zuidwest. Het getal tussen haakjes is de richting in graden: 0° is noord, 90° is
+> oost.
 
 ### F2. Luisteren naar de buzzer
 
@@ -707,8 +801,31 @@ py dashboard\dashboard_scherm1.py --replay metingen\vlucht.csv --speed 5
 py dashboard\dashboard_scherm2.py --replay metingen\vlucht.csv --speed 5
 ```
 
+Met de toetsen stuur je het afspelen. Ze staan ook linksonder in het venster.
+
+| Toets | Wat doet hij? |
+|---|---|
+| spatiebalk | pauze, en weer verder |
+| **R** | opnieuw afspelen vanaf het begin |
+| **F** | volledig scherm, en terug |
+| **M** | alleen op scherm 2: de kaart of de 3D-baan |
+
+Aan het einde blijft het laatste beeld staan. Bovenaan staat dan `· ended`. Zo zie je de
+hele vlucht in één beeld:
+
+![Scherm 1 aan het einde van het afspelen: de hele oefenvlucht in één beeld](beelden/dashboard1_replay.png)
+
+Met het bestand van de SD-kaart zie je meer dan via de radio: de gyroscoop, de grootste
+schok (`largest shock`) en de echte pieken van de krachten op scherm 2.
+
+> **Stond de CanSat lang aan voor de lancering?** Het afspelen begint bij het aanzetten.
+> Dan duurt het lang voor je de vlucht ziet. Typ dan een groter getal, bijvoorbeeld
+> `--speed 60`: een uur wachten duurt dan 1 minuut. De vlucht gaat dan snel voorbij, maar
+> aan het einde blijft ze helemaal in beeld staan.
+
 Maak schermafbeeldingen voor het verslag met **Windows + Shift + S**: bij de lancering,
-onder de parachute en bij de landing.
+onder de parachute en bij de landing. Druk eerst op de spatiebalk: dan staat het beeld
+stil.
 
 ### G4. De krachten en de parachute
 
@@ -729,8 +846,11 @@ py tools\krachten_analyse.py metingen\vlucht.csv
 - In `vlucht.csv` staan elke seconde de trillingen: `fft_peak_hz` (de frequentie van de
   sterkste trilling), `fft_peak_amp` (hoe sterk, in g) en de vijf banden `vib_0_10_g` tot
   `vib_120_208_g`.
-- Speel de vlucht af op scherm 1 (G3). Kijk naar VIBRATION PER BAND: op de grond, tijdens
-  de motor, onder de parachute en bij de landing.
+- Speel de vlucht af op scherm 1 (G3). Kijk naar de strook **FLIGHT PHASES & VIBRATION
+  HISTORY**: daar staan de trillingen van de hele vlucht, onder de fasen. Zo zie je welke
+  band bij welke fase hoort.
+- VIBRATION PER BAND toont de trillingen van één moment. Zet het afspelen op pauze
+  (spatiebalk): op de grond, tijdens de motor, onder de parachute en bij de landing.
 - Vergelijk met jullie metingen in de klas: de gsm in trilstand, het kloppen op de tafel.
 - Het vluchtrapport (G7) doet die vergelijking ook: voor elke fase, met de fiches.
 
@@ -836,6 +956,8 @@ A4). Die toont wat er mis is.
 | `FOUT: het pakket 'matplotlib' ontbreekt` | De pakketten ontbreken. | Dubbelklik op `INSTALLEER_PAKKETTEN.bat` (A2). |
 | `LET OP: dashboard_scherm1.py is gestopt met een fout` | Een venster crashte. | Open het `.log`-bestand dat het programma noemt, en toon het aan de leerkracht. Open het venster opnieuw (H4). |
 | `WAITING FOR GPS FIX` of `no GPS fix` | De GPS heeft nog geen positie. | Buiten, met vrij zicht op de lucht. De eerste fix kan een paar minuten duren. |
+| `no GPS fix · last 25 s ago`, in het oranje | De GPS had een positie, maar is ze kwijt. | Scherm 2 toont de laatste positie, en hoe oud ze is. Gebruik die om te zoeken (F1). |
+| **NO SIGNAL** op scherm 1 en scherm 2 | Al 10 seconden geen pakket. | Staat de CanSat aan? Telt het zwarte venster nog? Kijk de Pico, de antenne en de USB-kabel na. Voor het aanzetten is dit normaal, en ook vanaf 6 minuten na de lancering. |
 | Scherm 2 heeft geen kaart als achtergrond | Er is geen internet. | Gebruik de hotspot van een gsm. Het spoor werkt ook zonder kaart. |
 
 ### H4. De livestream en de vensters
@@ -845,7 +967,8 @@ A4). Die toont wat er mis is.
 | Een venster is per ongeluk dicht, terwijl de meting loopt | Dubbelklik op **`DASHBOARD_OPNIEUW.bat`**. Kies 1, 2, 3, 4 of 5. Het venster opent opnieuw bij de nieuwste meting en haalt alles in. De meting zelf loopt gewoon door. |
 | Bij vraag 3 staat er geen keuze 4 of 5 | De map `stream` ontbreekt. Pak de hele zip opnieuw uit (A1). |
 | De livestream blijft op "Waiting for data" | Komen er pakketten binnen in het zwarte venster? Zo niet: zie H2 en H3. |
-| De hoogte in de livestream begint niet bij 0 m | De eerste 5 metingen zijn het nulpunt. Werd de CanSat toen bewogen? Open het streamdashboard opnieuw terwijl de CanSat stil ligt. |
+| De hoogte in de livestream begint niet bij 0 m | De eerste 5 metingen zijn het nulpunt. Werd de CanSat toen bewogen? Laat hem 3 à 4 minuten stil liggen: dan wordt die plaats vanzelf het nulpunt. Bij de lancering telt de hoogte altijd vanaf de grond van vlak voor de klim. |
+| Een replay (G3) staat stil | Staat er bovenaan `· ended`? Dan is het bestand uit: druk op **R**. Staat er `· paused`? Druk op de spatiebalk. |
 | De logo's staan er niet | Kijk de namen na: `logo_school.png` en `logo_team.png`, in de map `logos`. Open het streamdashboard opnieuw. |
 | OBS toont een zwart beeld | Is het streamdashboard geminimaliseerd? Haal het terug. Kies in OBS bij **Capture Method** een andere optie. |
 | De laptop wordt traag | Sluit andere programma's. De meting loopt door. |
