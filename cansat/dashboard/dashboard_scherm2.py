@@ -802,8 +802,8 @@ class Dashboard2:
         if K.finite(row.get("acc_peak_g")):
             return "g: the peak of every second (LSM6DSO, up to 16 g)"
         if from_radio(row):
-            return ("radio: g from the BNO055, at most about 4 g · "
-                    "the real peaks are on the SD card")
+            return ("radio: g from the BNO055 (at most about 4 g) · "
+                    "real peaks: SD card")
         return "g from the BNO055 (this file has no peak g)"
 
     # ── flight track rendering ──
