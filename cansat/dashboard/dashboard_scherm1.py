@@ -100,8 +100,9 @@ DESIGN_SIZE = (15.0, 8.5)   # window size (inches) the layout was drawn for
 AUDIO_MIN_TOP = 0.01  # audio chart: smallest top of the y-axis
 WINDOW_S  = 30       # time window for the small charts (s)
 F_NYQUIST = 208      # LSM6DSO: 416 Hz ODR → usable spectrum 0–208 Hz
-LINK_WARN_S = 3      # live: no new data for this long → amber "last data ... ago"
-LINK_LOST_S = 10     # live: no new data for this long → red "NO DATA"
+LINK_WARN_S = 3      # live: no new data for this long → amber "No data for 4 s"
+LINK_LOST_S = 10     # live: no new data for this long → red "No signal"
+RADIO_STOPS_S = 360  # the flight code stops the radio this long after the launch
 
 # ── Data source mode ─────────────────────────────────────────
 # "live"   : follow a GROWING csv that the ground receiver appends to
@@ -296,6 +297,50 @@ def duration_text(seconds):
     """'12 s', and from one minute on '3 min 05 s'."""
     s = int(max(0.0, seconds))
     return f"{s} s" if s < 60 else f"{s // 60} min {s % 60:02d} s"
+
+
+def link_status(live, have_rows, age, t_flight=None):
+    """What to say about the data link (live only). age: seconds since the
+    last new data; t_flight: seconds since the launch at the last row.
+    Returns (level, header text or None, warning for in the chart):
+    level "ok", "wait" (no row yet), "warn" or "lost"."""
+    if not live or (have_rows and age < LINK_WARN_S):
+        return "ok", None, ""
+    if age < LINK_LOST_S:
+        if not have_rows:
+            return "wait", "waiting for data…", ""
+        return "warn", f"No data for {age:.0f} s", ""
+    # after the flight this is no fault: the can stops sending by itself
+    planned = t_flight is not None and t_flight > RADIO_STOPS_S - 20
+    why = ("the CanSat stops sending 6 minutes after the launch" if planned
+           else "check the receiver and the logger window")
+    return ("lost", f"No signal for {duration_text(age)}",
+            f"NO SIGNAL for {duration_text(age)}\n{why}")
+
+
+LINK_COLOR = {"ok": "green", "wait": "amber", "warn": "amber", "lost": "red"}
+
+
+def state_suffix(sim, live, paused):
+    """Behind the name of the data source in the title: a replay or the
+    simulator that is paused, has ended or runs faster."""
+    if live:
+        return ""
+    if paused:
+        return " · paused"
+    if getattr(sim, "finished", False):
+        return " · ended"
+    return f" · ×{SIM_SPEED:g}" if SIM_SPEED != 1 else ""
+
+
+def quiet_keymaps():
+    """matplotlib's own shortcuts would change a chart by accident (L: log
+    scale, G: grid) or close the window (Q). F (full screen) and S (save a
+    picture) stay."""
+    for key in plt.rcParams:
+        if key.startswith("keymap.") and key not in (
+                "keymap.fullscreen", "keymap.save", "keymap.copy"):
+            plt.rcParams[key] = []
 
 
 def vibration_pattern(bands):
@@ -728,6 +773,9 @@ class CsvReplay:
         self.t += dt
         target_ms = self.t * 1000.0
         out = []
+        if not self._started:        # the first row: show something at once
+            self._started = True     # (it never passes the loop below)
+            out.append(self.rows[0])
         while self.i + 1 < len(self.rows):
             if self.rows[self.i + 1]["millis"] < self.rows[self.i]["millis"]:
                 # the can restarted in this file: millis starts again, so
@@ -754,10 +802,6 @@ class CsvReplay:
             self.t, self.i, self.v = self.rows[0]["millis"] / 1000.0, 0, 0.0
             self.rows[0][V_KEY] = 0.0
             return out + [self.rows[0]]
-        # first frame: show something immediately
-        if not out and not self._started:
-            self._started = True
-            return [self.rows[0]]
         return out
 
     def drag_coefficient(self, row):
@@ -1158,15 +1202,9 @@ class Dashboard:
                                  ec="none", alpha=0.9), **kw)
 
     def _title_text(self):
-        s = self.sim.label
-        if not self.live:
-            if self.paused:
-                s += " · paused"
-            elif getattr(self.sim, "finished", False):
-                s += " · ended"
-            elif SIM_SPEED != 1:
-                s += f" · ×{SIM_SPEED:g}"
-        return f"Screen 1 — Flight Data & Sensors ({s})"
+        return ("Screen 1 — Flight Data & Sensors ("
+                + self.sim.label + state_suffix(self.sim, self.live, self.paused)
+                + ")")
 
     def _build_figure(self):
         plt.rcParams.update({
@@ -1174,13 +1212,7 @@ class Dashboard:
             "text.color": C["text"],
             "axes.labelcolor": C["muted"],
         })
-        # matplotlib's own shortcuts would change a chart by accident (L:
-        # log scale, G: grid) or close the window (Q). F (full screen) and
-        # S (save a picture) stay.
-        for key in plt.rcParams:
-            if key.startswith("keymap.") and key not in (
-                    "keymap.fullscreen", "keymap.save", "keymap.copy"):
-                plt.rcParams[key] = []
+        quiet_keymaps()
         self.fig = plt.figure(figsize=DESIGN_SIZE, facecolor=C["bg"])
         self.fig.canvas.manager.set_window_title(
             "CanSat 2027 — Screen 1 · Flight Data & Sensors")
@@ -1670,20 +1702,15 @@ class Dashboard:
         """Header dot, link text and the warning in the altitude chart.
         Returns True when something on screen changed."""
         now = time.monotonic() if now is None else now
-        dot, text, color, warn = C["green"], self._rssi_text, self._rssi_color, ""
-        if self.live:
-            since = self._rx_wall if self._rx_wall is not None else self._t_open
-            age = now - since
-            if not self.hist["t"] and age < LINK_LOST_S:   # no row yet
-                dot, text, color = C["amber"], "waiting for data…", C["amber"]
-            elif age >= LINK_LOST_S:
-                dot = color = C["red"]
-                text = f"No signal for {duration_text(age)}"
-                warn = (f"NO SIGNAL for {duration_text(age)}\n"
-                        "check the receiver and the logger window")
-            elif age >= LINK_WARN_S:
-                dot = color = C["amber"]
-                text = f"No data for {age:.0f} s"
+        since = self._rx_wall if self._rx_wall is not None else self._t_open
+        t_launch = self.detector.t_launch
+        t_flight = (self.hist["t"][-1] - t_launch
+                    if self.hist["t"] and t_launch is not None else None)
+        level, text, warn = link_status(self.live, bool(self.hist["t"]),
+                                        now - since, t_flight)
+        dot = C[LINK_COLOR[level]]
+        color = dot if text is not None else self._rssi_color
+        text = self._rssi_text if text is None else text
         shown = (dot, text, color, warn)
         if shown == self._link_shown:
             return False

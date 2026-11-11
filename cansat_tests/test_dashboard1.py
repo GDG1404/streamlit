@@ -376,8 +376,8 @@ def test_sim_and_screen2(d):
     for _ in range(410):
         CLOCK[0] += 0.5
         dash2.update(0)
-    check("screen 2: the same flight time", dash2.txt_kpi[1].get_text() == "02:07" and dash2.detector.phase == "LANDED",
-          dash2.txt_kpi[1].get_text())
+    check("screen 2: the same flight time", dash2.txt_kpi[0].get_text() == "02:07" and dash2.detector.phase == "LANDED",
+          dash2.txt_kpi[0].get_text())
 
 
 TESTS = {"flight": test_flight, "radio": test_radio, "bench": test_bench, "keys": test_keys,
