@@ -72,6 +72,7 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.colors import LinearSegmentedColormap, Normalize
 from matplotlib.gridspec import GridSpec
+from matplotlib.ticker import MaxNLocator
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 (registers 3D projection)
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from PIL import Image
@@ -89,7 +90,7 @@ VIEW3D_SPAN = 400     # flight: smallest half-width of the xy scene (m)
 GROUND_SPAN = 20      # ground test: smallest half-width of the xy scene (m)
 GROUND_TOP = 5        # ground test: smallest height of the scene (m)
 ROTATE_DEG_S = 1.5    # slow camera rotation (°/s); 0 = static
-DRIFT_SPAN_S = 6      # drift from GPS positions: over the last seconds
+DRIFT_SPAN_S = 10     # drift from GPS positions: over the last seconds
 
 # Screen 2 is heavy (3D views + map). It checks for new data every
 # UPDATE_MS, but only redraws when a new row came in (live/replay: about
@@ -226,7 +227,6 @@ class Dashboard2:
         if self.replay:
             self.sim.loop = False            # stay on the last picture (R = again)
         self.ori_artists = []
-        self.scene_artists = []
         self.cyl = cylinder_mesh()
         self.cap_top = cap_mesh(z=+0.115 / 2)
         self.cap_bot = cap_mesh(z=-0.115 / 2)
@@ -475,6 +475,9 @@ class Dashboard2:
                 pass
         self.ax_flight.tick_params(colors=C["dim"], labelsize=7,
                                    labelcolor=C["muted"])
+        for axis in (self.ax_flight.xaxis, self.ax_flight.yaxis,
+                     self.ax_flight.zaxis):
+            axis.set_major_locator(MaxNLocator(5))     # few ticks: faster
         self.ax_flight.set_xlabel("east (m)")
         self.ax_flight.set_ylabel("north (m)")
         self.ax_flight.set_zlabel("altitude (m)")
@@ -487,9 +490,16 @@ class Dashboard2:
                 pass
         self._azim = -60.0
         self.ax_flight.view_init(elev=28, azim=self._azim)
-        # a ring around the start on the ground plane (radius: _scale_scene)
+        # a ring around the start on the ground plane, and north: an N just
+        # outside the floor with a short line towards it (_scale_scene
+        # puts them in place)
         self.ln_ring3d, = self.ax_flight.plot([], [], [], color=C["green"],
                                               lw=1, ls="--", alpha=0.5)
+        self.ln_north, = self.ax_flight.plot([], [], [], color=C["muted"],
+                                             lw=1.2)
+        self.txt_north = self.ax_flight.text(
+            0, 0, 0, "N", fontsize=10, color=C["text"], ha="center",
+            va="center", fontweight="bold")
         # dummy segment: add_collection3d crashes on an empty collection
         self.trk3d = Line3DCollection(np.zeros((1, 2, 3)),
                                       cmap=self.alt_cmap,
@@ -685,6 +695,12 @@ class Dashboard2:
         r = span / 8                     # flight: 50 m around the start
         self.ln_ring3d.set_data_3d(r * np.cos(ang), r * np.sin(ang),
                                    np.zeros_like(ang))
+        self.ln_north.set_data_3d([0, 0], [span * 0.82, span], [0, 0])
+        try:
+            self.txt_north.set_position_3d((0, span * 1.1, 0))
+        except AttributeError:                         # older matplotlib
+            self.txt_north.set_position((0, span * 1.1))
+            self.txt_north.set_3d_properties(0, None)
         self.alt_norm.vmax = z_top       # colours of the track
         self.trk3d.changed()
         self.trk2d.changed()
@@ -797,16 +813,6 @@ class Dashboard2:
         return np.stack([p[:-1], p[1:]], axis=1)
 
     def _update_track_3d(self, x, y, alt):
-        for art in self.scene_artists:
-            art.remove()
-        span = self._scene[0]
-        # north: an N just outside the floor, and a short line towards it
-        self.scene_artists = [
-            self.ax_flight.text(0, span * 1.1, 0, "N", fontsize=10 * self.fit.f,
-                                color=C["text"], ha="center", va="center",
-                                fontweight="bold"),
-            self.ax_flight.plot([0, 0], [span * 0.82, span], [0, 0],
-                                color=C["muted"], lw=1.2)[0]]
         if len(self.track_x) > 1:
             zs = np.array(self.track_z)
             self.trk3d.set_segments(
