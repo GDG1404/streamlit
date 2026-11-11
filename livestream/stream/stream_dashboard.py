@@ -24,9 +24,14 @@ Starten (in de map CanSatLive):
 Logo's: zet logo_school.png en logo_team.png in de map 'logos'.
 Elke ontvangen regel wordt ook bewaard in de map 'metingen'.
 
-De hoogte telt vanaf de plaats waar je start: de eerste 5 metingen zijn het
-nulpunt. Start dit dashboard dus vóór de lancering, als de CanSat nog op de
-grond staat.
+De hoogte telt vanaf de startplaats. De eerste 5 metingen zijn het nulpunt.
+Staat de CanSat daarna een paar minuten stil, dan wordt die plaats het nieuwe
+nulpunt: zo klopt de hoogte ook als het weer verandert of als de CanSat nog
+naar de lanceerplaats gedragen wordt. Bij de lancering telt de hoogte van
+vlak voor de klim.
+
+De lancering = enkele seconden snel stijgen. Vanaf dan toont de grafiek de
+hele vlucht, met de tijd sinds de lancering (T+).
 """
 
 import argparse
@@ -48,17 +53,24 @@ import matplotlib.image as mpimg  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.text import Text  # noqa: E402
-from matplotlib.ticker import FuncFormatter, MaxNLocator, MultipleLocator  # noqa: E402
+from matplotlib.ticker import (FixedLocator, FuncFormatter, MaxNLocator,  # noqa: E402
+                               MultipleLocator)
 
 # ═══════════════ PAS AAN ═══════════════
 TITLE = "CanSat 2027"     # bv. "CanSat 2027 · Team Kepler"
 # ═══════════════════════════════════════
 
-WINDOW_S = 300            # grafiek: de laatste 5 minuten
+WINDOW_S = 300            # grafiek: 5 minuten (de laatste, of de vlucht)
 ALT_AXIS_M = 1100         # hoogte-as tot 1100 m (groeit mee als het hoger gaat)
 GROUND_PACKETS = 5        # nulpunt = mediaan van de eerste 5 metingen
+STILL_BLOCK_S = 60        # nulpunt volgt: 3 minuten na elkaar (3 blokken) ...
+STILL_RANGE_M = 1.5       # ... bijna dezelfde hoogte = de CanSat staat stil
+LAUNCH_MS = 5.0           # lancering: sneller stijgen dan 5 m/s ...
+LAUNCH_HOLD_S = 2.0       # ... gedurende 2 s (een trap of een lift haalt dat niet)
+LAUNCH_LEAD_S = 30        # de grafiek begint 30 s voor de lancering
 SIGNAL_WARN_S = 3         # zolang niets ontvangen: oranje
 SIGNAL_LOST_S = 10        # zolang niets ontvangen: rood
+RADIO_STOPS_S = 360       # de vluchtcode stopt de radio 6 minuten na de lancering
 UPDATE_MS = 250           # zo vaak kijken of er iets nieuws is
 WINDOW_TITLE = "CanSat 2027 — Stream"   # zo vind je het venster in OBS
 
@@ -97,6 +109,8 @@ C = dict(page="#0d0d0d", surface="#1a1a19", border="#2c2c2a",
          ink="#f0efec", ink2="#c3c2b7", muted="#898781",
          grid="#2c2c2a", axis="#383835", series="#3987e5",
          good="#0ca30c", warning="#fab219", critical="#d03b3b")
+PHASE_COLOR = {"WAITING": "muted", "ON THE PAD": "ink2", "ASCENT": "series",
+               "DESCENT": "warning", "LANDED": "good"}
 
 
 # ═════════════════════════════════════════════════════════════
@@ -158,7 +172,8 @@ class Flight:
 
     def reset(self):
         self.t = deque(maxlen=20000)      # tijd (s sinds de eerste meting)
-        self.h = deque(maxlen=20000)      # hoogte boven de startplaats (m)
+        self.alt = deque(maxlen=20000)    # hoogte van de sensor (m)
+        self.zero = None                  # hoogte van de startplaats (m)
         self.first_alts = []
         self.t0 = None
         self.count = 0
@@ -166,10 +181,32 @@ class Flight:
         self.last_t = None                # klok van de laatste meting
         self.source = None                # "radio" of "usb"
         self.v = 0.0                      # verticale snelheid (m/s, + = omhoog)
-        self.max_h = 0.0
-        self.launched = False
-        self.landed = False
-        self._calm_since = None
+        self.top_alt = None               # hoogste punt (sinds de lancering)
+        self.t_top = None
+        self.t_launch = None              # tijd van de lancering (zoals self.t)
+        self.t_landed = None              # tijd van de landing
+        self._fast_since = None           # zo lang stijgt hij al snel
+        self._calm_since = None           # zo lang ligt hij al stil (na de vlucht)
+        self._block_t = None              # het blok van STILL_BLOCK_S dat loopt
+        self._block = []
+        self._block_meds = []             # mediaan van de laatste blokken
+
+    # hoogte boven de startplaats
+    @property
+    def launched(self):
+        return self.t_launch is not None
+
+    @property
+    def landed(self):
+        return self.t_landed is not None
+
+    def height(self, alt=None):
+        alt = self.alt[-1] if alt is None else alt
+        return alt - self.zero
+
+    @property
+    def max_h(self):
+        return self.top_alt - self.zero if self.top_alt is not None else 0.0
 
     def add(self, row, now, source):
         """Voeg een meting toe. Geeft True terug als het een nieuwe sessie is
@@ -189,31 +226,97 @@ class Flight:
         alt = row["alt_m"]
         if not is_number(alt):
             return restarted
+        t = t_abs - self.t0
         if len(self.first_alts) < GROUND_PACKETS:
             self.first_alts.append(alt)
-        h = alt - statistics.median(self.first_alts)
-        self.t.append(t_abs - self.t0)
-        self.h.append(h)
-        self.max_h = max(self.max_h, h)
+            self.zero = statistics.median(self.first_alts)
+        self.t.append(t)
+        self.alt.append(alt)
         self.v = self._slope(4.0)
 
-        if not self.launched and h > 30:
-            self.launched = True
-        if self.launched and not self.landed:
-            if h < 10 and abs(self.v) < 1.0:
-                self._calm_since = self._calm_since or now
-                if now - self._calm_since >= 5:
-                    self.landed = True
+        if not self.launched:
+            self._follow_ground(t, alt)
+            if self.v > LAUNCH_MS:                # snel stijgen: de lancering?
+                if self._fast_since is None:
+                    self._fast_since = t
+                if t - self._fast_since >= LAUNCH_HOLD_S:
+                    self._launch()
+            else:
+                self._fast_since = None
+                # de klim gemist (de radio viel even weg): hoog boven de
+                # grond en snel in beweging is ook een vlucht
+                if self.height() > 50 and abs(self.v) > 3:
+                    self._fast_since = t
+                    self._launch()
+            if not self.launched and (self.top_alt is None or alt > self.top_alt):
+                self.top_alt, self.t_top = alt, t      # hoogste tot nu toe
+        elif not self.landed:
+            if alt > self.top_alt:
+                self.top_alt, self.t_top = alt, t
+            # geland: stil, en ver onder het hoogste punt (de landingsplaats
+            # mag hoger of lager liggen dan de startplaats)
+            h = self.height()
+            if abs(self.v) < 1.0 and h < max(15.0, 0.5 * self.max_h):
+                if self._calm_since is None:
+                    self._calm_since = t
+                if t - self._calm_since >= 5:
+                    self.t_landed = self._touchdown(alt)
             else:
                 self._calm_since = None
         return restarted
+
+    def _follow_ground(self, t, alt):
+        """Voor de lancering: staat de CanSat 3 blokken van STILL_BLOCK_S na
+        elkaar op bijna dezelfde hoogte, dan is dat het nieuwe nulpunt. Zo
+        volgt het nulpunt het weer (de luchtdruk verandert traag) en de weg
+        naar de lanceerplaats, maar geen trap of korte test."""
+        if self._block_t is None:
+            self._block_t = t
+        self._block.append(alt)
+        if t - self._block_t < STILL_BLOCK_S:
+            return
+        if len(self._block) >= 10:                 # genoeg metingen in het blok
+            self._block_meds = (self._block_meds
+                                + [statistics.median(self._block)])[-3:]
+            if (len(self._block_meds) == 3 and
+                    max(self._block_meds) - min(self._block_meds) < STILL_RANGE_M):
+                self.zero = self._block_meds[-1]
+                self.top_alt, self.t_top = alt, t
+        else:
+            self._block_meds = []
+        self._block_t, self._block = t, []
+
+    def _launch(self):
+        """De lancering is herkend. Het nulpunt = de hoogte van vlak voor de
+        klim; de lancering = de laatste meting op de grond."""
+        before = [a for t, a in zip(self.t, self.alt)
+                  if self._fast_since - 12 <= t <= self._fast_since - 3]
+        if len(before) >= 3:
+            self.zero = statistics.median(before)
+        self.t_launch = self._fast_since
+        for t, a in zip(reversed(self.t), reversed(self.alt)):
+            if a - self.zero < 2.0:
+                self.t_launch = t
+                break
+        pairs = [(a, t) for t, a in zip(self.t, self.alt) if t >= self.t_launch]
+        self.top_alt, self.t_top = max(pairs)
+
+    def _touchdown(self, alt_now):
+        """De landing: de eerste meting op de grond na de val."""
+        later = self.t[-1]
+        for t, a in zip(reversed(self.t), reversed(self.alt)):
+            if a - alt_now > 2.0:              # hier hing hij nog in de lucht
+                return later
+            later = t
+        return self._calm_since
 
     def _slope(self, span):
         """Rechte door de punten van de laatste `span` seconden (m/s)."""
         if not self.t:
             return 0.0
-        pts = [(t, h) for t, h in zip(self.t, self.h) if t >= self.t[-1] - span]
-        if len(pts) < 2 or pts[-1][0] - pts[0][0] < 1.0:
+        pts = [(t, a) for t, a in zip(reversed(self.t), reversed(self.alt))
+               if t >= self.t[-1] - span]
+        if len(pts) < 2 or pts[0][0] - pts[-1][0] < 1.0:
             return self.v
         mt = sum(p[0] for p in pts) / len(pts)
         mh = sum(p[1] for p in pts) / len(pts)
@@ -230,6 +333,16 @@ class Flight:
             return "ON THE PAD"
         return "ASCENT" if self.v > 2 else "DESCENT"
 
+    def flight_time(self, now=None):
+        """Seconden sinds de lancering (tot de landing), of None. De klok
+        loopt door als er even geen meting komt (`now` = de klok van de pc)."""
+        if not self.launched:
+            return None
+        if self.landed:
+            return self.t_landed - self.t_launch
+        late = max(0.0, now - self.last_t) if now is not None else 0.0
+        return self.t[-1] + late - self.t_launch
+
     def signal(self, now):
         """(kleur, tekst) voor de ontvangst."""
         if self.last_t is None:
@@ -242,6 +355,10 @@ class Flight:
             rssi = self.last.get("rssi")
             dbm = f" · {rssi:.0f} dBm" if rssi is not None else ""
             return C["good"], f"Receiving · {n}{dbm}"
+        # na de vlucht is de stilte normaal: de CanSat stopt zelf met zenden
+        if (self.launched and self.t
+                and self.t[-1] - self.t_launch > RADIO_STOPS_S - 20):
+            return C["muted"], f"End of transmission · {n}"
         if age < SIGNAL_LOST_S:
             return C["warning"], f"No data for {age:.0f} s · {n}"
         return C["critical"], f"No signal for {age:.0f} s · {n}"
@@ -347,6 +464,14 @@ def mmss(x, _pos=None):
     return f"{x // 60}:{x % 60:02d}"
 
 
+def quiet_keymaps():
+    """De sneltoetsen van matplotlib zouden midden in de stream het venster
+    sluiten (Q) of de grafiek veranderen (L, G). F (volledig scherm) blijft."""
+    for key in plt.rcParams:
+        if key.startswith("keymap.") and key != "keymap.fullscreen":
+            plt.rcParams[key] = []
+
+
 def find_logo(name):
     """logos/logo_school.png (of .jpg/.jpeg) → pad, of None."""
     for ext in ("png", "jpg", "jpeg", "PNG", "JPG", "JPEG"):
@@ -365,6 +490,7 @@ class StreamDashboard:
         self._last_status = None
         self._shown = None
         self._mode_shown = None
+        self._axis_ref = None            # nulpunt van de tijdas (de lancering)
         self.log_dir = log_dir
         self.logs = {}
         self.stamp = datetime.now().strftime("%Y-%m-%d_%H%M")
@@ -382,6 +508,7 @@ class StreamDashboard:
 
     def _build(self):
         plt.rcParams["toolbar"] = "None"           # geen knoppenbalk in de stream
+        quiet_keymaps()
         plt.rcParams["font.family"] = "sans-serif"
         self.fig = plt.figure(figsize=(12.8, 7.2), dpi=100, facecolor=C["page"])
         try:
@@ -454,6 +581,12 @@ class StreamDashboard:
         # ── grafiek: hoogte ──
         f.text(0.03, 0.455, "Altitude (m)", fontsize=13, color=C["ink2"],
                va="center")
+        # missieklok: T+ sinds de lancering, na de landing de vliegtijd
+        self.txt_clock = f.text(0.975, 0.458, "", fontsize=22,
+                                fontweight="bold", color=C["ink"], ha="right",
+                                va="center")
+        self.txt_clock_label = f.text(0.975, 0.458, "", fontsize=12,
+                                      color=C["muted"], ha="right", va="center")
         ax = f.add_axes([0.07, 0.085, 0.905, 0.33])
         ax.set_facecolor(C["page"])
         for side in ("top", "right", "left"):
@@ -476,6 +609,22 @@ class StreamDashboard:
         self.txt_end = ax.annotate("", xy=(0, 0), xytext=(-12, 12),
                                    textcoords="offset points", ha="right",
                                    fontsize=13, color=C["ink"])
+        # merktekens van de vlucht: lancering, hoogste punt, landing
+        tr = ax.get_xaxis_transform()              # x in seconden, y van 0 tot 1
+        nan = float("nan")
+        self.ln_launch = ax.axvline(nan, color=C["muted"], linewidth=1.2,
+                                    linestyle=(0, (4, 3)))
+        self.txt_launch = ax.text(nan, 0.94, "", fontsize=11, color=C["ink2"],
+                                  ha="right", va="center", transform=tr)
+        self.dot_top, = ax.plot([], [], marker="^", markersize=9,
+                                color=C["ink"], linestyle="none")
+        self.txt_top = ax.annotate("", xy=(0, 0), xytext=(10, 6),
+                                   textcoords="offset points", ha="left",
+                                   va="bottom", fontsize=11, color=C["ink2"])
+        self.ln_landed = ax.axvline(nan, color=C["good"], linewidth=1.2,
+                                    linestyle=(0, (4, 3)))
+        self.txt_landed = ax.text(nan, 0.94, "", fontsize=11, color=C["ink"],
+                                  ha="left", va="center", transform=tr)
         self.fill = None
         self.ax = ax
         self._show_mode()
@@ -483,7 +632,8 @@ class StreamDashboard:
         self._base_w = self.fig.get_figwidth()
         self._fonts = [(t, t.get_fontsize()) for t in self.fig.findobj(Text)]
         self._marks = [(m, m.get_markersize())
-                       for m in (self.mode_dot, self.sig_dot, self.dot_alt)]
+                       for m in (self.mode_dot, self.sig_dot, self.dot_alt,
+                                 self.dot_top)]
 
     def _fit_text(self, text, max_width):
         """Maak een tekst kleiner tot hij in `max_width` (deel van de breedte)
@@ -639,17 +789,31 @@ class StreamDashboard:
             self.keep_on_screen()
         changed = self._drain()
         color, sig_text = self.flight.signal(now)
-        if changed or sig_text != self._shown:
-            self._shown = sig_text
+        clock = self._clock_text(now)
+        if changed or (sig_text, clock) != self._shown:
+            self._shown = (sig_text, clock)
             self._update(color, sig_text)
             self.fig.canvas.draw_idle()
+
+    def _clock_text(self, now):
+        """De missieklok: T+ sinds de lancering, na de landing de vliegtijd."""
+        fl = self.flight
+        ft = fl.flight_time(now)
+        if ft is None:
+            return ""
+        return f"Flight time {mmss(ft)}" if fl.landed else f"T+ {mmss(ft)}"
 
     def _update(self, color, sig_text):
         fl = self.flight
         self._show_mode()
         self.sig_dot.set_color(color)
         self.txt_sig.set_text(sig_text)
-        self.txt_phase.set_text(fl.phase())
+        phase = fl.phase()
+        self.txt_phase.set_text(phase)
+        tint = C[PHASE_COLOR[phase]]
+        self.txt_phase.set_color(tint)
+        self.txt_phase.get_bbox_patch().set_edgecolor(
+            tint if phase in ("ASCENT", "DESCENT", "LANDED") else C["border"])
         if fl.last is None:
             return
         for val, _ in self.tiles:
@@ -660,25 +824,42 @@ class StreamDashboard:
         t_sub.set_text("inside the CanSat")
         p_val.set_text(f"{press:.0f} hPa" if is_number(press) else "—")
         p_sub.set_text("sea level ≈ 1013 hPa")
-        if not fl.h:                     # nog geen bruikbare hoogte
+        if not fl.alt:                   # nog geen bruikbare hoogte
             return
 
-        h = fl.h[-1]
+        h = fl.height()
+        top = int(round(fl.max_h))
         self.txt_alt.set_color(C["ink"])
         self.txt_alt.set_text(f"{int(round(h)):,} m")
-        self.txt_alt_sub.set_text(f"Highest so far: {int(round(fl.max_h)):,} m")
+        self.txt_alt_sub.set_text(
+            f"Apogee: {top:,} m" if fl.landed else f"Highest so far: {top:,} m")
         v = fl.v
         v_val.set_text(f"{abs(v):.1f} m/s")
         v_sub.set_text("↓ falling" if v < -0.5 else "↑ rising" if v > 0.5
                        else "steady")
 
-        # alleen het zichtbare stuk tekenen: blijft licht, ook na uren
+        # missieklok (de tekst komt uit tick: de klok loopt ook zonder meting)
+        self.txt_clock.set_text(self._shown[1] if self._shown else "")
+        self.txt_clock.set_color(C["good"] if fl.landed else C["ink"])
+        self.txt_clock_label.set_text("" if fl.launched else "Waiting for launch")
+
+        # de grafiek: voor de lancering de laatste 5 minuten; daarna de hele
+        # vlucht, van kort voor de lancering tot 1 minuut na de landing
         t_now = fl.t[-1]
-        x0 = max(0.0, t_now - 0.95 * WINDOW_S)     # rechts wat ruimte voor het punt
-        pts = [(t, hh) for t, hh in zip(fl.t, fl.h) if t >= x0 - 2]
+        if fl.launched:
+            x0 = max(0.0, fl.t_launch - LAUNCH_LEAD_S)
+            end = t_now if not fl.landed else min(t_now, fl.t_landed + 60)
+            x1 = max(x0 + WINDOW_S, end + 0.05 * WINDOW_S)
+        else:
+            x0 = max(0.0, t_now - 0.95 * WINDOW_S)  # rechts wat ruimte voor het punt
+            x1 = x0 + WINDOW_S
+        span = x1 - x0
+        pts = [(t, fl.height(a)) for t, a in zip(fl.t, fl.alt)
+               if x0 - 2 <= t <= x1]
         ts, hs = [p[0] for p in pts], [p[1] for p in pts]
-        self.ax.set_xlim(x0, x0 + WINDOW_S)
-        if fl.source == "usb":
+        self.ax.set_xlim(x0, x1)
+        self._time_axis(x0, x1)
+        if fl.source == "usb" and not fl.launched:
             # droogtest: kleine hoogteverschillen (trap, tafel) → de as schaalt mee
             self.ax.yaxis.set_major_locator(MaxNLocator(5))
             self.ax.set_ylim(min(0, min(hs) - 1), max(10, max(hs) * 1.3))
@@ -688,23 +869,85 @@ class StreamDashboard:
             self.ax.set_ylim(min(0, min(hs) - 10),
                              max(ALT_AXIS_M, fl.max_h * 1.1))
         self.ln_alt.set_data(ts, hs)
-        self.dot_alt.set_data([t_now], [h])
         if self.fill is not None:
             self.fill.remove()
         self.fill = self.ax.fill_between(ts, 0, hs, color=C["series"],
                                          alpha=0.10, linewidth=0)
-        # label naast het punt, aan de kant waar de lijn niet loopt
-        if t_now - x0 < 0.85 * WINDOW_S:
-            off, ha, va = (14, 0), "left", "center"
-        elif fl.v < 0:
-            off, ha, va = (-12, -12), "right", "top"
+        # het punt van nu, met de hoogte ernaast (aan de kant waar de lijn
+        # niet loopt); buiten de grafiek (lang na de landing) verdwijnt het
+        if t_now <= x1:
+            self.dot_alt.set_data([t_now], [h])
+            y0, y1 = self.ax.get_ylim()
+            if t_now - x0 < 0.85 * span:
+                off, ha, va = (14, 0), "left", "center"
+            elif fl.v < 0 and h - y0 > 0.15 * (y1 - y0):
+                off, ha, va = (-12, -12), "right", "top"
+            else:                      # ook vlak boven de as: niet op de tijden
+                off, ha, va = (-12, 12), "right", "bottom"
+            self.txt_end.set_position(off)
+            self.txt_end.set_ha(ha)
+            self.txt_end.set_va(va)
+            self.txt_end.xy = (t_now, h)
+            self.txt_end.set_text(f"{int(round(h)):,} m")
         else:
-            off, ha, va = (-12, 12), "right", "bottom"
-        self.txt_end.set_position(off)
-        self.txt_end.set_ha(ha)
-        self.txt_end.set_va(va)
-        self.txt_end.xy = (t_now, h)
-        self.txt_end.set_text(f"{int(round(h)):,} m")
+            self.dot_alt.set_data([], [])
+            self.txt_end.set_text("")
+        self._flight_marks(span)
+
+    def _time_axis(self, x0, x1):
+        """Voor de lancering: de tijd sinds het begin. Daarna: T+ en T−, met
+        een streepje op elke minuut vanaf de lancering."""
+        fl = self.flight
+        if not fl.launched:
+            if self._axis_ref is not None:
+                self._axis_ref = None
+                self.ax.xaxis.set_major_locator(MultipleLocator(60))
+                self.ax.xaxis.set_major_formatter(FuncFormatter(mmss))
+                self.ax.set_xlabel("Elapsed time (min:s)")
+            return
+        ref = fl.t_launch
+        step = 60 if x1 - x0 <= 600 else 120 if x1 - x0 <= 1200 else 300
+        k0, k1 = math.ceil((x0 - ref) / step), math.floor((x1 - ref) / step)
+        self.ax.xaxis.set_major_locator(
+            FixedLocator([ref + k * step for k in range(k0, k1 + 1)]))
+        if self._axis_ref != ref:
+            self._axis_ref = ref
+            self.ax.xaxis.set_major_formatter(FuncFormatter(
+                lambda x, _pos: ("T+" if x >= ref - 0.5 else "T−")
+                + mmss(abs(x - ref))))
+            self.ax.set_xlabel("Time since launch (min:s)")
+
+    def _flight_marks(self, span):
+        """Lancering, hoogste punt en landing in de grafiek."""
+        fl = self.flight
+        nan = float("nan")
+        if not fl.launched:
+            self.ln_launch.set_xdata([nan, nan])
+            self.txt_launch.set_text("")
+            self.dot_top.set_data([], [])
+            self.txt_top.set_text("")
+            self.ln_landed.set_xdata([nan, nan])
+            self.txt_landed.set_text("")
+            return
+        gap = 0.006 * span
+        self.ln_launch.set_xdata([fl.t_launch, fl.t_launch])
+        self.txt_launch.set_position((fl.t_launch - gap, 0.94))
+        self.txt_launch.set_text("Launch")
+        # het hoogste punt: pas als de klim voorbij is
+        if fl.landed or fl.height() < fl.max_h - 5:
+            self.dot_top.set_data([fl.t_top], [fl.max_h])
+            self.txt_top.xy = (fl.t_top, fl.max_h)
+            self.txt_top.set_text(f"Apogee {int(round(fl.max_h)):,} m")
+        else:
+            self.dot_top.set_data([], [])
+            self.txt_top.set_text("")
+        if fl.landed:
+            self.ln_landed.set_xdata([fl.t_landed, fl.t_landed])
+            self.txt_landed.set_position((fl.t_landed + gap, 0.94))
+            self.txt_landed.set_text("Landed")
+        else:
+            self.ln_landed.set_xdata([nan, nan])
+            self.txt_landed.set_text("")
 
     # ── starten ──
     def run(self, source):
