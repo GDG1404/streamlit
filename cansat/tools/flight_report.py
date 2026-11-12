@@ -673,7 +673,7 @@ def fig_vibration_timeline(d, r, vb, sub, path):
                                      gridspec_kw={"height_ratios": [1, 1]})
         fig.subplots_adjust(left=0.09, right=0.90, top=0.84, bottom=0.09, hspace=0.30)
         KA.titel(fig, "Vibrations during the flight, second by second",
-                 sub + " · FFT of 512 samples at 416 per second (LSM6DSO, z-axis)")
+                 sub + " · FFT of 512 samples at 416 per second (LSM6DSO, X, Y and Z together)")
         m = a1.pcolormesh(edges, np.arange(6), np.ma.masked_invalid(B.T), cmap=SEQ,
                           norm=LogNorm(vmin=1e-3, vmax=vmax), shading="flat")
         a1.set_yticks(np.arange(5) + 0.5)
@@ -1360,10 +1360,11 @@ def build(args, src):
         rows.append(("Seconds with a strong vibration (> 0.05 g)", str(vb["n_strong"])))
         rep.keep("Vibrations", rows)
         explain = [
-            "The LSM6DSO measures the acceleration along its Z-axis 416 times per second. "
-            "Every 512 samples (1.23 s) the flight computer removes the steady part (gravity), "
-            "applies a Hamming window and makes an FFT: it splits the vibration into "
-            "frequencies.",
+            "The LSM6DSO measures the acceleration in three directions (X, Y and Z), about "
+            "416 times per second. Every 512 samples (1.23 s) the flight computer removes the "
+            "steady part (gravity), applies a Hamming window and makes an FFT of each "
+            "direction: it splits the vibration into frequencies. Then it adds the three "
+            "directions together.",
             "It keeps the strongest frequency (<i>fft_peak_hz</i>) with its amplitude "
             "(<i>fft_peak_amp</i>, in g), and the vibration in five bands, from slow "
             "(0–10 Hz) to fast (120–208 Hz).",
@@ -1417,8 +1418,8 @@ def build(args, src):
             "computer refines the strongest peak.",
             "<b>Fastest:</b> 208 Hz, half of 416. A faster vibration is filtered out, or shows "
             "up at a mirrored frequency (lab test 4: 230 Hz looks like 186 Hz).",
-            "<b>One direction:</b> only the Z-axis of the LSM6DSO. Sideways vibrations are "
-            "not in the FFT.",
+            "<b>All directions together:</b> the FFT adds the vibrations of X, Y and Z. It "
+            "shows how strong a vibration is, not in which direction it goes.",
             "<b>A new FFT every 1.23 s.</b> A short shock is spread over that time. Its size "
             "is better in the largest acceleration of each second (research question 1).",
             "<b>Sensor noise:</b> about 0.001 g per band. A weaker vibration cannot be seen."]
@@ -1663,7 +1664,8 @@ def build(args, src):
         ("Flight computer", "Teensy 4.1, one log line per second on the SD card (34 values)"),
         ("Pressure, temperature", f"{BAROMETER}, 1 per second"),
         ("Acceleration, vibrations", "LSM6DSO, 416 per second, ±16 g; FFT of 512 samples"),
-        ("FFT", "512 samples (1.23 s) on the Z-axis, steady part removed, Hamming window; "
+        ("FFT", "512 samples (1.23 s) of X, Y and Z (added together), steady part removed, "
+                "Hamming window; "
                 "frequency step 0.81 Hz, up to 208 Hz"),
         ("Vibration pattern of a second", f"quiet: all bands together below {QUIET_G:g} g · "
                                           f"shock: every band at least {ALL_BANDS_G:g} g · "

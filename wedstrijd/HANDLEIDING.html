@@ -328,7 +328,8 @@ meer.</li>
 De metingen en de logo's blijven staan. Maar de programma's worden vervangen. Wat jullie
 zelf aanpasten, doe je dus opnieuw: de massa en de parachute in <code>dashboard\krachten.py</code>
 (A6), de titel in <code>stream\stream_dashboard.py</code> (D2) en de naam van het team in
-<code>tools\flight_report.py</code> (G7). Schrijf die gegevens eerst op.</p>
+<code>tools\flight_report.py</code> (G7). Schrijf die gegevens eerst op. Zet ook de vluchtcode uit
+de nieuwe zip op de Teensy (A4).</p>
 </blockquote>
 <h3 id="a2-python-en-de-pakketten-op-de-drie-laptops">A2. Python en de pakketten (op de drie laptops)</h3>
 <ol>
@@ -418,21 +419,39 @@ de Teensy.</li>
 Serial Monitor maakt zelf opnieuw verbinding.</li>
 </ul>
 </li>
-<li><strong>Controle.</strong> Na een paar seconden hoor je <strong>3 korte piepjes</strong>, en je ziet:<pre><code>--- Status ---
+<li><strong>Controle.</strong> Na een paar seconden hoor je <strong>3 korte piepjes</strong>, en je ziet:<pre><code>CanSat 2027 - Teensy 4.1
+========================
+Vluchtcode versie 2026-11-12
+...
+--- Status ---
 BMP390 : OK
 BNO055 : OK
 LSM6DSO: OK
 LoRa   : OK
 SD     : OK
+# I2C: 400 kHz
+# LSM6DSO: 1 meting duurt 222 us (goed)
+# LSM6DSO: FIFO aan (de sensor bewaart zelf elke meting)
 </code></pre>
 Daarna komt er elke seconde een lange regel met getallen bij. <code>BMP390</code> is de
-druksensor. Zit er nog een BMP388 in? Die werkt met dezelfde code.</li>
+druksensor. Zit er nog een BMP388 in? Die werkt met dezelfde code.
+<ul>
+<li>De regels met <code>#</code> zijn een controle van de meting zelf. Elke 10 seconden komt er
+zo'n regel bij, bijvoorbeeld:<pre><code># Controle 10 s: LSM6DSO 4170 metingen via FIFO (417.0 per seconde), BMP390 200 (moet ~200)
+</code></pre>
+De LSM6DSO moet ongeveer 417 keer per seconde meten. Een paar procent meer of
+minder is normaal: de sensor heeft zijn eigen klok, en de Teensy meet hoe snel die
+loopt. Staat er <strong>LET OP</strong> in zo'n regel? Lees H1.</li>
+</ul>
+</li>
 <li>Sluit de Arduino IDE helemaal (alle vensters, het kruisje rechtsboven).</li>
 </ol>
 <blockquote>
 <p><strong>Zet nooit de sensortest op de CanSat.</strong> Die zendt niets via de radio, bewaart niets op
 de SD-kaart en piept niet. Alleen de vluchtcode doet alles. Twijfel je? Kijk in de Serial
-Monitor: de vluchtcode begint met <code>CanSat 2027 - Teensy 4.1</code>.</p>
+Monitor: de vluchtcode begint met <code>CanSat 2027 - Teensy 4.1</code>. Daaronder staat de versie:
+<code>Vluchtcode versie 2026-11-12</code> of later. Staat die regel er niet? Dan staat er nog een
+oude vluchtcode op de Teensy.</p>
 </blockquote>
 <blockquote>
 <p><strong>Een andere frequentie of een ander sync word van de organisatie?</strong> Pas het aan op
@@ -1022,7 +1041,7 @@ genoeg.</li>
 </tr>
 <tr>
 <td>De lancering</td>
-<td>De motor duwt. De CanSat stijgt snel. Hij herkent de lancering: 50 m hoger binnen 5 seconden.</td>
+<td>De motor duwt. De CanSat stijgt snel. Hij herkent de lancering: 50 m hoger binnen 5 seconden, 3 seconden na elkaar.</td>
 <td>De hoogte schiet omhoog. De fase wordt ASCENT. De klok telt vanaf nu: <code>T+00:05</code>.</td>
 </tr>
 <tr>
@@ -1047,7 +1066,7 @@ genoeg.</li>
 </tr>
 <tr>
 <td>6 minuten na de lancering</td>
-<td>De SD-kaart sluit en de radio stopt. De buzzer begint: 3 s aan, 7 s uit.</td>
+<td>De CanSat ligt stil. De SD-kaart sluit en de radio stopt. De buzzer begint: 3 s aan, 7 s uit. Hangt de CanSat dan nog in de lucht? Dan meet hij verder tot hij stil ligt.</td>
 <td>Geen pakketten meer. Scherm 1 en 2: <strong>NO SIGNAL</strong>. De livestream: <code>End of transmission</code>. Dat is normaal.</td>
 </tr>
 <tr>
@@ -1349,6 +1368,7 @@ versnelling (<code>acc_peak_g</code>). In de radiobestanden zit die niet.</li>
 </ul>
 <h3 id="g5-de-trillingen-de-tweede-missie">G5. De trillingen (de tweede missie)</h3>
 <ul>
+<li>De FFT telt de trillingen in de drie richtingen samen (X, Y en Z).</li>
 <li>In <code>vlucht.csv</code> staan elke seconde de trillingen: <code>fft_peak_hz</code> (de frequentie van de
 sterkste trilling), <code>fft_peak_amp</code> (hoe sterk, in g) en de vijf banden <code>vib_0_10_g</code> tot
 <code>vib_120_208_g</code>.</li>
@@ -1462,6 +1482,31 @@ A4). Die toont wat er mis is.</p>
 <td>De Teensy herstart steeds</td>
 <td>Te weinig stroom.</td>
 <td>Laad de batterij op. Kijk de draden van de voeding na.</td>
+</tr>
+<tr>
+<td>Er staat geen <code>Vluchtcode versie …</code></td>
+<td>Er staat een oude vluchtcode op de Teensy.</td>
+<td>Zet de vluchtcode uit deze zip erop (A4).</td>
+</tr>
+<tr>
+<td><code># I2C: 100 kHz (LET OP: …)</code></td>
+<td>De sensoren antwoorden niet op de hoge snelheid. Meestal zijn de draden SDA en SCL te lang of zitten ze los.</td>
+<td>De CanSat werkt en meet juist. Kijk toch de draden op pin 18 en 19 na, en maak ze zo kort mogelijk.</td>
+</tr>
+<tr>
+<td><code># LSM6DSO: zonder FIFO</code></td>
+<td>Het geheugen van de LSM6DSO werkt niet zoals verwacht. De Teensy leest de sensor dan zelf, 416 keer per seconde.</td>
+<td>De CanSat werkt. De trillingen zijn iets minder nauwkeurig. Toon het aan de leerkracht.</td>
+</tr>
+<tr>
+<td><code>LET OP: meer dan 5 % ingevuld</code> in een controleregel</td>
+<td>De Teensy komt tijd tekort: te veel metingen van de LSM6DSO werden gemist en ingevuld.</td>
+<td>Staat er ook <code># I2C: 100 kHz</code>? Los dat eerst op. Probeer een andere SD-kaart.</td>
+</tr>
+<tr>
+<td><code>&gt;&gt;&gt; LANCERING GEDETECTEERD &lt;&lt;&lt;</code> terwijl de CanSat op de tafel ligt</td>
+<td>De BMP390 mat 3 seconden lang een grote sprong in de luchtdruk.</td>
+<td>Zet de CanSat uit en weer aan. Gebeurt het opnieuw? Kijk de draden van de BMP390 na. Bij een echte lancering begint de CanSat toch een nieuwe meting.</td>
 </tr>
 </tbody>
 </table>
@@ -1672,8 +1717,15 @@ A4). Die toont wat er mis is.</p>
 </tbody>
 </table>
 <p>In de vluchtcode: <code>BUZZER_PIN</code> (pin 14) en <code>FLIGHT_DURATION_MS</code> (6 minuten = 360000 ms).
-De CanSat herkent de lancering met de BMP390: 50 m hoger binnen 5 seconden
-(<code>LAUNCH_ALT_DIFF</code> en <code>LAUNCH_CHECK_MS</code>).</p>
+De CanSat herkent de lancering met de BMP390: 50 m hoger dan 5 seconden eerder, en dat
+3 seconden na elkaar (<code>LAUNCH_ALT_DIFF</code>, <code>LAUNCH_CHECK_MS</code> en <code>LAUNCH_CONFIRM</code>). Eén foute
+meting start de vlucht dus niet. Het einde van de vlucht: 6 minuten na de lancering, en
+de hoogte verandert 10 seconden lang minder dan 5 m (<code>LANDED_RANGE_M</code>).</p>
+<blockquote>
+<p>Start de CanSat de vlucht toch te vroeg (bijvoorbeeld door een defecte sensor)? Dan
+stopt hij na 6 minuten en begint de buzzer. Maar bij de echte lancering begint hij
+vanzelf een nieuwe meting, in een nieuw bestand op de SD-kaart.</p>
+</blockquote>
 <blockquote>
 <p>De buzzer is een <strong>actieve</strong> buzzer van 5 V. Een transistor schakelt hem, want een pin
 van de Teensy kan geen 30 mA leveren. Alles staat in het draadschema
@@ -1869,6 +1921,9 @@ organisatie welke frequentie, welk vermogen en welke zendtijd we mogen gebruiken
 <p>De gyroscoop, de kwaternionen en de piekversnelling zitten er niet in: elk extra getal
 maakt het pakket langer. Alles staat wel op de SD-kaart. De RSSI en de SNR meet de
 ontvanger zelf.</p>
+<p><strong>Zonder GPS-fix</strong> stuurt de CanSat een vaste plaats mee: <code>50.45730, 6.22138</code>. Zo weet het
+grondstation dat er op dat moment geen fix is. Scherm 2 toont dan de laatste echte positie,
+in het oranje, en hoe oud ze is. Op de SD-kaart staat zonder fix <code>00:00:00</code> bij de tijd.</p>
 <h3 id="i5-welke-pinnen-horen-bij-welke-spi-bus-op-de-pico">I5. Welke pinnen horen bij welke SPI-bus op de Pico?</h3>
 <table>
 <thead>
